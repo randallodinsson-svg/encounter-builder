@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>APEXRPG — Tactical Encounter Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+        :root {
+            --bg-main: #05070b;
+            --bg-panel: #0c1018;
+            --bg-panel-alt: #101623;
+            --accent: #3fd0ff;
+            --accent-soft: #2a9ac0;
+            --accent-warn: #ffb347;
+            --accent-danger: #ff5c5c;
+            --text-main: #f5f7fb;
+            --text-muted: #9aa3b8;
+            --border-soft: #1b2435;
+            --border-strong: #3a4a6a;
+            --shadow-soft: 0 0 18px rgba(0, 0, 0, 0.7);
+            --radius-panel: 8px;
+            --radius-input: 4px;
+            --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: radial-gradient(circle at top, #151b2b 0, #05070b 55%, #020308 100%);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            overflow-y: auto;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-shell {
+            max-width: 1320px;
+            margin: 24px auto 32px auto;
+            padding: 0 16px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 18px;
+        }
+
+        header h1 {
+            font-size: 1.4rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin: 0;
+        }
+
+        header .subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+        }
+
+        .version-tag {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border: 1px solid var(--border-strong);
+            border-radius: 999px;
+            padding: 4px 10px;
+            background: rgba(10, 16, 28, 0.9);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 16px;
+        }
+
+        .panel {
+            background: linear-gradient(145deg, var(--bg-panel) 0, var(--bg-panel-alt) 100%);
+            border-radius: var(--radius-panel);
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-soft);
+            padding: 14px 14px 16px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-soft);
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+        }
+
+        .panel-header h2 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            margin: 0;
+            color: var(--accent-soft);
+        }
+
+        .panel-header .tag {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+        }
+
+        .panel-section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--text-muted);
+            margin: 4px 0 2px 0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px 10px;
+        }
+
+        .form-grid-full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 6px 7px;
+            border-radius: var(--radius-input);
+            border: 1px solid var(--border-soft);
+            background: #050812;
+            color: var(--text-main);
+            font-size: 0.8rem;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 1px solid var(--accent-soft);
+            border-color: var(--accent-soft);
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border-radius: 999px;
+            border: 1px solid var(--border-strong);
+            background: linear-gradient(135deg, #111827, #0b1220);
+            color: var(--text-main);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            padding: 6px 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px rgba(63, 208, 255, 0.25);
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, var(--accent-soft), var(--accent));
+            color: #020308;
+            border-color: var(--accent);
+        }
+
+        button.danger {
+            border-color: var(--accent-danger);
+            color: var(--accent-danger);
+        }
+
+        .pill {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border-soft);
+            color: var(--text-muted);
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .encounter-list {
+            border-radius: var(--radius-input);
+            border: 1px solid var(--border-soft);
+            background: #050812;
+            padding: 8px;
+            min-height: 80px;
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+        }
+
+        .encounter-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px dashed #1a2335;
+        }
+
+        .encounter-row:last-child {
+            border-bottom: none;
+        }
+
+        .encounter-row-main {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .encounter-row-name {
+            font-weight: 600;
+        }
+
+        .encounter-row-meta {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .difficulty-output {
+            border-radius: var(--radius-input);
+            border: 1px solid var(--border-soft);
+            background: #050812;
+            padding: 8px;
+            min-height: 40px;
+            font-size: 0.8rem;
+        }
+
+        .difficulty-tag {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .difficulty-easy {
+            border: 1px solid #7dd3fc;
+            color: #7dd3fc;
+        }
+
+        .difficulty-moderate {
+            border: 1px solid #a3e635;
+            color: #bef264;
+        }
+
+        .difficulty-hard {
+            border: 1px solid #f97316;
+            color: #fed7aa;
+        }
+
+        .difficulty-deadly {
+            border: 1px solid #ef4444;
+            color: #fecaca;
+        }
+
+        .stat-block {
+            border-radius: var(--radius-input);
+            border: 1px solid var(--border-soft);
+            background: #050812;
+            padding: 8px;
+            min-height: 120px;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+        }
+
+        .templates-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .templates-row button {
+            font-size: 0.72rem;
+            padding: 4px 10px;
+        }
+
+        .export-box {
+            width: 100%;
+            border-radius: var(--radius-input);
+            border: 1px solid var(--border-soft);
+            background: #050812;
+            color: var(--text-main);
+            font-size: 0.78rem;
+            padding: 6px 7px;
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        @media (max-width: 960px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header>
+            <div>
+                <h1>APEXRPG — Tactical Encounter Console</h1>
+                <div class="subtitle">Standalone HTML / JS Encounter Builder</div>
+            </div>
+            <div class="version-tag">Build: EB-APEX-1.0</div>
+        </header>
+
+        <div class="grid">
+            <!-- LEFT COLUMN: CREATURE CREATOR + ENCOUNTER BUILDER + PARTY SETTINGS -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Creature Creator</h2>
+                    <span class="tag">Block 1 — Entities</span>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-grid-full">
+                        <label for="creatureName">Name</label>
+                        <input id="creatureName" type="text" placeholder="Goblin Skirmisher" />
+                    </div>
+
+                    <div>
+                        <label for="creatureLevel">Level</label>
+                        <input id="creatureLevel" type="number" value="1" />
+                    </div>
+
+                    <div>
+                        <label for="creatureRole">Role</label>
+                        <select id="creatureRole">
+                            <option value="Brute">Brute</option>
+                            <option value="Skirmisher">Skirmisher</option>
+                            <option value="Artillery">Artillery</option>
+                            <option value="Controller">Controller</option>
+                            <option value="Support">Support</option>
+                            <option value="Elite">Elite</option>
+                            <option value="Solo">Solo</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="creatureHP">HP</label>
+                        <input id="creatureHP" type="number" value="20" />
+                    </div>
+
+                    <div>
+                        <label for="creatureAC">AC</label>
+                        <input id="creatureAC" type="number" value="14" />
+                    </div>
+
+                    <div>
+                        <label for="creatureSpeed">Speed</label>
+                        <input id="creatureSpeed" type="number" value="6" />
+                    </div>
+
+                    <div class="form-grid-full">
+                        <label for="creatureAbilities">Ability Scores</label>
+                        <input id="creatureAbilities" type="text" placeholder="STR 14, DEX 12, CON 12, INT 8, WIS 10, CHA 8" />
+                    </div>
+
+                    <div class="form-grid-full">
+                        <label for="creatureTraits">Traits</label>
+                        <textarea id="creatureTraits" placeholder="Pack Tactics, Nimble Escape"></textarea>
+                    </div>
+
+                    <div class="form-grid-full">
+                        <label for="creatureActions">Actions</label>
+                        <textarea id="creatureActions" placeholder="Scimitar +4 vs AC, 1d6+2 slashing. Shortbow +4 vs AC, 1d6+2 piercing."></textarea>
+                    </div>
+
+                    <div class="form-grid-full">
+                        <label for="creatureNotes">Notes</label>
+                        <textarea id="creatureNotes" placeholder="Use as light skirmishers; retreat if bloodied."></textarea>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button class="primary" onclick="createCreature()">Save / Update Creature</button>
+                    <button onclick="clearCreatureForm()">Clear Form</button>
+                </div>
+
+                <div class="panel-header" style="margin-top: 10px;">
+                    <h2>Encounter Builder</h2>
+                    <span class="tag">Block 2 — Composition</span>
+                </div>
+
+                <div class="stack">
+                    <div class="form-grid">
+                        <div class="form-grid-full">
+                            <label for="creatureSelect">Select Creature</label>
+                            <select id="creatureSelect"></select>
+                        </div>
+
+                        <div>
+                            <label for="creatureQuantity">Quantity</label>
+                            <input id="creatureQuantity" type="number" value="1" />
+                        </div>
+
+                        <div>
+                            <label>&nbsp;</label>
+                            <button class="primary" onclick="addToEncounter()">Add to Encounter</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="panel-section-title">Encounter Composition</div>
+                        <div id="encounterList" class="encounter-list"></div>
+                    </div>
+
+                    <div class="button-row">
+                        <button onclick="clearEncounter()">Clear Encounter</button>
+                    </div>
+                </div>
+
+                <div class="panel-header" style="margin-top: 10px;">
+                    <h2>Party Settings</h2>
+                    <span class="tag">Block 3 — Difficulty</span>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="partySize">Party Size</label>
+                        <input id="partySize" type="number" value="4" />
+                    </div>
+                    <div>
+                        <label for="partyLevel">Party Level</label>
+                        <input id="partyLevel" type="number" value="3" />
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button class="primary" onclick="calculateDifficulty()">Recalculate Difficulty</button>
+                </div>
+
+                <div>
+                    <div class="panel-section-title">Difficulty Result</div>
+                    <div id="difficultyOutput" class="difficulty-output"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: STAT BLOCK VIEWER + TEMPLATES + EXPORT -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Stat Block Viewer</h2>
+                    <span class="tag">Block 4 — Detail</span>
+                </div>
+
+                <div id="statBlock" class="stat-block">
+                    Select a creature or template to view its stat block.
+                </div>
+
+                <div class="panel-header" style="margin-top: 10px;">
+                    <h2>Templates</h2>
+                    <span class="tag">Block 5 — Presets</span>
+                </div>
+
+                <div class="templates-row">
+                    <button onclick="applyTemplate('goblinWarband')">Goblin Warband</button>
+                    <button onclick="applyTemplate('raiderPatrol')">Raider Patrol</button>
+                    <button onclick="applyTemplate('undeadPack')">Undead Pack</button>
+                    <button onclick="applyTemplate('eliteStrikeTeam')">Elite Strike Team</button>
+                    <button onclick="applyTemplate('beastAmbush')">Beast Ambush</button>
+                </div>
+
+                <div class="panel-header" style="margin-top: 10px;">
+                    <h2>Export Encounter</h2>
+                    <span class="tag">Block 6 — Output</span>
+                </div>
+
+                <textarea id="exportBox" class="export-box" placeholder="Exported encounter JSON will appear here."></textarea>
+
+                <div class="button-row">
+                    <button class="primary" onclick="exportEncounter()">Export JSON</button>
+                    <button onclick="copyExport()">Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engine loader -->
+    <script src="./engine.js?v=1"></script>
+</body>
+</html>
