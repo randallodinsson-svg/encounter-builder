@@ -1,158 +1,213 @@
-// apexai.js
-// APEXAI v1 — Scenario Generation + Outcome Evaluation for APEXSIM/APEXCORE
+/* ========================================================================
+   APEXAI v3 — STANDARD INTELLIGENCE MODULE
+   ------------------------------------------------------------------------
+   Author: Randy Sellhausen (APEXCORE Platform)
+   Module: APEXAI — Intelligence Layer
+   Version: 3.0.0 (Standard Edition)
+   Identity: Industrial, world‑agnostic, platform‑neutral
+   Purpose: Scenario generation, scoring, metadata, and batch evaluation
+   ======================================================================== */
 
 export class ApexAI {
-  constructor(core = null) {
-    this.core = core || null;
-  }
-
-  attachCore(core) {
+  constructor(core) {
     this.core = core;
+
+    // Registry for modular AI pipelines
+    this.generators = {};
+    this.evaluators = {};
+
+    // Default deterministic RNG seed
+    this.seed = 1337;
   }
 
-  // ------------------------------------------------------
-  // Scenario Generation (1D Evacuation Template)
-  // ------------------------------------------------------
-  generateEvacScenario(config = {}) {
-    const {
-      id = "ai_evac_1d",
-      label = "AI-Generated 1D Evacuation Scenario",
-      distanceToSafety = 5,
-      civilianSpeed = 1,
-      civilianAcceleration = 1,
-      maxTicks = 20
-    } = config;
+  /* ========================================================================
+     RNG — Deterministic pseudo‑random generator
+     ------------------------------------------------------------------------
+     Ensures reproducible scenario generation and evaluation.
+     ======================================================================== */
+  rand() {
+    // Linear Congruential Generator (LCG)
+    this.seed = (this.seed * 1664525 + 1013904223) % 4294967296;
+    return this.seed / 4294967296;
+  }
 
+  /* ========================================================================
+     PIPELINE REGISTRATION
+     ======================================================================== */
+
+  registerGenerator(id, fn) {
+    this.generators[id] = fn;
+  }
+
+  registerEvaluator(id, fn) {
+    this.evaluators[id] = fn;
+  }
+
+  /* ========================================================================
+     SCENARIO GENERATION (Single)
+     ======================================================================== */
+
+  generateScenario(generatorId, options = {}) {
+    const gen = this.generators[generatorId];
+    if (!gen) throw new Error(`APEXAI: Unknown generator '${generatorId}'`);
+
+    const scenario = gen({
+      rand: () => this.rand(),
+      options
+    });
+
+    return this._attachMetadata(scenario, generatorId);
+  }
+
+  /* ========================================================================
+     SCENARIO GENERATION (Batch)
+     ======================================================================== */
+
+  generateBatch(generatorId, count = 5, options = {}) {
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      out.push(this.generateScenario(generatorId, options));
+    }
+    return out;
+  }
+
+  /* ========================================================================
+     SCENARIO EVALUATION (Single)
+     ======================================================================== */
+
+  evaluateScenario(evaluatorId, scenario) {
+    const evalFn = this.evaluators[evaluatorId];
+    if (!evalFn) throw new Error(`APEXAI: Unknown evaluator '${evaluatorId}'`);
+
+    return evalFn({
+      rand: () => this.rand(),
+      scenario
+    });
+  }
+
+  /* ========================================================================
+     SCENARIO EVALUATION (Batch)
+     ======================================================================== */
+
+  evaluateBatch(evaluatorId, scenarios) {
+    return scenarios.map(s => ({
+      id: s.id,
+      result: this.evaluateScenario(evaluatorId, s)
+    }));
+  }
+
+  /* ========================================================================
+     INTERNAL — METADATA ATTACHMENT
+     ======================================================================== */
+
+  _attachMetadata(scenario, generatorId) {
     return {
-      id,
-      label,
-      maxTicks,
-      initialGlobalState: {
-        doorOpen: false
-      },
-      actors: [
-        {
-          id: "civilian",
-          type: "human",
-          position: 0,
-          velocity: 0,
-          speed: civilianSpeed,
-          acceleration: civilianAcceleration,
-          direction: 1,
-          state: {},
-          attributes: {
-            role: "civilian",
-            targetPosition: distanceToSafety
-          },
-          behavior: (actor, state, tick) => {
-            if (!state.global.doorOpen && tick === 1) {
-              return { event: "openDoor" };
-            }
-
-            const target = actor.attributes.targetPosition ?? distanceToSafety;
-            if (state.global.doorOpen && actor.position < target) {
-              return { event: "move", params: { distance: 1 } };
-            }
-
-            return null;
-          }
-        },
-        {
-          id: "helper",
-          type: "human",
-          position: 0,
-          velocity: 0,
-          speed: 1,
-          acceleration: 0,
-          direction: 1,
-          state: {},
-          attributes: {
-            role: "helper"
-          },
-          behavior: () => null
-        }
-      ],
-      checkOutcome(state, tick) {
-        const civilian = state.actors["civilian"];
-        const target = civilian?.attributes?.targetPosition ?? distanceToSafety;
-
-        if (civilian && civilian.position >= target) {
-          return {
-            id: "success",
-            label: "success",
-            reason: "Civilian reached safe position."
-          };
-        }
-
-        if (tick >= maxTicks - 1) {
-          return {
-            id: "failure",
-            label: "failure",
-            reason: "Civilian did not reach safe position in time."
-          };
-        }
-
-        return null;
+      ...scenario,
+      id: scenario.id || this._generateId(),
+      meta: {
+        generator: generatorId,
+        timestamp: Date.now(),
+        seed: this.seed,
+        difficulty: scenario.difficulty || "unknown",
+        tags: scenario.tags || []
       }
     };
   }
 
-  // ------------------------------------------------------
-  // Result Evaluation
-  // ------------------------------------------------------
-  evaluateResult(result) {
-    if (!result || !result.outcome) {
-      return {
-        verdict: "invalid",
-        score: 0,
-        notes: ["No outcome present in result."]
-      };
-    }
+  _generateId() {
+    return "sc-" + Math.floor(this.rand() * 1e9).toString(36);
+  }
+}
 
-    const { outcome, ticks } = result;
-    const notes = [];
-    let score = 0;
+/* ========================================================================
+   DEFAULT GENERATORS — STANDARD EDITION
+   ------------------------------------------------------------------------
+   These are world‑agnostic, industrial, and simulation‑ready.
+   ======================================================================== */
 
-    if (outcome.id === "success") {
-      score = 100;
-      notes.push("Scenario succeeded.");
-      if (ticks <= 5) {
-        notes.push("Evacuation was fast.");
-      } else if (ticks <= 10) {
-        notes.push("Evacuation was acceptable.");
-      } else {
-        notes.push("Evacuation was slow but successful.");
-      }
-    } else {
-      score = 20;
-      notes.push("Scenario failed.");
-    }
+export const DefaultAIGenerators = {
+  "traffic-response": ({ rand }) => {
+    const difficulties = ["easy", "medium", "hard"];
+    const diff = difficulties[Math.floor(rand() * difficulties.length)];
 
     return {
-      verdict: outcome.id,
-      score,
-      notes
+      title: "Traffic Response Scenario",
+      summary: "Dynamic traffic environment with variable density and event triggers.",
+      difficulty: diff,
+      tags: ["traffic", "response", "dynamic"]
+    };
+  },
+
+  "urban-patrol": ({ rand }) => {
+    const diff = rand() > 0.6 ? "hard" : rand() > 0.3 ? "medium" : "easy";
+
+    return {
+      title: "Urban Patrol Scenario",
+      summary: "Grid‑based patrol with intersections, pedestrians, and random events.",
+      difficulty: diff,
+      tags: ["urban", "patrol", "grid"]
+    };
+  },
+
+  "closed-course": ({ rand }) => {
+    return {
+      title: "Closed Course Training",
+      summary: "Predictable, controlled environment for baseline testing.",
+      difficulty: "easy",
+      tags: ["training", "controlled"]
     };
   }
+};
 
-  // ------------------------------------------------------
-  // Core-Orchestrated Run (Optional Helper)
-  // ------------------------------------------------------
-  runEvacScenarioWithCore(simFactory, config = {}) {
-    if (!this.core) {
-      console.error("APEXAI: No APEXCORE instance attached.");
-      return null;
-    }
+/* ========================================================================
+   DEFAULT EVALUATORS — STANDARD EDITION
+   ------------------------------------------------------------------------
+   These evaluators produce structured, world‑agnostic scoring.
+   ======================================================================== */
 
-    const scenario = this.generateEvacScenario(config);
-    this.core.loadScenario(scenario);
+export const DefaultAIEvaluators = {
+  "baseline-score": ({ scenario }) => {
+    const diffScore =
+      scenario.difficulty === "easy" ? 1 :
+      scenario.difficulty === "medium" ? 2 :
+      scenario.difficulty === "hard" ? 3 : 0;
 
-    const result = this.core.startSimulation((loadedScenario) =>
-      simFactory(loadedScenario)
-    );
+    return {
+      difficultyScore: diffScore,
+      tagCount: scenario.tags.length,
+      composite: diffScore * 10 + scenario.tags.length
+    };
+  },
 
-    const analysis = this.evaluateResult(result);
+  "risk-profile": ({ scenario }) => {
+    const risk =
+      scenario.difficulty === "easy" ? "low" :
+      scenario.difficulty === "medium" ? "moderate" :
+      scenario.difficulty === "hard" ? "high" : "unknown";
 
-    return { scenario, result, analysis };
+    return {
+      riskLevel: risk,
+      factors: scenario.tags
+    };
   }
+};
+
+/* ========================================================================
+   FACTORY — Create a fully configured APEXAI instance
+   ======================================================================== */
+
+export function createApexAI(core) {
+  const ai = new ApexAI(core);
+
+  // Register default generators
+  for (const id in DefaultAIGenerators) {
+    ai.registerGenerator(id, DefaultAIGenerators[id]);
+  }
+
+  // Register default evaluators
+  for (const id in DefaultAIEvaluators) {
+    ai.registerEvaluator(id, DefaultAIEvaluators[id]);
+  }
+
+  return ai;
 }
