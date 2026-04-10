@@ -30,24 +30,21 @@ No simulation run yet.
 
 </div>
 
-<!-- SCRIPT -->
+<script src="./apexsim.js"></script>
 <script type="module">
   import { createApexCore } from './apexcore.js';
-  import { createApexSim, MinimalTestScenarioV1 } from './apexsim.js';
 
   const core = createApexCore();
 
-  // Load default scenario
-  core.loadScenario(MinimalTestScenarioV1);
+  // Initialize canvas
+  const canvas = document.getElementById("sim-canvas");
+  APEXSIM.init(canvas);
 
-  const runBtn = document.getElementById("run-btn");
-  const outputEl = document.getElementById("output");
-
-  runBtn.addEventListener("click", () => {
-    const result = core.startSimulation(s => createApexSim(s));
-    outputEl.textContent = JSON.stringify(result, null, 2);
+  document.getElementById("run-btn").addEventListener("click", () => {
+    APEXSIM.start();
   });
 </script>
+
 
 </body>
 </html>
