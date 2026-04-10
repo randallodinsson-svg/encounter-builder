@@ -1,4 +1,6 @@
-// APEXSIM v3.1 — deterministic movement engine
+// ------------------------------------------------------------
+// APEXSIM v3.1 — Deterministic Movement Simulation Engine
+// ------------------------------------------------------------
 
 export function createApexSim(scenario) {
   const state = {
@@ -15,7 +17,7 @@ export function createApexSim(scenario) {
   function step(rand) {
     state.tick++;
 
-    // Let scenario inject behavior per tick if it wants
+    // Scenario-level per-tick behavior
     if (typeof scenario.onTick === "function") {
       scenario.onTick({ state, rand });
     }
@@ -25,7 +27,7 @@ export function createApexSim(scenario) {
       actor.x += actor.vx;
     }
 
-    // Optional: scenario can emit events
+    // Scenario-level event collection
     if (typeof scenario.collectEvents === "function") {
       const newEvents = scenario.collectEvents({ state, rand }) || [];
       if (newEvents.length > 0) {
@@ -42,28 +44,38 @@ export function createApexSim(scenario) {
       scenarioId: scenario.id,
       ticks: state.tick,
       events: state.events,
-      actors: state.actors.map(a => ({ id: a.id, x: a.x, vx: a.vx })),
+      actors: state.actors.map(a => ({
+        id: a.id,
+        x: a.x,
+        vx: a.vx
+      })),
     };
   }
 
   return { run };
 }
 
-// Minimal test scenario upgraded for movement
+// ------------------------------------------------------------
+// Minimal Test Scenario V1 — Upgraded for Movement
+// ------------------------------------------------------------
+
 export const MinimalTestScenarioV1 = {
   id: "minimal-test-v1",
   maxTicks: 10,
+
   actors: [
     { id: "actor-1", x: 0, vx: 0.5 },
     { id: "actor-2", x: -2, vx: 0.25 },
   ],
+
   onTick({ state, rand }) {
-    // Example: tiny random nudge to actor-2’s velocity
+    // Slight random nudge to actor-2’s velocity
     const a2 = state.actors.find(a => a.id === "actor-2");
     if (a2) {
       a2.vx += (rand() - 0.5) * 0.05;
     }
   },
+
   collectEvents({ state }) {
     const events = [];
     for (const actor of state.actors) {
