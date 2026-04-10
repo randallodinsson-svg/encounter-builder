@@ -1,45 +1,22 @@
 // ------------------------------------------------------------
-// APEXSIM v3.1 — Clean, Stable, One‑File Simulation Engine
+// APEXSIM v3.1 — With Trails + Debug Vectors
 // ------------------------------------------------------------
 
-// Simple RNG wrapper (fixes rand() error)
 const rand = Math.random;
 
 // ------------------------------------------------------------
 // Vector utilities
 // ------------------------------------------------------------
-function vec(x = 0, y = 0) {
-    return { x, y };
-}
-
-function add(a, b) {
-    return { x: a.x + b.x, y: a.y + b.y };
-}
-
-function sub(a, b) {
-    return { x: a.x - b.x, y: a.y - b.y };
-}
-
-function mul(v, s) {
-    return { x: v.x * s, y: v.y * s };
-}
-
-function mag(v) {
-    return Math.sqrt(v.x * v.x + v.y * v.y);
-}
-
-function norm(v) {
-    const m = mag(v);
-    return m === 0 ? { x: 0, y: 0 } : { x: v.x / m, y: v.y / m };
-}
-
-function limit(v, max) {
-    const m = mag(v);
-    return m > max ? mul(norm(v), max) : v;
-}
+function vec(x = 0, y = 0) { return { x, y }; }
+function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+function sub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+function mul(v, s) { return { x: v.x * s, y: v.y * s }; }
+function mag(v) { return Math.sqrt(v.x * v.x + v.y * v.y); }
+function norm(v) { const m = mag(v); return m === 0 ? { x: 0, y: 0 } : { x: v.x / m, y: v.y / m }; }
+function limit(v, max) { const m = mag(v); return m > max ? mul(norm(v), max) : v; }
 
 // ------------------------------------------------------------
-// Agent definition
+// Agent
 // ------------------------------------------------------------
 class Agent {
     constructor(x, y) {
@@ -51,6 +28,10 @@ class Agent {
         this.maxForce = 0.05;
 
         this.wanderAngle = 0;
+
+        // Trail buffer
+        this.trail = [];
+        this.maxTrail = 40;
     }
 
     applyForce(f) {
@@ -58,7 +39,7 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Wander steering behavior
+    // Wander steering
     // --------------------------------------------------------
     steerWander() {
         const wanderRadius = 1.2;
@@ -73,21 +54,24 @@ class Agent {
             Math.sin(this.wanderAngle) * wanderRadius
         );
 
-        const target = add(circlePos, wanderOffset);
-        const desired = sub(target, this.pos);
+        this.debugCirclePos = circlePos;
+        this.debugTarget = add(circlePos, wanderOffset);
+
+        const desired = sub(this.debugTarget, this.pos);
         const steer = limit(sub(norm(desired), this.vel), this.maxForce);
 
         return steer;
     }
 
-    // --------------------------------------------------------
-    // Update physics
-    // --------------------------------------------------------
     update() {
         this.vel = add(this.vel, this.acc);
         this.vel = limit(this.vel, this.maxSpeed);
         this.pos = add(this.pos, this.vel);
         this.acc = vec(0, 0);
+
+        // Add to trail
+        this.trail.push({ x: this.pos.x, y: this.pos.y });
+        if (this.trail.length > this.maxTrail) this.trail.shift();
     }
 }
 
@@ -100,6 +84,10 @@ const APEXSIM = {
     height: 600,
     running: false,
     ctx: null,
+
+    // Debug toggles
+    showTrails: true,
+    showDebugVectors: true,
 
     init(canvas) {
         this.ctx = canvas.getContext("2d");
@@ -126,10 +114,59 @@ const APEXSIM = {
         }
     },
 
+    drawTrails() {
+        const c = this.ctx;
+        c.strokeStyle = "rgba(0, 255, 255, 0.25)";
+        c.lineWidth = 1;
+
+        for (const a of this.agents) {
+            if (a.trail.length < 2) continue;
+
+            c.beginPath();
+            c.moveTo(a.trail[0].x, a.trail[0].y);
+
+            for (let i = 1; i < a.trail.length; i++) {
+                c.lineTo(a.trail[i].x, a.trail[i].y);
+            }
+
+            c.stroke();
+        }
+    },
+
+    drawDebugVectors() {
+        const c = this.ctx;
+
+        for (const a of this.agents) {
+            // Velocity vector
+            c.strokeStyle = "#0f0";
+            c.beginPath();
+            c.moveTo(a.pos.x, a.pos.y);
+            c.lineTo(a.pos.x + a.vel.x * 10, a.pos.y + a.vel.y * 10);
+            c.stroke();
+
+            // Wander circle
+            c.strokeStyle = "#f00";
+            c.beginPath();
+            c.arc(a.debugCirclePos.x, a.debugCirclePos.y, 12, 0, Math.PI * 2);
+            c.stroke();
+
+            // Wander target
+            c.strokeStyle = "#ff0";
+            c.beginPath();
+            c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
+            c.lineTo(a.debugTarget.x, a.debugTarget.y);
+            c.stroke();
+        }
+    },
+
     draw() {
         const c = this.ctx;
         c.clearRect(0, 0, this.width, this.height);
 
+        if (this.showTrails) this.drawTrails();
+        if (this.showDebugVectors) this.drawDebugVectors();
+
+        // Draw agents
         c.fillStyle = "#00eaff";
         for (const a of this.agents) {
             c.beginPath();
@@ -155,7 +192,4 @@ const APEXSIM = {
     }
 };
 
-// ------------------------------------------------------------
-// Export for APEXCORE
-// ------------------------------------------------------------
 window.APEXSIM = APEXSIM;
