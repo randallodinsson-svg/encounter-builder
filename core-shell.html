@@ -215,7 +215,6 @@
         const scenario = aiState.scenarios.find(s => s.id === id);
         if (!scenario) return;
 
-        // Hand off to OPS via shared state + log
         window.__APEX_AI_SELECTED_SCENARIO = scenario;
         log(`[AI] Requested run of scenario "${scenario.title}" in APEXOPS.`);
 
@@ -249,7 +248,7 @@
   }
 
   /* ------------------------------------------------------------
-     WORKSPACE RENDER (APEXOPS + APEXAI WIRED IN)
+     WORKSPACE RENDER (APEXOPS + APEXAI + APEXSIM)
   ------------------------------------------------------------ */
   function renderWorkspace() {
     const engine = engines.find(e => e.id === activeEngineId);
@@ -340,6 +339,65 @@
     }
 
     /* -------------------------
+       SPECIAL CASE: APEXSIM
+    ------------------------- */
+    if (engine.id === "APEXSIM") {
+      workspacePanel.innerHTML = `
+        <h2 style="margin-top:0; font-size:16px;">APEXSIM — Simulation View</h2>
+        <div style="font-size:12px; color:#aaa; margin-bottom:8px; max-width:720px;">
+          Run a test simulation using the shared APEXCORE + APEXSIM pipeline and inspect the raw result payload.
+        </div>
+
+        <div style="border:1px solid #222; background:#050608; padding:10px; margin-bottom:10px; font-size:12px;">
+          <button id="sim-run-btn"
+            style="font-size:11px; padding:4px 10px; border:1px solid #26a; background:#041326; color:#e5e5e5; cursor:pointer;">
+            Run Test Simulation
+          </button>
+
+          <div id="sim-output"
+            style="margin-top:10px; font-size:11px; color:#ccc; white-space:pre; background:#05070b; border:1px solid #222; padding:8px; max-height:360px; overflow:auto;">
+            No simulation run yet.
+          </div>
+        </div>
+      `;
+
+      const runBtn = document.getElementById("sim-run-btn");
+      const outEl = document.getElementById("sim-output");
+
+      if (runBtn && outEl) {
+        runBtn.addEventListener("click", () => {
+          log("[SIM] Starting test simulation via APEXSIM panel.");
+
+          Promise.all([
+            import('./apexsim.js'),
+            import('./apexcore.js')
+          ]).then(([simMod, coreMod]) => {
+            const { ApexSim, MinimalTestScenarioV1 } = simMod;
+            const { ApexCore } = coreMod;
+
+            const core = new ApexCore();
+            core.loadScenario(MinimalTestScenarioV1);
+            const result = core.startSimulation(s => new ApexSim(s));
+
+            try {
+              outEl.textContent = JSON.stringify(result, null, 2);
+            } catch {
+              outEl.textContent = String(result);
+            }
+
+            log("[SIM] Test simulation completed and result rendered in APEXSIM panel.");
+          }).catch(err => {
+            outEl.textContent = "Error running simulation: " + err;
+            log("[SIM] Error running test simulation: " + err);
+          });
+        });
+      }
+
+      log("[SIM] APEXSIM panel mounted.");
+      return;
+    }
+
+    /* -------------------------
        DEFAULT ENGINE PANEL
     ------------------------- */
     workspacePanel.innerHTML = `
@@ -352,59 +410,4 @@
       </div>
       <div style="margin-top:16px; font-size:11px; color:#777;">
         This is the APEXCORE shell view for <span style="color:#fff;">${engine.id}</span>.
-        Engine-specific tools, panels, and inspectors attach here without altering the identity of APEXCORE itself.
-      </div>
-    `;
-  }
-
-  /* ------------------------------------------------------------
-     CONTEXT PANEL
-  ------------------------------------------------------------ */
-  function renderContext() {
-    const engine = engines.find(e => e.id === activeEngineId);
-
-    contextPanel.innerHTML = `
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px; color:#888;">ACTIVE ENGINE</div>
-        <div style="font-size:12px;">Name: <span style="color:#fff;">${engine.id}</span></div>
-        <div style="font-size:12px;">Role: <span style="color:#fff;">${engine.role}</span></div>
-        <div style="font-size:12px;">Scope: <span style="color:#fff;">${engine.scope}</span></div>
-      </div>
-
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px; color:#888;">ROUTING</div>
-        <div style="font-size:12px;">Workspace: <span style="color:#fff;">${engine.workspace}</span></div>
-        <div style="font-size:12px;">Right Panel: <span style="color:#fff;">System Log</span></div>
-        <div style="font-size:12px;">Context: <span style="color:#fff;">Engine Meta</span></div>
-      </div>
-
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px; color:#888;">EXPORT</div>
-        <div style="font-size:12px;">Last Encounter Export: <span style="color:#777;">None</span></div>
-        <div style="font-size:12px;">Last Loaded JSON: <span style="color:#777;">None</span></div>
-        <div style="font-size:12px;">Last Ops Analysis: <span style="color:#777;">None</span></div>
-      </div>
-
-      <div>
-        <div style="font-size:11px; color:#888;">NOTES</div>
-        <div style="font-size:11px; color:#aaa; margin-top:2px;">
-          APEXCORE remains engine-agnostic. Domain-specific tools attach to this shell but do not alter its identity.
-        </div>
-      </div>
-    `;
-  }
-
-  /* ------------------------------------------------------------
-     INITIAL BOOT
-  ------------------------------------------------------------ */
-  log("[BOOT] APEXCORE shell initialized.");
-  log("[LINK] Engines registered: " + engines.map(e => e.id).join(", ") + ".");
-  log("[STATE] Mode set to Studio / Dev.");
-
-  renderEngineList();
-  renderWorkspace();
-  renderContext();
-</script>
-
-</body>
-</html>
+        Engine-specific tools, panels, and inspectors attach here without altering the identity of
