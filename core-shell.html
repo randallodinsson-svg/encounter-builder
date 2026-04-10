@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE — System Shell Routing</title>
+  <title>APEXCORE — System Shell</title>
 </head>
+
 <body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
 
+<!-- HEADER -->
 <div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
   <div>
     <span style="font-weight:bold;">APEXCORE — SYSTEM SHELL</span>
@@ -16,6 +18,7 @@
   </div>
 </div>
 
+<!-- LAYOUT -->
 <div style="display:flex; height:calc(100vh - 40px);">
 
   <!-- LEFT: ENGINE LIST -->
@@ -24,12 +27,10 @@
     <div id="engine-list"></div>
   </div>
 
-  <!-- CENTER: ACTIVE ENGINE PANEL -->
+  <!-- CENTER: WORKSPACE -->
   <div style="flex:1; border-right:1px solid #222; padding:12px; background:#07090c;">
     <div style="font-size:11px; color:#888; margin-bottom:4px;">WORKSPACE</div>
-    <div id="workspace-panel" style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto;">
-      <!-- Filled by router -->
-    </div>
+    <div id="workspace-panel" style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto;"></div>
   </div>
 
   <!-- RIGHT: SYSTEM LOG + CONTEXT -->
@@ -43,58 +44,33 @@
 
 </div>
 
+<!-- SCRIPT -->
 <script type="module">
-  // Simple engine registry for the shell router
+
+  /* ------------------------------------------------------------
+     ENGINE REGISTRY
+  ------------------------------------------------------------ */
   const engines = [
-    {
-      id: "APEXCORE",
-      role: "System Layer",
-      scope: "Shell / Panel Framework",
-      description: "APEXCORE is the shared operating layer for the APEX Engine Family. It defines the shell, panel system, and interaction model that all engines inherit.",
-      workspace: "Core Overview"
-    },
-    {
-      id: "APEXRPG",
-      role: "Narrative",
-      scope: "Story / Encounter Logic",
-      description: "APEXRPG manages narrative structures, encounter logic, and progression frameworks. It remains world-agnostic and system-focused.",
-      workspace: "Narrative Tools"
-    },
-    {
-      id: "APEXCREATOR",
-      role: "Creator",
-      scope: "Authoring / Layout",
-      description: "APEXCREATOR provides creator-facing tools for building, arranging, and exporting encounters and systems.",
-      workspace: "Creator Workspace"
-    },
-    {
-      id: "APEXOPS",
-      role: "Runtime",
-      scope: "Inspection / Telemetry",
-      description: "APEXOPS is the runtime inspector for simulations and encounters. It visualizes state, logs, and outcomes.",
-      workspace: "Ops Console"
-    },
-    {
-      id: "APEXSIM",
-      role: "Simulation",
-      scope: "Engine / Tick Loop",
-      description: "APEXSIM runs deterministic simulations over time, coordinating actors, events, and outcomes.",
-      workspace: "Simulation View"
-    },
-    {
-      id: "APEXMMO",
-      role: "Scale",
-      scope: "Multi-Node / Sharding",
-      description: "APEXMMO focuses on scale, distribution, and multi-node orchestration for large systems.",
-      workspace: "Scale Dashboard"
-    },
-    {
-      id: "APEXAI",
-      role: "Intelligence",
-      scope: "Scenario / Behavior / Analysis",
-      description: "APEXAI generates scenarios, behaviors, and evaluations that plug into APEXSIM and APEXOPS.",
-      workspace: "AI Console"
-    }
+    { id:"APEXCORE", role:"System Layer", scope:"Shell / Panel Framework", workspace:"Core Overview",
+      description:"APEXCORE is the shared operating layer for the APEX Engine Family." },
+
+    { id:"APEXRPG", role:"Narrative", scope:"Story / Encounter Logic", workspace:"Narrative Tools",
+      description:"APEXRPG manages narrative structures and encounter logic." },
+
+    { id:"APEXCREATOR", role:"Creator", scope:"Authoring / Layout", workspace:"Creator Workspace",
+      description:"APEXCREATOR provides creator-facing tools for building encounters." },
+
+    { id:"APEXOPS", role:"Runtime", scope:"Inspection / Telemetry", workspace:"Ops Console",
+      description:"APEXOPS is the runtime inspector for simulations and encounters." },
+
+    { id:"APEXSIM", role:"Simulation", scope:"Engine / Tick Loop", workspace:"Simulation View",
+      description:"APEXSIM runs deterministic simulations over time." },
+
+    { id:"APEXMMO", role:"Scale", scope:"Multi-Node / Sharding", workspace:"Scale Dashboard",
+      description:"APEXMMO handles scale, distribution, and multi-node orchestration." },
+
+    { id:"APEXAI", role:"Intelligence", scope:"Scenario / Behavior / Analysis", workspace:"AI Console",
+      description:"APEXAI generates scenarios, behaviors, and evaluations." }
   ];
 
   const engineListEl = document.getElementById("engine-list");
@@ -104,6 +80,9 @@
 
   let activeEngineId = "APEXCORE";
 
+  /* ------------------------------------------------------------
+     LOGGING
+  ------------------------------------------------------------ */
   function log(line) {
     const ts = new Date().toISOString().split("T")[1].split(".")[0];
     const div = document.createElement("div");
@@ -111,6 +90,9 @@
     systemLog.prepend(div);
   }
 
+  /* ------------------------------------------------------------
+     ENGINE LIST RENDER
+  ------------------------------------------------------------ */
   function renderEngineList() {
     engineListEl.innerHTML = "";
     engines.forEach(engine => {
@@ -127,7 +109,7 @@
       btn.addEventListener("click", () => {
         if (engine.id === activeEngineId) return;
         activeEngineId = engine.id;
-        log(`[EVENT] [ENGINE] Switched active engine to ${engine.id}.`);
+        log(`[EVENT] Switched active engine to ${engine.id}.`);
         renderEngineList();
         renderWorkspace();
         renderContext();
@@ -137,8 +119,55 @@
     });
   }
 
+  /* ------------------------------------------------------------
+     WORKSPACE RENDER (APEXOPS WIRED IN)
+  ------------------------------------------------------------ */
   function renderWorkspace() {
     const engine = engines.find(e => e.id === activeEngineId);
+
+    /* -------------------------
+       SPECIAL CASE: APEXOPS
+    ------------------------- */
+    if (engine.id === "APEXOPS") {
+      workspacePanel.innerHTML = `
+        <h2 style="margin-top:0; font-size:16px;">APEXOPS — Runtime Inspector</h2>
+        <div id="ops-container" style="margin-top:12px; border:1px solid #222; background:#050608; padding:12px;">
+          <div id="apexops-root"></div>
+        </div>
+      `;
+
+      // Dynamically load APEXOPS + dependencies
+      Promise.all([
+        import('./apexops.js'),
+        import('./apexsim.js'),
+        import('./apexcore.js'),
+        import('./apexai.js')
+      ]).then(([opsMod, simMod, coreMod, aiMod]) => {
+
+        const { ApexOps } = opsMod;
+        const { ApexSim, MinimalTestScenarioV1 } = simMod;
+        const { ApexCore } = coreMod;
+        const { ApexAI } = aiMod;
+
+        const core = new ApexCore();
+        const ai = new ApexAI(core);
+
+        const ops = new ApexOps("apexops-root", () => new ApexSim(MinimalTestScenarioV1));
+        core.registerModule("ops", ops);
+
+        core.loadScenario(MinimalTestScenarioV1);
+        const result = core.startSimulation(s => new ApexSim(s));
+        ops.loadSimulationResult(result);
+
+        log("[OPS] APEXOPS panel mounted.");
+      });
+
+      return;
+    }
+
+    /* -------------------------
+       DEFAULT ENGINE PANEL
+    ------------------------- */
     workspacePanel.innerHTML = `
       <h2 style="margin-top:0; font-size:16px;">${engine.workspace}</h2>
       <p style="font-size:13px; color:#ccc; max-width:640px;">${engine.description}</p>
@@ -149,13 +178,16 @@
       </div>
       <div style="margin-top:16px; font-size:11px; color:#777;">
         This is the APEXCORE shell view for <span style="color:#fff;">${engine.id}</span>.
-        Engine-specific tools, panels, and inspectors attach here without altering the identity of APEXCORE itself.
       </div>
     `;
   }
 
+  /* ------------------------------------------------------------
+     CONTEXT PANEL
+  ------------------------------------------------------------ */
   function renderContext() {
     const engine = engines.find(e => e.id === activeEngineId);
+
     contextPanel.innerHTML = `
       <div style="margin-bottom:8px;">
         <div style="font-size:11px; color:#888;">ACTIVE ENGINE</div>
@@ -163,18 +195,21 @@
         <div style="font-size:12px;">Role: <span style="color:#fff;">${engine.role}</span></div>
         <div style="font-size:12px;">Scope: <span style="color:#fff;">${engine.scope}</span></div>
       </div>
+
       <div style="margin-bottom:8px;">
         <div style="font-size:11px; color:#888;">ROUTING</div>
         <div style="font-size:12px;">Workspace: <span style="color:#fff;">${engine.workspace}</span></div>
         <div style="font-size:12px;">Right Panel: <span style="color:#fff;">System Log</span></div>
         <div style="font-size:12px;">Context: <span style="color:#fff;">Engine Meta</span></div>
       </div>
+
       <div style="margin-bottom:8px;">
         <div style="font-size:11px; color:#888;">EXPORT</div>
         <div style="font-size:12px;">Last Encounter Export: <span style="color:#777;">None</span></div>
         <div style="font-size:12px;">Last Loaded JSON: <span style="color:#777;">None</span></div>
         <div style="font-size:12px;">Last Ops Analysis: <span style="color:#777;">None</span></div>
       </div>
+
       <div>
         <div style="font-size:11px; color:#888;">NOTES</div>
         <div style="font-size:11px; color:#aaa; margin-top:2px;">
@@ -184,13 +219,17 @@
     `;
   }
 
-  // Initial boot
+  /* ------------------------------------------------------------
+     INITIAL BOOT
+  ------------------------------------------------------------ */
   log("[BOOT] APEXCORE shell initialized.");
   log("[LINK] Engines registered: " + engines.map(e => e.id).join(", ") + ".");
   log("[STATE] Mode set to Studio / Dev.");
+
   renderEngineList();
   renderWorkspace();
   renderContext();
+
 </script>
 
 </body>
