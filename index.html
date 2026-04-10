@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE — System Shell + APEXRPG Encounter Builder</title>
+  <title>APEXCORE — System Shell + APEXRPG + APEXCREATOR Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -14,6 +14,8 @@
       --accent-soft: rgba(0, 224, 255, 0.12);
       --accent-rpg: #ff7af2;
       --accent-rpg-soft: rgba(255, 122, 242, 0.12);
+      --accent-creator: #7af2ff;
+      --accent-creator-soft: rgba(122, 242, 255, 0.12);
       --text-main: #f5f7ff;
       --text-muted: #8a90a0;
       --text-soft: #5b6272;
@@ -179,6 +181,13 @@
       box-shadow: 0 0 12px rgba(255, 122, 242, 0.4);
     }
 
+    .apex-engine-btn[data-engine="APEXCREATOR"].active {
+      background: var(--accent-creator-soft);
+      border-color: var(--accent-creator);
+      color: var(--accent-creator);
+      box-shadow: 0 0 12px rgba(122, 242, 255, 0.4);
+    }
+
     .apex-sidebar-divider {
       height: 1px;
       background: linear-gradient(to right, transparent, var(--border-subtle), transparent);
@@ -293,6 +302,13 @@
       color: var(--accent-rpg);
       background: var(--accent-rpg-soft);
       box-shadow: 0 0 14px rgba(255, 122, 242, 0.4);
+    }
+
+    .apex-command-btn.creator {
+      border-color: var(--accent-creator);
+      color: var(--accent-creator);
+      background: var(--accent-creator-soft);
+      box-shadow: 0 0 14px rgba(122, 242, 255, 0.4);
     }
 
     .apex-header-right {
@@ -537,6 +553,98 @@
     }
 
     .encounter-pill {
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-soft);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    /* CREATOR VIEWER */
+
+    .creator-viewer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .creator-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .creator-label {
+      font-size: 11px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .creator-textarea {
+      width: 100%;
+      min-height: 120px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.6);
+      color: var(--text-main);
+      font-size: 11px;
+      font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+      padding: 6px 8px;
+      resize: vertical;
+      outline: none;
+      transition: var(--transition-fast);
+    }
+
+    .creator-textarea:focus {
+      border-color: var(--accent-creator);
+      box-shadow: 0 0 10px rgba(122, 242, 255, 0.4);
+    }
+
+    .creator-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .creator-status {
+      font-size: 11px;
+      color: var(--text-soft);
+      padding: 4px 6px;
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--border-subtle);
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .creator-status.ok {
+      border-color: var(--accent-creator);
+      color: var(--accent-creator);
+    }
+
+    .creator-status.error {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .creator-summary {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      padding: 6px 8px;
+      border-radius: var(--radius-md);
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px dashed var(--border-subtle);
+    }
+
+    .creator-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .creator-pill {
       font-size: 10px;
       padding: 3px 6px;
       border-radius: 999px;
@@ -831,6 +939,10 @@
           <span>APEXRPG</span>
           <small>Narrative</small>
         </button>
+        <button class="apex-engine-btn" data-engine="APEXCREATOR">
+          <span>APEXCREATOR</span>
+          <small>Creator</small>
+        </button>
         <button class="apex-engine-btn" data-engine="APEXSIM">
           <span>APEXSIM</span>
           <small>Simulation</small>
@@ -915,14 +1027,14 @@
             </p>
             <div class="apex-panel-grid">
               <div class="apex-chip">Shell: Active</div>
-              <div class="apex-chip">Engines: 5 Linked</div>
+              <div class="apex-chip">Engines: 6 Linked</div>
               <div class="apex-chip">Mode: Studio / Dev</div>
               <div class="apex-chip">Layer: APEXCORE</div>
             </div>
           </div>
         </section>
 
-        <!-- RIGHT PANEL: SYSTEM LOG / ENCOUNTER BUILDER -->
+        <!-- RIGHT PANEL: SYSTEM LOG / ENCOUNTER BUILDER / CREATOR VIEWER -->
         <section class="apex-panel" id="rightPanel">
           <div class="apex-panel-header">
             <div class="apex-panel-title" id="rightPanelTitle">SYSTEM LOG</div>
@@ -936,7 +1048,7 @@
               </li>
               <li class="apex-log-item">
                 <span>[LINK]</span>
-                <span>Engines registered: APEXCORE, APEXRPG, APEXSIM, APEXMMO, APEXAI.</span>
+                <span>Engines registered: APEXCORE, APEXRPG, APEXCREATOR, APEXSIM, APEXMMO, APEXAI.</span>
               </li>
               <li class="apex-log-item">
                 <span>[STATE]</span>
@@ -981,11 +1093,15 @@
           <span>Last Encounter Export</span>
           <span id="ctxLastExport">None</span>
         </div>
+        <div class="apex-context-kv">
+          <span>Last Loaded JSON</span>
+          <span id="ctxLastLoaded">None</span>
+        </div>
 
         <div class="apex-context-section-label">NOTES</div>
         <p id="ctxNotes">
-          APEXCORE should remain engine‑agnostic. Domain‑specific tools (RPG, SIM, MMO, AI) attach
-          to this shell but do not alter its identity.
+          APEXCORE should remain engine‑agnostic. Domain‑specific tools (RPG, SIM, MMO, AI, CREATOR)
+          attach to this shell but do not alter its identity.
         </p>
       </div>
     </aside>
@@ -1028,7 +1144,7 @@
             "APEXCORE is the shared operating layer for the APEX Engine Family. It defines the shell, panel system, and interaction model that all engines inherit.",
             "Use this shell to inspect engines, route control, and observe system‑level behavior without dropping into any specific domain."
           ],
-          chips: ["Shell: Active", "Engines: 5 Linked", "Mode: Studio / Dev", "Layer: APEXCORE"],
+          chips: ["Shell: Active", "Engines: 6 Linked", "Mode: Studio / Dev", "Layer: APEXCORE"],
           ctxName: "APEXCORE",
           ctxRole: "System Layer",
           ctxScope: "Shell / Panel Framework",
@@ -1066,6 +1182,32 @@
           ctxNotes:
             "The Encounter Builder is a structured surface for defining narrative‑driven combat or interaction scenarios without leaving the APEXCORE shell.",
           layerLabel: "APEXRPG"
+        },
+        APEXCREATOR: {
+          subtitle: "Active Engine: APEXCREATOR · Role: Creator Layer",
+          tag: "APEXCREATOR · CREATOR",
+          overviewTitle: "ENGINE OVERVIEW · APEXCREATOR",
+          overview: [
+            "APEXCREATOR is the creator‑side layer for inspecting, validating, and transforming APEX data payloads.",
+            "It consumes JSON exports from engines like APEXRPG and prepares them for downstream tools."
+          ],
+          chips: [
+            "Layer: Creator",
+            "Scope: Assets / Payloads",
+            "Shell: Inherited",
+            "Mode: Studio / Dev"
+          ],
+          ctxName: "APEXCREATOR",
+          ctxRole: "Creator Layer",
+          ctxScope: "Assets / Payloads / Inspection",
+          ctxRouting: [
+            "Workspace: Creator Overview",
+            "Right Panel: JSON Viewer",
+            "Context: Payload Meta"
+          ],
+          ctxNotes:
+            "The Viewer is a neutral surface for reading and validating engine exports without changing their identity.",
+          layerLabel: "APEXCREATOR"
         },
         APEXSIM: {
           subtitle: "Active Engine: APEXSIM · Role: Simulation Layer",
@@ -1148,6 +1290,7 @@
       const ctxRoutingRow = document.getElementById("ctxRoutingRow");
       const ctxNotes = document.getElementById("ctxNotes");
       const ctxLastExport = document.getElementById("ctxLastExport");
+      const ctxLastLoaded = document.getElementById("ctxLastLoaded");
       const metaLayer = document.getElementById("metaLayer");
 
       const logList = document.getElementById("logList");
@@ -1280,6 +1423,35 @@
           });
           commandBar.appendChild(buildBtn);
         }
+
+        if (engineKey === "APEXCREATOR") {
+          const loadBtn = document.createElement("button");
+          loadBtn.className = "apex-command-btn creator";
+          loadBtn.id = "cmdCreatorLoad";
+          loadBtn.innerHTML = "<span>LOAD JSON</span>";
+          loadBtn.addEventListener("click", () => {
+            creatorLoadJson();
+          });
+          commandBar.appendChild(loadBtn);
+
+          const clearBtn = document.createElement("button");
+          clearBtn.className = "apex-command-btn";
+          clearBtn.id = "cmdCreatorClear";
+          clearBtn.innerHTML = "<span>CLEAR VIEWER</span>";
+          clearBtn.addEventListener("click", () => {
+            creatorClearViewer();
+          });
+          commandBar.appendChild(clearBtn);
+
+          const copyBtn = document.createElement("button");
+          copyBtn.className = "apex-command-btn";
+          copyBtn.id = "cmdCreatorCopy";
+          copyBtn.innerHTML = "<span>COPY SUMMARY</span>";
+          copyBtn.addEventListener("click", () => {
+            creatorCopySummary();
+          });
+          commandBar.appendChild(copyBtn);
+        }
       }
 
       function renderRightPanelForEngine(engineKey) {
@@ -1402,6 +1574,57 @@
           rightPanelBody.appendChild(form);
 
           wireEncounterBuilder();
+        } else if (engineKey === "APEXCREATOR") {
+          rightPanelTitle.textContent = "APEXCREATOR VIEWER";
+          rightPanelTag.textContent = "APEXCREATOR · TOOL";
+
+          rightPanelBody.innerHTML = "";
+
+          const viewer = document.createElement("div");
+          viewer.className = "creator-viewer";
+
+          const rowInput = document.createElement("div");
+          rowInput.className = "creator-row";
+          rowInput.innerHTML = `
+            <div class="creator-label">JSON INPUT</div>
+            <textarea class="creator-textarea" id="creatorJsonInput" placeholder="Paste an APEX JSON payload here (e.g., APEXRPG Encounter export)."></textarea>
+          `;
+          viewer.appendChild(rowInput);
+
+          const rowActions = document.createElement("div");
+          rowActions.className = "creator-row";
+          rowActions.innerHTML = `
+            <div class="creator-label">ACTIONS</div>
+            <div class="creator-actions">
+              <button class="apex-btn creator" id="creatorBtnLoad">Load JSON</button>
+              <button class="apex-btn" id="creatorBtnClear">Clear Viewer</button>
+              <button class="apex-btn" id="creatorBtnCopySummary">Copy Summary</button>
+            </div>
+          `;
+          viewer.appendChild(rowActions);
+
+          const rowStatus = document.createElement("div");
+          rowStatus.className = "creator-row";
+          rowStatus.innerHTML = `
+            <div class="creator-label">STATUS</div>
+            <div class="creator-status" id="creatorStatus">No payload loaded.</div>
+          `;
+          viewer.appendChild(rowStatus);
+
+          const rowSummary = document.createElement("div");
+          rowSummary.className = "creator-row";
+          rowSummary.innerHTML = `
+            <div class="creator-label">PARSED SUMMARY</div>
+            <div class="creator-summary" id="creatorSummary">
+              When a valid payload is loaded, a human‑readable summary will appear here.
+            </div>
+            <div class="creator-pill-row" id="creatorPills"></div>
+          `;
+          viewer.appendChild(rowSummary);
+
+          rightPanelBody.appendChild(viewer);
+
+          wireCreatorViewer();
         } else {
           rightPanelTitle.textContent = "SYSTEM LOG";
           rightPanelTag.textContent = "Live";
@@ -1605,6 +1828,173 @@
           appendLog("Clipboard write failed.", "[WARN]");
         }
       });
+
+      /* CREATOR VIEWER LOGIC */
+
+      function wireCreatorViewer() {
+        const input = document.getElementById("creatorJsonInput");
+        const btnLoad = document.getElementById("creatorBtnLoad");
+        const btnClear = document.getElementById("creatorBtnClear");
+        const btnCopySummary = document.getElementById("creatorBtnCopySummary");
+
+        if (btnLoad) {
+          btnLoad.addEventListener("click", () => creatorLoadJson());
+        }
+        if (btnClear) {
+          btnClear.addEventListener("click", () => creatorClearViewer());
+        }
+        if (btnCopySummary) {
+          btnCopySummary.addEventListener("click", () => creatorCopySummary());
+        }
+
+        if (input) {
+          input.addEventListener("keydown", (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              creatorLoadJson();
+            }
+          });
+        }
+      }
+
+      function creatorLoadJson() {
+        const input = document.getElementById("creatorJsonInput");
+        const status = document.getElementById("creatorStatus");
+        const summary = document.getElementById("creatorSummary");
+        const pills = document.getElementById("creatorPills");
+
+        if (!input || !status || !summary || !pills) {
+          appendLog("Creator Viewer not available.", "[WARN]");
+          return;
+        }
+
+        const raw = input.value.trim();
+        if (!raw) {
+          status.textContent = "No payload provided.";
+          status.className = "creator-status";
+          appendLog("Creator Viewer load attempted with empty input.", "[WARN]");
+          return;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (e) {
+          status.textContent = "Invalid JSON: parse error.";
+          status.className = "creator-status error";
+          summary.textContent = "The payload could not be parsed. Check for trailing commas or malformed structure.";
+          pills.innerHTML = "";
+          appendLog("Creator Viewer parse error.", "[WARN]");
+          ctxLastLoaded.textContent = "Parse error";
+          return;
+        }
+
+        const engine = parsed.engine || "Unknown";
+        const tool = parsed.tool || "Unknown";
+        const name = parsed.name || parsed.title || "Untitled Payload";
+        const timestamp = parsed.timestamp || "No timestamp";
+
+        status.textContent = "Payload loaded successfully.";
+        status.className = "creator-status ok";
+
+        let summaryText = name + " is a payload from " + engine + " using tool " + tool + ".";
+        if (engine === "APEXRPG" && tool === "EncounterBuilder") {
+          const env = parsed.environment || "Unknown environment";
+          const tier = parsed.tier || "Unknown tier";
+          const diffLabel = parsed.difficulty && parsed.difficulty.label ? parsed.difficulty.label : "Unknown difficulty";
+          const party = parsed.partySize ?? "—";
+          const enemies = parsed.enemyCount ?? "—";
+          const rounds = parsed.targetRounds ?? "—";
+          summaryText +=
+            " It describes a " +
+            tier.toLowerCase() +
+            " encounter in a " +
+            String(env).toLowerCase() +
+            " environment for a party of " +
+            party +
+            " versus " +
+            enemies +
+            " enemies over ~" +
+            rounds +
+            " rounds at " +
+            diffLabel.toLowerCase() +
+            ".";
+        } else {
+          summaryText += " The Viewer treats this as a generic APEX payload.";
+        }
+
+        summary.textContent = summaryText;
+
+        pills.innerHTML = "";
+        const pillData = [];
+
+        pillData.push({ label: "Engine: " + engine });
+        pillData.push({ label: "Tool: " + tool });
+        pillData.push({ label: "Name: " + name });
+        pillData.push({ label: "Timestamp: " + timestamp });
+
+        if (parsed.difficulty && parsed.difficulty.label) {
+          pillData.push({ label: "Difficulty: " + parsed.difficulty.label });
+        }
+        if (typeof parsed.partySize !== "undefined") {
+          pillData.push({ label: "Party: " + parsed.partySize });
+        }
+        if (typeof parsed.enemyCount !== "undefined") {
+          pillData.push({ label: "Enemies: " + parsed.enemyCount });
+        }
+        if (typeof parsed.targetRounds !== "undefined") {
+          pillData.push({ label: "Rounds: " + parsed.targetRounds });
+        }
+
+        if (Array.isArray(parsed.tags)) {
+          parsed.tags.forEach((t) => {
+            pillData.push({ label: "Tag: " + t });
+          });
+        }
+
+        pillData.forEach((p) => {
+          const pill = document.createElement("div");
+          pill.className = "creator-pill";
+          pill.textContent = p.label;
+          pills.appendChild(pill);
+        });
+
+        ctxLastLoaded.textContent = name + " (" + engine + ")";
+        appendLog("Creator Viewer loaded payload from " + engine + " (" + tool + ").", "[VIEWER]");
+      }
+
+      async function creatorCopySummary() {
+        const summary = document.getElementById("creatorSummary");
+        if (!summary) return;
+        const text = summary.textContent || "";
+        if (!text.trim()) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          appendLog("Creator summary copied to clipboard.", "[VIEWER]");
+        } catch (e) {
+          appendLog("Creator summary clipboard write failed.", "[WARN]");
+        }
+      }
+
+      function creatorClearViewer() {
+        const input = document.getElementById("creatorJsonInput");
+        const status = document.getElementById("creatorStatus");
+        const summary = document.getElementById("creatorSummary");
+        const pills = document.getElementById("creatorPills");
+
+        if (input) input.value = "";
+        if (status) {
+          status.textContent = "Viewer cleared. No payload loaded.";
+          status.className = "creator-status";
+        }
+        if (summary) {
+          summary.textContent =
+            "When a valid payload is loaded, a human‑readable summary will appear here.";
+        }
+        if (pills) pills.innerHTML = "";
+        ctxLastLoaded.textContent = "None";
+        appendLog("Creator Viewer cleared.", "[VIEWER]");
+      }
 
       function setEngine(engineKey) {
         const meta = engineMeta[engineKey];
