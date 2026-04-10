@@ -1,1 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>APEXAI — Scenario Browser</title>
+</head>
 
+<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
+
+<!-- HEADER -->
+<div style="padding:8px 12px; border-bottom:1px solid #222; background:#080a0d;">
+  <span style="font-weight:bold;">APEXAI — SCENARIO BROWSER</span>
+  <span style="color:#888; margin-left:8px;">v3</span>
+</div>
+
+<!-- LAYOUT -->
+<div style="padding:16px; display:flex; gap:16px; height:calc(100vh - 40px); box-sizing:border-box;">
+
+  <!-- LEFT: CONTROLS -->
+  <div style="width:260px;">
+    <div style="font-size:12px; color:#aaa; margin-bottom:8px;">GENERATION</div>
+
+    <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">
+      Generator ID
+    </label>
+    <input id="generator-id" value="minimal-generator-v1"
+      style="width:100%; padding:6px 8px; border:1px solid #222; background:#050608; color:#e5e5e5; font-size:12px; box-sizing:border-box;" />
+
+    <label style="font-size:12px; color:#ccc; display:block; margin:10px 0 4px;">
+      Count
+    </label>
+    <input id="count" type="number" value="3" min="1" max="20"
+      style="width:100%; padding:6px 8px; border:1px solid #222; background:#050608; color:#e5e5e5; font-size:12px; box-sizing:border-box;" />
+
+    <button id="generate-btn"
+      style="margin-top:12px; padding:8px 14px; border:1px solid #2a6; background:#041a0f; color:#e5e5e5; cursor:pointer; font-size:13px; width:100%;">
+      Generate Scenarios
+    </button>
+
+    <div style="margin-top:20px; font-size:12px; color:#aaa;">EVALUATION</div>
+
+    <label style="font-size:12px; color:#ccc; display:block; margin-bottom:4px;">
+      Evaluator ID
+    </label>
+    <input id="evaluator-id" value="minimal-evaluator-v1"
+      style="width:100%; padding:6px 8px; border:1px solid #222; background:#050608; color:#e5e5e5; font-size:12px; box-sizing:border-box;" />
+
+    <button id="evaluate-btn"
+      style="margin-top:12px; padding:8px 14px; border:1px solid #665022; background:#1a1404; color:#e5e5e5; cursor:pointer; font-size:13px; width:100%;">
+      Evaluate Current Batch
+    </button>
+
+    <div id="status"
+      style="margin-top:16px; font-size:11px; color:#888;">
+      Ready.
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+    <div style="font-size:12px; color:#aaa; margin-bottom:6px;">OUTPUT</div>
+    <pre id="output"
+      style="flex:1; margin:0; padding:12px; border:1px solid #222; background:#07090c; overflow:auto; font-size:12px; white-space:pre;">
+No scenarios generated yet.
+    </pre>
+  </div>
+
+</div>
+
+<!-- SCRIPT -->
+<script type="module">
+  import { createApexCore } from './apexcore.js';
+  import { createApexAI } from './apexai.js';
+  import { MinimalTestScenarioV1 } from './apexsim.js';
+
+  const core = createApexCore();
+  const ai = createApexAI(core);
+
+  // Seed with a known scenario so AI has a reference
+  core.loadScenario(MinimalTestScenarioV1);
+
+  const generatorInput = document.getElementById("generator-id");
+  const evaluatorInput = document.getElementById("evaluator-id");
+  const countInput = document.getElementById("count");
+  const generateBtn = document.getElementById("generate-btn");
+  const evaluateBtn = document.getElementById("evaluate-btn");
+  const outputEl = document.getElementById("output");
+  const statusEl = document.getElementById("status");
+
+  let currentBatch = [];
+
+  function setStatus(text) {
+    statusEl.textContent = text;
+  }
+
+  function show(obj) {
+    outputEl.textContent = JSON.stringify(obj, null, 2);
+  }
+
+  generateBtn.addEventListener("click", () => {
+    const generatorId = generatorInput.value.trim() || "minimal-generator-v1";
+    const count = Math.max(1, Math.min(20, Number(countInput.value) || 1));
+
+    setStatus(`Generating ${count} scenario(s) with "${generatorId}"...`);
+
+    try {
+      currentBatch = ai.generateBatch(generatorId, count, {});
+      show({
+        mode: "generateBatch",
+        generatorId,
+        count,
+        scenarios: currentBatch
+      });
+      setStatus(`Generated ${currentBatch.length} scenario(s).`);
+    } catch (err) {
+      console.error(err);
+      setStatus("Error during generation. See console.");
+    }
+  });
+
+  evaluateBtn.addEventListener("click", () => {
+    if (!currentBatch || currentBatch.length === 0) {
+      setStatus("No current batch to evaluate.");
+      return;
+    }
+
+    const evaluatorId = evaluatorInput.value.trim() || "minimal-evaluator-v1";
+    setStatus(`Evaluating ${currentBatch.length} scenario(s) with "${evaluatorId}"...`);
+
+    try {
+      const evaluations = ai.evaluateBatch(evaluatorId, currentBatch);
+      show({
+        mode: "evaluateBatch",
+        evaluatorId,
+        count: currentBatch.length,
+        evaluations
+      });
+      setStatus(`Evaluated ${currentBatch.length} scenario(s).`);
+    } catch (err) {
+      console.error(err);
+      setStatus("Error during evaluation. See console.");
+    }
+  });
+</script>
+
+</body>
+</html>
