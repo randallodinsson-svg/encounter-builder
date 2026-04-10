@@ -1,126 +1,83 @@
-/* ========================================================================
-   APEXSIM v3 — DETERMINISTIC SIMULATION ENGINE
-   ------------------------------------------------------------------------
-   Author: Randy Sellhausen (APEXCORE Platform)
-   Module: APEXSIM — Simulation Layer
-   Version: 3.0.0 (Standard Edition)
-   Identity: Industrial, world‑agnostic, platform‑neutral
-   Purpose: Deterministic tick‑based simulation engine compatible with
-            APEXCORE v3 and APEXOPS v3.
-   ======================================================================== */
+// APEXSIM v3.1 — deterministic movement engine
 
-export class ApexSim {
-  constructor(scenario) {
-    this.scenario = scenario;
+export function createApexSim(scenario) {
+  const state = {
+    tick: 0,
+    maxTicks: scenario.maxTicks ?? 60,
+    actors: scenario.actors.map(a => ({
+      id: a.id,
+      x: a.x ?? 0,
+      vx: a.vx ?? 0,
+    })),
+    events: [],
+  };
 
-    // Simulation state container
-    this.state = {
-      tick: 0,
-      actors: [],
-      events: [],
-      done: false
-    };
+  function step(rand) {
+    state.tick++;
 
-    // Deterministic seed (inherited from APEXCORE)
-    this.rand = null;
-    this.emit = null;
-  }
-
-  /* ========================================================================
-     INITIALIZE SIMULATION
-     ======================================================================== */
-  _init(context) {
-    this.rand = context.rand;
-    this.emit = context.emit;
-
-    // Initialize actors if scenario defines them
-    if (this.scenario.actors) {
-      this.state.actors = JSON.parse(JSON.stringify(this.scenario.actors));
+    // Let scenario inject behavior per tick if it wants
+    if (typeof scenario.onTick === "function") {
+      scenario.onTick({ state, rand });
     }
 
-    this.emit("sim:init", { scenarioId: this.scenario.id });
-  }
-
-  /* ========================================================================
-     SINGLE TICK
-     ======================================================================== */
-  _tick() {
-    this.state.tick++;
-
-    // Example deterministic event
-    const r = this.rand();
-    if (r > 0.95) {
-      const evt = {
-        tick: this.state.tick,
-        type: "random-spike",
-        value: r
-      };
-      this.state.events.push(evt);
-      this.emit("sim:event", evt);
+    // Basic movement integration
+    for (const actor of state.actors) {
+      actor.x += actor.vx;
     }
 
-    // Example actor update
-    for (const actor of this.state.actors) {
-      if (typeof actor.update === "function") {
-        actor.update({ rand: this.rand });
+    // Optional: scenario can emit events
+    if (typeof scenario.collectEvents === "function") {
+      const newEvents = scenario.collectEvents({ state, rand }) || [];
+      if (newEvents.length > 0) {
+        state.events.push(...newEvents);
       }
     }
 
-    // Example termination condition
-    if (this.state.tick >= (this.scenario.maxTicks || 20)) {
-      this.state.done = true;
-    }
+    return state.tick < state.maxTicks;
   }
 
-  /* ========================================================================
-     RUN SIMULATION (MAIN ENTRY POINT)
-     ======================================================================== */
-  run(context) {
-    this._init(context);
-
-    while (!this.state.done) {
-      this._tick();
-    }
-
-    const result = {
-      scenarioId: this.scenario.id,
-      ticks: this.state.tick,
-      events: this.state.events,
-      actors: this.state.actors
+  function run(rand) {
+    while (step(rand)) {}
+    return {
+      scenarioId: scenario.id,
+      ticks: state.tick,
+      events: state.events,
+      actors: state.actors.map(a => ({ id: a.id, x: a.x, vx: a.vx })),
     };
-
-    this.emit("sim:complete", result);
-    return result;
   }
+
+  return { run };
 }
 
-/* ========================================================================
-   MINIMAL TEST SCENARIO (BUILT-IN)
-   ------------------------------------------------------------------------
-   Used by APEXOPS and APEXSIM panels for quick validation.
-   ======================================================================== */
-
+// Minimal test scenario upgraded for movement
 export const MinimalTestScenarioV1 = {
   id: "minimal-test-v1",
-  title: "Minimal Test Scenario",
-  summary: "A deterministic test scenario for validating APEXSIM.",
   maxTicks: 10,
-
   actors: [
-    {
-      id: "actor-1",
-      x: 0,
-      update({ rand }) {
-        // Simple deterministic movement
-        this.x += rand() * 0.5;
+    { id: "actor-1", x: 0, vx: 0.5 },
+    { id: "actor-2", x: -2, vx: 0.25 },
+  ],
+  onTick({ state, rand }) {
+    // Example: tiny random nudge to actor-2’s velocity
+    const a2 = state.actors.find(a => a.id === "actor-2");
+    if (a2) {
+      a2.vx += (rand() - 0.5) * 0.05;
+    }
+  },
+  collectEvents({ state }) {
+    const events = [];
+    for (const actor of state.actors) {
+      if (actor.x >= 5 && !actor._reached5) {
+        actor._reached5 = true;
+        events.push({
+          type: "threshold-reached",
+          actorId: actor.id,
+          x: actor.x,
+          tick: state.tick,
+          threshold: 5,
+        });
       }
     }
-  ]
+    return events;
+  },
 };
-
-/* ========================================================================
-   FACTORY — Create a new APEXSIM instance
-   ======================================================================== */
-export function createApexSim(scenario) {
-  return new ApexSim(scenario);
-}
