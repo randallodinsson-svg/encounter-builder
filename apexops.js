@@ -22,7 +22,6 @@ export class ApexOps {
     `;
   }
 
-  // Called by APEXCORE or directly for testing
   loadSimulationResult(result) {
     if (!result) {
       console.error("APEXOPS: No simulation result provided.");
@@ -91,14 +90,3 @@ export class ApexOps {
     `;
   }
 }
-
-// -----------------------------
-// Example Hook for Testing
-// -----------------------------
-
-// Usage example (not executed automatically):
-// import { ApexSim, MinimalTestScenarioV1 } from './apexsim.js';
-// const sim = new ApexSim(MinimalTestScenarioV1);
-// const result = sim.start();
-// const ops = new ApexOps("apexops-root");
-// ops.loadSimulationResult(result);
