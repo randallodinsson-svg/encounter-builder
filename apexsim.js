@@ -1,7 +1,7 @@
 // ------------------------------------------------------------
-// APEXSIM v3.9 — Multi‑Leader Hierarchy
-// + Multiple Leaders + Squads + Formation + Flocking
-// + Obstacle Avoidance + Trails + Glow + Debug
+// APEXSIM v4.0 — Predator/Prey Ecosystem
+// + Multi‑Leader Squads + Predators + Prey
+// + Flocking + Avoidance + Panic + Trails + Glow + Debug
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -18,20 +18,28 @@ function norm(v) { const m = mag(v); return m === 0 ? { x: 0, y: 0 } : { x: v.x 
 function limit(v, max) { const m = mag(v); return m > max ? mul(norm(v), max) : v; }
 
 // ------------------------------------------------------------
-// Agent
+// Agent Types
 // ------------------------------------------------------------
+// type: "prey" | "predator"
+// squadId: for prey (which leader/squad they belong to)
+// ------------------------------------------------------------
+
 class Agent {
-    constructor(x, y, squadId = 0) {
+    constructor(x, y, type = "prey", squadId = 0) {
         this.pos = vec(x, y);
         this.vel = vec((rand() - 0.5) * 2, (rand() - 0.5) * 2);
         this.acc = vec(0, 0);
 
-        this.maxSpeed = 2.0;
-        this.maxForce = 0.05;
+        this.type = type;
+        this.squadId = squadId;
+
+        this.maxSpeed = type === "predator" ? 2.6 : 2.1;
+        this.maxForce = type === "predator" ? 0.07 : 0.05;
 
         this.wanderAngle = 0;
 
-        this.squadId = squadId;
+        // Panic state (for prey)
+        this.panic = 0; // 0..1
 
         // Trail buffer
         this.trail = [];
@@ -79,9 +87,21 @@ class Agent {
         return limit(steer, this.maxForce);
     }
 
+    steerFlee(target) {
+        const desired = sub(this.pos, target);
+        const d = mag(desired);
+        if (d === 0) return vec(0, 0);
+
+        let desiredNorm = norm(desired);
+        desiredNorm = mul(desiredNorm, this.maxSpeed);
+
+        const steer = sub(desiredNorm, this.vel);
+        return limit(steer, this.maxForce);
+    }
+
     // --------------------------------------------------------
     // Wander steering (noise source)
-    // --------------------------------------------------------
+// --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
         const wanderDistance = 20;
@@ -105,30 +125,24 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Flocking + Formation
-    // --------------------------------------------------------
-    flock(neighbors, obstacles, formationTarget) {
+    // Flocking (for prey primarily)
+// --------------------------------------------------------
+    flock(neighbors) {
         const separation = this.flockSeparation(neighbors);
         const alignment = this.flockAlignment(neighbors);
         const cohesion = this.flockCohesion(neighbors);
         const wander = this.steerWander();
-        const avoid = this.avoidObstacles(obstacles);
-        const formation = formationTarget ? this.steerArrive(formationTarget, 60) : vec(0, 0);
 
         const sepWeight = 1.5;
         const aliWeight = 1.0;
         const cohWeight = 0.8;
         const wanWeight = 0.25;
-        const avoWeight = 2.0;
-        const formWeight = 1.2;
 
         let steer = vec(0, 0);
         steer = add(steer, mul(separation, sepWeight));
         steer = add(steer, mul(alignment, aliWeight));
         steer = add(steer, mul(cohesion, cohWeight));
         steer = add(steer, mul(wander, wanWeight));
-        steer = add(steer, mul(avoid, avoWeight));
-        steer = add(steer, mul(formation, formWeight));
 
         this.applyForce(steer);
     }
@@ -140,6 +154,7 @@ class Agent {
 
         for (const other of neighbors) {
             if (other === this) continue;
+            if (other.type !== this.type) continue; // only separate within same type
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < desiredSeparation) {
                 let diff = sub(this.pos, other.pos);
@@ -171,6 +186,7 @@ class Agent {
 
         for (const other of neighbors) {
             if (other === this) continue;
+            if (other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < neighborDist) {
                 sum = add(sum, other.vel);
@@ -197,6 +213,7 @@ class Agent {
 
         for (const other of neighbors) {
             if (other === this) continue;
+            if (other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < neighborDist) {
                 sum = add(sum, other.pos);
@@ -246,16 +263,72 @@ class Agent {
         if (mostThreatening) {
             let avoid = sub(ahead, mostThreatening.pos);
             avoid = norm(avoid);
-            avoid = mul(avoid, this.maxForce * 2);
+            avoid = mul(avoid, this.maxForce * 2.5);
             return avoid;
         }
 
         return vec(0, 0);
     }
 
+    // --------------------------------------------------------
+    // Predator/Prey interactions
+    // --------------------------------------------------------
+    predatorHunt(preyList) {
+        if (preyList.length === 0) return vec(0, 0);
+
+        let closest = null;
+        let closestDist = Infinity;
+
+        for (const p of preyList) {
+            const d = mag(sub(p.pos, this.pos));
+            if (d < closestDist) {
+                closestDist = d;
+                closest = p;
+            }
+        }
+
+        if (!closest) return vec(0, 0);
+
+        // Seek closest prey
+        const huntForce = this.steerSeek(closest.pos);
+        return huntForce;
+    }
+
+    preyFlee(predators) {
+        if (predators.length === 0) return vec(0, 0);
+
+        let threat = null;
+        let threatDist = Infinity;
+
+        for (const pr of predators) {
+            const d = mag(sub(pr.pos, this.pos));
+            if (d < threatDist) {
+                threatDist = d;
+                threat = pr;
+            }
+        }
+
+        if (!threat) return vec(0, 0);
+
+        const fleeRadius = 160;
+        if (threatDist > fleeRadius) {
+            // decay panic
+            this.panic *= 0.96;
+            return vec(0, 0);
+        }
+
+        // increase panic
+        this.panic = Math.min(1, this.panic + 0.05);
+
+        // flee stronger when closer
+        const fleeForce = this.steerFlee(threat.pos);
+        const scale = 1.0 + (1 - threatDist / fleeRadius) * 2.0; // up to 3x
+        return mul(fleeForce, scale);
+    }
+
     update() {
         this.vel = add(this.vel, this.acc);
-        this.vel = limit(this.vel, this.maxSpeed);
+        this.vel = limit(this.vel, this.maxSpeed * (1 + this.panic * 0.5));
         this.pos = add(this.pos, this.vel);
         this.acc = vec(0, 0);
 
@@ -265,7 +338,7 @@ class Agent {
 }
 
 // ------------------------------------------------------------
-// Leader (autonomous, patrol + steering)
+// Leader (for prey squads, patrol + steering)
 // ------------------------------------------------------------
 class Leader {
     constructor(x, y, id = 0) {
@@ -274,8 +347,8 @@ class Leader {
         this.vel = vec(1, 0);
         this.acc = vec(0, 0);
 
-        this.maxSpeed = 2.2;
-        this.maxForce = 0.06;
+        this.maxSpeed = 2.0;
+        this.maxForce = 0.05;
 
         this.wanderAngle = 0;
 
@@ -286,18 +359,6 @@ class Leader {
 
     applyForce(f) {
         this.acc = add(this.acc, f);
-    }
-
-    steerSeek(target) {
-        const desired = sub(target, this.pos);
-        const d = mag(desired);
-        if (d === 0) return vec(0, 0);
-
-        let desiredNorm = norm(desired);
-        desiredNorm = mul(desiredNorm, this.maxSpeed);
-
-        const steer = sub(desiredNorm, this.vel);
-        return limit(steer, this.maxForce);
     }
 
     steerArrive(target, slowRadius = 80) {
@@ -389,13 +450,8 @@ class Leader {
 
         let steer = vec(0, 0);
 
-        // Arrive at waypoint
         steer = add(steer, this.steerArrive(target, this.arriveRadius));
-
-        // Obstacle avoidance
         steer = add(steer, this.avoidObstacles(obstacles));
-
-        // Slight wander to keep motion organic
         steer = add(steer, this.steerWander());
 
         this.applyForce(steer);
@@ -405,7 +461,6 @@ class Leader {
         this.pos = add(this.pos, this.vel);
         this.acc = vec(0, 0);
 
-        // Advance waypoint when close
         if (dist < this.arriveRadius * 0.6) {
             this.currentWaypoint = (this.currentWaypoint + 1) % this.waypoints.length;
         }
@@ -419,8 +474,8 @@ const APEXSIM = {
     agents: [],
     obstacles: [],
     leaders: [],
-    squads: [],          // array of { leaderId, agentIndices, formationOffsets }
-    formationMode: "circle", // "circle", "line"
+    squads: [],          // { leaderId, agentIndices, formationOffsets }
+    formationMode: "circle",
     width: 800,
     height: 600,
     running: false,
@@ -440,18 +495,19 @@ const APEXSIM = {
         this.leaders = [];
         this.squads = [];
 
-        const totalAgents = 48;
+        const totalPrey = 42;
+        const totalPredators = 8;
         const squadCount = 3;
-        const agentsPerSquad = Math.floor(totalAgents / squadCount);
+        const preyPerSquad = Math.floor(totalPrey / squadCount);
 
-        // Static obstacles
+        // Obstacles
         this.obstacles = [
             { pos: vec(this.width * 0.33, this.height * 0.5), radius: 40 },
             { pos: vec(this.width * 0.66, this.height * 0.4), radius: 35 },
             { pos: vec(this.width * 0.5, this.height * 0.7), radius: 45 }
         ];
 
-        // Create leaders with offset patrol loops
+        // Leaders for prey squads
         for (let i = 0; i < squadCount; i++) {
             const angle = (i / squadCount) * Math.PI * 2;
             const cx = this.width / 2 + Math.cos(angle) * 80;
@@ -460,7 +516,7 @@ const APEXSIM = {
             this.leaders.push(leader);
         }
 
-        // Assign patrol waypoints per leader (phase‑shifted ellipses)
+        // Patrol waypoints per leader
         const steps = 8;
         const rX = Math.min(this.width, this.height) * 0.25;
         const rY = Math.min(this.width, this.height) * 0.18;
@@ -477,12 +533,12 @@ const APEXSIM = {
             leader.setWaypoints(waypoints);
         }
 
-        // Create agents and squads
+        // Prey squads
         let agentIndex = 0;
         for (let s = 0; s < squadCount; s++) {
             const squadAgentIndices = [];
-            for (let j = 0; j < agentsPerSquad; j++) {
-                const a = new Agent(rand() * this.width, rand() * this.height, s);
+            for (let j = 0; j < preyPerSquad; j++) {
+                const a = new Agent(rand() * this.width, rand() * this.height, "prey", s);
                 this.agents.push(a);
                 squadAgentIndices.push(agentIndex);
                 agentIndex++;
@@ -494,21 +550,27 @@ const APEXSIM = {
             });
         }
 
-        // If any leftover agents (due to division), assign to last squad
-        while (agentIndex < totalAgents) {
+        // Leftover prey
+        while (agentIndex < totalPrey) {
             const s = this.squads.length - 1;
-            const a = new Agent(rand() * this.width, rand() * this.height, s);
+            const a = new Agent(rand() * this.width, rand() * this.height, "prey", s);
             this.agents.push(a);
             this.squads[s].agentIndices.push(agentIndex);
             agentIndex++;
+        }
+
+        // Predators (free roaming, no squads)
+        for (let i = 0; i < totalPredators; i++) {
+            const a = new Agent(rand() * this.width, rand() * this.height, "predator", -1);
+            this.agents.push(a);
         }
 
         this.buildAllSquadFormations();
     },
 
     // --------------------------------------------------------
-    // Formation slot offsets per squad (relative to its leader)
-// --------------------------------------------------------
+    // Formation slot offsets per prey squad
+    // --------------------------------------------------------
     buildAllSquadFormations() {
         for (const squad of this.squads) {
             const n = squad.agentIndices.length;
@@ -540,18 +602,20 @@ const APEXSIM = {
     },
 
     step() {
-        // Update leaders
+        const predators = this.agents.filter(a => a.type === "predator");
+        const prey = this.agents.filter(a => a.type === "prey");
+
+        // Update leaders (for prey squads)
         for (const leader of this.leaders) {
             leader.updatePatrol(this.obstacles);
 
-            // Soft wrap
             if (leader.pos.x < 0) leader.pos.x = this.width;
             if (leader.pos.x > this.width) leader.pos.x = 0;
             if (leader.pos.y < 0) leader.pos.y = this.height;
             if (leader.pos.y > this.height) leader.pos.y = 0;
         }
 
-        // Agents follow their squad leader + formation
+        // Prey squads follow leaders + flock + flee predators
         for (const squad of this.squads) {
             const leader = this.leaders[squad.leaderId];
             const indices = squad.agentIndices;
@@ -560,7 +624,7 @@ const APEXSIM = {
             for (let i = 0; i < indices.length; i++) {
                 const idx = indices[i];
                 const a = this.agents[idx];
-                const neighbors = this.agents; // global flocking for now
+                const neighbors = prey; // flock within prey
 
                 const offset = offsets[i] || null;
                 let slotWorld = null;
@@ -568,11 +632,37 @@ const APEXSIM = {
                     slotWorld = add(leader.pos, offset);
                 }
 
-                a.flock(neighbors, this.obstacles, slotWorld);
+                // Flocking
+                a.flock(neighbors);
+
+                // Formation follow
+                if (slotWorld) {
+                    const formForce = a.steerArrive(slotWorld, 60);
+                    a.applyForce(formForce);
+                }
+
+                // Flee predators
+                const fleeForce = a.preyFlee(predators);
+                a.applyForce(fleeForce);
+
+                // Avoid obstacles
+                const avoid = a.avoidObstacles(this.obstacles);
+                a.applyForce(avoid);
             }
         }
 
-        // Update agents + wrap
+        // Predators: hunt prey + avoid obstacles + slight wander
+        for (const pr of predators) {
+            const hunt = pr.predatorHunt(prey);
+            const avoid = pr.avoidObstacles(this.obstacles);
+            const wander = pr.steerWander();
+
+            pr.applyForce(hunt);
+            pr.applyForce(avoid);
+            pr.applyForce(mul(wander, 0.3));
+        }
+
+        // Update all agents + wrap
         for (const a of this.agents) {
             a.update();
 
@@ -584,7 +674,7 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Cinematic Fade‑Out Trails
+    // Trails
     // --------------------------------------------------------
     drawTrails() {
         const c = this.ctx;
@@ -598,9 +688,14 @@ const APEXSIM = {
 
                 const alpha = i * a.trailFade;
 
-                c.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
-                c.lineWidth = 1;
+                // Slight color shift for predators
+                if (a.type === "predator") {
+                    c.strokeStyle = `rgba(255, 80, 80, ${alpha})`;
+                } else {
+                    c.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
+                }
 
+                c.lineWidth = 1;
                 c.beginPath();
                 c.moveTo(p1.x, p1.y);
                 c.lineTo(p2.x, p2.y);
@@ -610,17 +705,15 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Debug vectors + obstacle + formation + leaders
+    // Debug vectors + obstacles + leaders + formations
     // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
 
         // Agents
-        for (let i = 0; i < this.agents.length; i++) {
-            const a = this.agents[i];
-
+        for (const a of this.agents) {
             // Velocity vector
-            c.strokeStyle = "#0f0";
+            c.strokeStyle = a.type === "predator" ? "#ff5555" : "#0f0";
             c.beginPath();
             c.moveTo(a.pos.x, a.pos.y);
             c.lineTo(a.pos.x + a.vel.x * 10, a.pos.y + a.vel.y * 10);
@@ -640,7 +733,7 @@ const APEXSIM = {
             c.stroke();
         }
 
-        // Formation slots per squad
+        // Formation slots for prey squads
         for (const squad of this.squads) {
             const leader = this.leaders[squad.leaderId];
             const indices = squad.agentIndices;
@@ -675,9 +768,8 @@ const APEXSIM = {
             c.stroke();
         }
 
-        // Leaders + their waypoints
+        // Leaders + waypoints
         for (const leader of this.leaders) {
-            // Leader marker
             c.strokeStyle = "#ffffff";
             c.beginPath();
             c.arc(leader.pos.x, leader.pos.y, 6, 0, Math.PI * 2);
@@ -690,7 +782,6 @@ const APEXSIM = {
             c.lineTo(leader.pos.x, leader.pos.y + 8);
             c.stroke();
 
-            // Waypoints
             if (leader.waypoints && leader.waypoints.length > 0) {
                 c.strokeStyle = "rgba(255,255,255,0.25)";
                 c.beginPath();
@@ -713,21 +804,28 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Glow effect
+    // Glow
     // --------------------------------------------------------
     drawGlow() {
         const c = this.ctx;
 
         for (const a of this.agents) {
-            const glowSize = 8 + mag(a.vel) * 4;
+            const speed = mag(a.vel);
+            const glowSize = 8 + speed * 4;
 
             const gradient = c.createRadialGradient(
                 a.pos.x, a.pos.y, 0,
                 a.pos.x, a.pos.y, glowSize
             );
 
-            gradient.addColorStop(0, "rgba(0, 234, 255, 0.35)");
-            gradient.addColorStop(1, "rgba(0, 234, 255, 0)");
+            if (a.type === "predator") {
+                gradient.addColorStop(0, "rgba(255, 80, 80, 0.4)");
+                gradient.addColorStop(1, "rgba(255, 80, 80, 0)");
+            } else {
+                const panicBoost = a.panic * 0.4;
+                gradient.addColorStop(0, `rgba(0, 234, 255, ${0.35 + panicBoost})`);
+                gradient.addColorStop(1, "rgba(0, 234, 255, 0)");
+            }
 
             c.fillStyle = gradient;
             c.beginPath();
@@ -747,7 +845,7 @@ const APEXSIM = {
         if (this.showGlow) this.drawGlow();
         if (this.showDebugVectors) this.drawDebugVectors();
 
-        // Obstacles fill (subtle)
+        // Obstacles fill
         c.fillStyle = "rgba(255, 136, 0, 0.15)";
         for (const obs of this.obstacles) {
             c.beginPath();
@@ -756,10 +854,16 @@ const APEXSIM = {
         }
 
         // Agents
-        c.fillStyle = "#00eaff";
         for (const a of this.agents) {
+            if (a.type === "predator") {
+                c.fillStyle = "#ff5050";
+            } else {
+                // Prey glow a bit brighter when panicked
+                const base = 0x00eaff;
+                c.fillStyle = "#00eaff";
+            }
             c.beginPath();
-            c.arc(a.pos.x, a.pos.y, 4, 0, Math.PI * 2);
+            c.arc(a.pos.x, a.pos.y, a.type === "predator" ? 5 : 4, 0, Math.PI * 2);
             c.fill();
         }
     },
