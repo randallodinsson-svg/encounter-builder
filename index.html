@@ -632,6 +632,125 @@
       background: rgba(0, 0, 0, 0.4);
     }
 
+    /* EXPORT MODAL */
+
+    .apex-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .apex-modal {
+      width: 100%;
+      max-width: 640px;
+      background: radial-gradient(circle at top, #181d28 0, #05070c 55%);
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .apex-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .apex-modal-title {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .apex-modal-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-rpg);
+      color: var(--accent-rpg);
+      background: var(--accent-rpg-soft);
+    }
+
+    .apex-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .apex-modal-json {
+      width: 100%;
+      min-height: 180px;
+      max-height: 320px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.7);
+      color: var(--text-main);
+      font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+      font-size: 11px;
+      padding: 8px;
+      resize: vertical;
+      overflow: auto;
+    }
+
+    .apex-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .apex-modal-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .apex-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.4);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: var(--transition-fast);
+    }
+
+    .apex-btn:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .apex-btn.primary {
+      border-color: var(--accent-rpg);
+      color: var(--accent-rpg);
+      background: var(--accent-rpg-soft);
+      box-shadow: 0 0 14px rgba(255, 122, 242, 0.4);
+    }
+
+    .apex-btn.primary:hover {
+      background: rgba(255, 122, 242, 0.2);
+    }
+
+    .apex-modal-meta {
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+
     /* RESPONSIVE */
 
     @media (max-width: 1024px) {
@@ -682,6 +801,10 @@
 
       .apex-main-row {
         grid-template-columns: minmax(0, 1fr);
+      }
+
+      .apex-modal {
+        max-width: 100%;
       }
     }
   </style>
@@ -853,6 +976,12 @@
           <div class="apex-context-pill">Context: Engine Meta</div>
         </div>
 
+        <div class="apex-context-section-label">EXPORT</div>
+        <div class="apex-context-kv">
+          <span>Last Encounter Export</span>
+          <span id="ctxLastExport">None</span>
+        </div>
+
         <div class="apex-context-section-label">NOTES</div>
         <p id="ctxNotes">
           APEXCORE should remain engine‑agnostic. Domain‑specific tools (RPG, SIM, MMO, AI) attach
@@ -860,6 +989,32 @@
         </p>
       </div>
     </aside>
+  </div>
+
+  <!-- EXPORT MODAL -->
+  <div class="apex-modal-backdrop" id="exportModalBackdrop">
+    <div class="apex-modal">
+      <div class="apex-modal-header">
+        <div class="apex-modal-title">ENCOUNTER EXPORT · JSON SNAPSHOT</div>
+        <div class="apex-modal-tag">APEXRPG · EXPORT</div>
+      </div>
+      <div class="apex-modal-body">
+        <p>
+          This snapshot represents the current encounter state as a JSON payload. It can be stored,
+          versioned, or consumed by other APEX tools.
+        </p>
+        <textarea class="apex-modal-json" id="exportJson" readonly></textarea>
+      </div>
+      <div class="apex-modal-footer">
+        <div class="apex-modal-meta" id="exportMeta">
+          Generated: —
+        </div>
+        <div class="apex-modal-actions">
+          <button class="apex-btn" id="btnCloseExport">Close</button>
+          <button class="apex-btn primary" id="btnCopyExport">Copy JSON</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -992,6 +1147,7 @@
       const ctxEngineScope = document.getElementById("ctxEngineScope");
       const ctxRoutingRow = document.getElementById("ctxRoutingRow");
       const ctxNotes = document.getElementById("ctxNotes");
+      const ctxLastExport = document.getElementById("ctxLastExport");
       const metaLayer = document.getElementById("metaLayer");
 
       const logList = document.getElementById("logList");
@@ -1009,14 +1165,20 @@
       const rightPanelBody = document.getElementById("rightPanelBody");
       const commandBar = document.getElementById("commandBar");
 
+      const exportModalBackdrop = document.getElementById("exportModalBackdrop");
+      const exportJson = document.getElementById("exportJson");
+      const exportMeta = document.getElementById("exportMeta");
+      const btnCloseExport = document.getElementById("btnCloseExport");
+      const btnCopyExport = document.getElementById("btnCopyExport");
+
       let activeEngine = "APEXCORE";
 
-      function appendLog(message) {
+      function appendLog(message, labelOverride) {
         const li = document.createElement("li");
         li.className = "apex-log-item";
 
         const label = document.createElement("span");
-        label.textContent = "[EVENT]";
+        label.textContent = labelOverride || "[EVENT]";
 
         const text = document.createElement("span");
         text.textContent = message;
@@ -1103,7 +1265,18 @@
           buildBtn.id = "cmdEncounterSnapshot";
           buildBtn.innerHTML = "<span>SNAPSHOT ENCOUNTER</span>";
           buildBtn.addEventListener("click", () => {
-            appendLog("Encounter snapshot recorded from APEXRPG.");
+            const payload = buildEncounterPayload();
+            if (!payload) {
+              appendLog("Encounter snapshot failed: builder not available.", "[WARN]");
+              return;
+            }
+            const json = JSON.stringify(payload, null, 2);
+            exportJson.value = json;
+            const ts = new Date().toISOString();
+            exportMeta.textContent = "Generated: " + ts;
+            ctxLastExport.textContent = ts;
+            openExportModal();
+            appendLog("Encounter snapshot created.", "[EXPORT]");
           });
           commandBar.appendChild(buildBtn);
         }
@@ -1119,7 +1292,6 @@
           const form = document.createElement("div");
           form.className = "encounter-form";
 
-          // Name
           const rowName = document.createElement("div");
           rowName.className = "encounter-row";
           rowName.innerHTML = `
@@ -1128,7 +1300,6 @@
           `;
           form.appendChild(rowName);
 
-          // Type / Environment / Tier
           const rowInline = document.createElement("div");
           rowInline.className = "encounter-inline";
 
@@ -1165,7 +1336,6 @@
           `;
           form.appendChild(rowInline);
 
-          // Difficulty slider
           const rowDiff = document.createElement("div");
           rowDiff.className = "encounter-row";
           rowDiff.innerHTML = `
@@ -1177,7 +1347,6 @@
           `;
           form.appendChild(rowDiff);
 
-          // Party / Enemies / Rounds
           const rowInline2 = document.createElement("div");
           rowInline2.className = "encounter-inline";
           rowInline2.innerHTML = `
@@ -1196,7 +1365,6 @@
           `;
           form.appendChild(rowInline2);
 
-          // Tags
           const rowTags = document.createElement("div");
           rowTags.className = "encounter-row";
           rowTags.innerHTML = `
@@ -1212,7 +1380,6 @@
           `;
           form.appendChild(rowTags);
 
-          // Notes
           const rowNotes = document.createElement("div");
           rowNotes.className = "encounter-row";
           rowNotes.innerHTML = `
@@ -1221,7 +1388,6 @@
           `;
           form.appendChild(rowNotes);
 
-          // Summary
           const rowSummary = document.createElement("div");
           rowSummary.className = "encounter-row";
           rowSummary.innerHTML = `
@@ -1244,6 +1410,15 @@
         }
       }
 
+      function difficultyLabel(value) {
+        const v = Number(value);
+        if (v <= 1) return "1 · Trivial";
+        if (v === 2) return "2 · Easy";
+        if (v === 3) return "3 · Moderate";
+        if (v === 4) return "4 · Hard";
+        return "5 · Lethal";
+      }
+
       function wireEncounterBuilder() {
         const diffInput = document.getElementById("encDiff");
         const diffValue = document.getElementById("encDiffValue");
@@ -1258,15 +1433,6 @@
         const tagsContainer = document.getElementById("encTags");
         const summaryBox = document.getElementById("encSummary");
         const summaryPills = document.getElementById("encSummaryPills");
-
-        function difficultyLabel(value) {
-          const v = Number(value);
-          if (v <= 1) return "1 · Trivial";
-          if (v === 2) return "2 · Easy";
-          if (v === 3) return "3 · Moderate";
-          if (v === 4) return "4 · Hard";
-          return "5 · Lethal";
-        }
 
         function getActiveTags() {
           return Array.from(tagsContainer.querySelectorAll(".encounter-tag.active")).map((el) =>
@@ -1328,7 +1494,7 @@
             summaryPills.appendChild(pill);
           });
 
-          tags.forEach((t) => {
+          getActiveTags().forEach((t) => {
             const pill = document.createElement("div");
             pill.className = "encounter-pill";
             pill.textContent = "Tag: " + t;
@@ -1357,6 +1523,88 @@
 
         updateSummary();
       }
+
+      function buildEncounterPayload() {
+        const nameInput = document.getElementById("encName");
+        const typeSelect = document.getElementById("encType");
+        const envSelect = document.getElementById("encEnv");
+        const tierSelect = document.getElementById("encTier");
+        const diffInput = document.getElementById("encDiff");
+        const partyInput = document.getElementById("encParty");
+        const enemiesInput = document.getElementById("encEnemies");
+        const roundsInput = document.getElementById("encRounds");
+        const notesInput = document.getElementById("encNotes");
+        const tagsContainer = document.getElementById("encTags");
+
+        if (
+          !nameInput ||
+          !typeSelect ||
+          !envSelect ||
+          !tierSelect ||
+          !diffInput ||
+          !partyInput ||
+          !enemiesInput ||
+          !roundsInput ||
+          !notesInput ||
+          !tagsContainer
+        ) {
+          return null;
+        }
+
+        const tags = Array.from(tagsContainer.querySelectorAll(".encounter-tag.active")).map((el) =>
+          el.getAttribute("data-tag")
+        );
+
+        const payload = {
+          engine: "APEXRPG",
+          tool: "EncounterBuilder",
+          name: nameInput.value.trim() || "Unnamed Encounter",
+          type: typeSelect.value,
+          environment: envSelect.value,
+          tier: tierSelect.value,
+          difficulty: {
+            value: Number(diffInput.value),
+            label: difficultyLabel(diffInput.value)
+          },
+          partySize: Number(partyInput.value || 0),
+          enemyCount: Number(enemiesInput.value || 0),
+          targetRounds: Number(roundsInput.value || 0),
+          tags: tags,
+          notes: notesInput.value.trim(),
+          timestamp: new Date().toISOString()
+        };
+
+        return payload;
+      }
+
+      function openExportModal() {
+        exportModalBackdrop.style.display = "flex";
+      }
+
+      function closeExportModal() {
+        exportModalBackdrop.style.display = "none";
+      }
+
+      btnCloseExport.addEventListener("click", () => {
+        closeExportModal();
+      });
+
+      exportModalBackdrop.addEventListener("click", (e) => {
+        if (e.target === exportModalBackdrop) {
+          closeExportModal();
+        }
+      });
+
+      btnCopyExport.addEventListener("click", async () => {
+        const text = exportJson.value || "";
+        if (!text.trim()) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          appendLog("Encounter JSON copied to clipboard.", "[EXPORT]");
+        } catch (err) {
+          appendLog("Clipboard write failed.", "[WARN]");
+        }
+      });
 
       function setEngine(engineKey) {
         const meta = engineMeta[engineKey];
