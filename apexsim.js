@@ -1,5 +1,6 @@
 // ------------------------------------------------------------
-// APEXSIM v3.1 — SAFE MODE VERSION
+// APEXSIM v3.2 — SAFE MODE 2D
+// Deterministic 2D movement (x, y, vx, vy)
 // Guaranteed to load. Guaranteed to run.
 // ------------------------------------------------------------
 
@@ -10,7 +11,9 @@ export function createApexSim(scenario) {
     actors: scenario.actors.map(a => ({
       id: a.id,
       x: a.x ?? 0,
-      vx: a.vx ?? 0
+      y: a.y ?? 0,
+      vx: a.vx ?? 0,
+      vy: a.vy ?? 0
     })),
     events: []
   };
@@ -18,9 +21,10 @@ export function createApexSim(scenario) {
   function step(rand) {
     state.tick++;
 
-    // Basic movement only
+    // Basic 2D movement integration
     for (const actor of state.actors) {
       actor.x += actor.vx;
+      actor.y += actor.vy;
     }
 
     return state.tick < state.maxTicks;
@@ -41,7 +45,8 @@ export function createApexSim(scenario) {
 }
 
 // ------------------------------------------------------------
-// Minimal Test Scenario — SAFE MODE
+// Minimal Test Scenario V1 — SAFE MODE 2D
+// Two actors moving in 2D so you can see x,y change.
 // ------------------------------------------------------------
 
 export const MinimalTestScenarioV1 = {
@@ -49,7 +54,10 @@ export const MinimalTestScenarioV1 = {
   maxTicks: 10,
 
   actors: [
-    { id: "actor-1", x: 0, vx: 0.5 },
-    { id: "actor-2", x: -2, vx: 0.25 }
+    // Moves to the right and down
+    { id: "actor-1", x: 0, y: 0, vx: 0.5, vy: 0.25 },
+
+    // Moves to the right and up
+    { id: "actor-2", x: -2, y: 1, vx: 0.25, vy: -0.1 }
   ]
 };
