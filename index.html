@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE — System Shell</title>
+  <title>APEXCORE — System Shell + APEXRPG Encounter Builder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -12,6 +12,8 @@
       --border-subtle: #1a1f2a;
       --accent: #00e0ff;
       --accent-soft: rgba(0, 224, 255, 0.12);
+      --accent-rpg: #ff7af2;
+      --accent-rpg-soft: rgba(255, 122, 242, 0.12);
       --text-main: #f5f7ff;
       --text-muted: #8a90a0;
       --text-soft: #5b6272;
@@ -170,6 +172,13 @@
       box-shadow: 0 0 12px rgba(0, 224, 255, 0.4);
     }
 
+    .apex-engine-btn[data-engine="APEXRPG"].active {
+      background: var(--accent-rpg-soft);
+      border-color: var(--accent-rpg);
+      color: var(--accent-rpg);
+      box-shadow: 0 0 12px rgba(255, 122, 242, 0.4);
+    }
+
     .apex-sidebar-divider {
       height: 1px;
       background: linear-gradient(to right, transparent, var(--border-subtle), transparent);
@@ -277,6 +286,13 @@
 
     .apex-command-btn.primary:hover {
       background: rgba(0, 224, 255, 0.16);
+    }
+
+    .apex-command-btn.rpg {
+      border-color: var(--accent-rpg);
+      color: var(--accent-rpg);
+      background: var(--accent-rpg-soft);
+      box-shadow: 0 0 14px rgba(255, 122, 242, 0.4);
     }
 
     .apex-header-right {
@@ -407,6 +423,126 @@
     .apex-log-item span:last-child {
       color: var(--text-soft);
       font-size: 10px;
+    }
+
+    /* ENCOUNTER BUILDER */
+
+    .encounter-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .encounter-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .encounter-label {
+      font-size: 11px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .encounter-input,
+    .encounter-select,
+    .encounter-textarea {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.5);
+      color: var(--text-main);
+      font-size: 12px;
+      padding: 6px 8px;
+      outline: none;
+      transition: var(--transition-fast);
+    }
+
+    .encounter-input:focus,
+    .encounter-select:focus,
+    .encounter-textarea:focus {
+      border-color: var(--accent-rpg);
+      box-shadow: 0 0 10px rgba(255, 122, 242, 0.4);
+    }
+
+    .encounter-textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .encounter-inline {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .encounter-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .encounter-slider-row input[type="range"] {
+      flex: 1;
+    }
+
+    .encounter-slider-value {
+      font-size: 11px;
+      color: var(--text-soft);
+      min-width: 40px;
+      text-align: right;
+    }
+
+    .encounter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .encounter-tag {
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-soft);
+      background: rgba(0, 0, 0, 0.5);
+      cursor: pointer;
+      transition: var(--transition-fast);
+    }
+
+    .encounter-tag.active {
+      border-color: var(--accent-rpg);
+      color: var(--accent-rpg);
+      background: var(--accent-rpg-soft);
+      box-shadow: 0 0 10px rgba(255, 122, 242, 0.4);
+    }
+
+    .encounter-summary {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      padding: 6px 8px;
+      border-radius: var(--radius-md);
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px dashed var(--border-subtle);
+    }
+
+    .encounter-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .encounter-pill {
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-soft);
+      background: rgba(0, 0, 0, 0.5);
     }
 
     /* CONTEXT PANEL */
@@ -596,7 +732,7 @@
         </div>
         <div class="apex-system-meta-row">
           <span>Layer</span>
-          <span>APEXCORE</span>
+          <span id="metaLayer">APEXCORE</span>
         </div>
         <div class="apex-system-meta-row">
           <span>Build</span>
@@ -618,7 +754,7 @@
         </div>
       </div>
 
-      <div class="apex-command-bar">
+      <div class="apex-command-bar" id="commandBar">
         <button class="apex-command-btn primary" id="cmdFocusCore">
           <span>FOCUS CORE</span>
         </button>
@@ -639,9 +775,10 @@
     <!-- MAIN WORKSPACE -->
     <main class="apex-main">
       <div class="apex-main-row">
+        <!-- LEFT PANEL: CORE / ENGINE OVERVIEW -->
         <section class="apex-panel" id="coreOverviewPanel">
           <div class="apex-panel-header">
-            <div class="apex-panel-title">CORE OVERVIEW</div>
+            <div class="apex-panel-title" id="coreOverviewTitle">CORE OVERVIEW</div>
             <div class="apex-panel-tag" id="coreEngineTag">APEXCORE · SYSTEM</div>
           </div>
           <div class="apex-panel-body" id="coreOverviewBody">
@@ -662,12 +799,13 @@
           </div>
         </section>
 
-        <section class="apex-panel">
+        <!-- RIGHT PANEL: SYSTEM LOG / ENCOUNTER BUILDER -->
+        <section class="apex-panel" id="rightPanel">
           <div class="apex-panel-header">
-            <div class="apex-panel-title">SYSTEM LOG</div>
-            <div class="apex-panel-tag">Live</div>
+            <div class="apex-panel-title" id="rightPanelTitle">SYSTEM LOG</div>
+            <div class="apex-panel-tag" id="rightPanelTag">Live</div>
           </div>
-          <div class="apex-panel-body">
+          <div class="apex-panel-body" id="rightPanelBody">
             <ul class="apex-log-list" id="logList">
               <li class="apex-log-item">
                 <span>[BOOT]</span>
@@ -709,14 +847,14 @@
         </div>
 
         <div class="apex-context-section-label">ROUTING</div>
-        <div class="apex-context-pill-row">
+        <div class="apex-context-pill-row" id="ctxRoutingRow">
           <div class="apex-context-pill">Workspace: Core Overview</div>
-          <div class="apex-context-pill">Log: System</div>
+          <div class="apex-context-pill">Right Panel: System Log</div>
           <div class="apex-context-pill">Context: Engine Meta</div>
         </div>
 
         <div class="apex-context-section-label">NOTES</div>
-        <p>
+        <p id="ctxNotes">
           APEXCORE should remain engine‑agnostic. Domain‑specific tools (RPG, SIM, MMO, AI) attach
           to this shell but do not alter its identity.
         </p>
@@ -730,6 +868,7 @@
         APEXCORE: {
           subtitle: "Active Engine: APEXCORE · Role: System Layer",
           tag: "APEXCORE · SYSTEM",
+          overviewTitle: "CORE OVERVIEW",
           overview: [
             "APEXCORE is the shared operating layer for the APEX Engine Family. It defines the shell, panel system, and interaction model that all engines inherit.",
             "Use this shell to inspect engines, route control, and observe system‑level behavior without dropping into any specific domain."
@@ -737,23 +876,46 @@
           chips: ["Shell: Active", "Engines: 5 Linked", "Mode: Studio / Dev", "Layer: APEXCORE"],
           ctxName: "APEXCORE",
           ctxRole: "System Layer",
-          ctxScope: "Shell / Panel Framework"
+          ctxScope: "Shell / Panel Framework",
+          ctxRouting: [
+            "Workspace: Core Overview",
+            "Right Panel: System Log",
+            "Context: Engine Meta"
+          ],
+          ctxNotes:
+            "APEXCORE remains engine‑agnostic. Domain‑specific tools attach to this shell but do not alter its identity.",
+          layerLabel: "APEXCORE"
         },
         APEXRPG: {
           subtitle: "Active Engine: APEXRPG · Role: Narrative Layer",
           tag: "APEXRPG · NARRATIVE",
+          overviewTitle: "ENGINE OVERVIEW · APEXRPG",
           overview: [
             "APEXRPG attaches narrative, character, and progression systems to the APEXCORE shell.",
-            "It uses the same panel and routing model, but focuses on story‑driven structures."
+            "It uses the same panel and routing model, but focuses on story‑driven structures and encounters."
           ],
-          chips: ["Layer: Narrative", "Mode: Studio / Dev", "Scope: Characters / Encounters", "Shell: Inherited"],
+          chips: [
+            "Layer: Narrative",
+            "Scope: Characters / Encounters",
+            "Shell: Inherited",
+            "Mode: Studio / Dev"
+          ],
           ctxName: "APEXRPG",
           ctxRole: "Narrative Layer",
-          ctxScope: "Characters / Encounters / Progression"
+          ctxScope: "Characters / Encounters / Progression",
+          ctxRouting: [
+            "Workspace: RPG Engine Overview",
+            "Right Panel: Encounter Builder",
+            "Context: Encounter Meta"
+          ],
+          ctxNotes:
+            "The Encounter Builder is a structured surface for defining narrative‑driven combat or interaction scenarios without leaving the APEXCORE shell.",
+          layerLabel: "APEXRPG"
         },
         APEXSIM: {
           subtitle: "Active Engine: APEXSIM · Role: Simulation Layer",
           tag: "APEXSIM · SIMULATION",
+          overviewTitle: "ENGINE OVERVIEW · APEXSIM",
           overview: [
             "APEXSIM focuses on structured, high‑fidelity simulation built on top of APEXCORE.",
             "It leverages the same shell to manage systems, parameters, and state."
@@ -761,11 +923,20 @@
           chips: ["Layer: Simulation", "Scope: Systems / Parameters", "Shell: Inherited", "Mode: Studio / Dev"],
           ctxName: "APEXSIM",
           ctxRole: "Simulation Layer",
-          ctxScope: "Systems / Parameters / State"
+          ctxScope: "Systems / Parameters / State",
+          ctxRouting: [
+            "Workspace: SIM Engine Overview",
+            "Right Panel: System Log",
+            "Context: Engine Meta"
+          ],
+          ctxNotes:
+            "APEXSIM will attach simulation‑specific tools to this shell while preserving the shared interaction model.",
+          layerLabel: "APEXSIM"
         },
         APEXMMO: {
           subtitle: "Active Engine: APEXMMO · Role: Scale Layer",
           tag: "APEXMMO · SCALE",
+          overviewTitle: "ENGINE OVERVIEW · APEXMMO",
           overview: [
             "APEXMMO extends APEXCORE for large‑scale, persistent environments.",
             "It uses the shell to coordinate sessions, shards, and live state."
@@ -773,19 +944,41 @@
           chips: ["Layer: Scale", "Scope: Sessions / Shards", "Shell: Inherited", "Mode: Studio / Dev"],
           ctxName: "APEXMMO",
           ctxRole: "Scale Layer",
-          ctxScope: "Sessions / Shards / Persistence"
+          ctxScope: "Sessions / Shards / Persistence",
+          ctxRouting: [
+            "Workspace: MMO Engine Overview",
+            "Right Panel: System Log",
+            "Context: Engine Meta"
+          ],
+          ctxNotes:
+            "APEXMMO will surface scale‑oriented controls without diverging from the APEXCORE shell.",
+          layerLabel: "APEXMMO"
         },
         APEXAI: {
           subtitle: "Active Engine: APEXAI · Role: Intelligence Layer",
           tag: "APEXAI · INTELLIGENCE",
+          overviewTitle: "ENGINE OVERVIEW · APEXAI",
           overview: [
             "APEXAI provides intelligent behaviors and assisted workflows across the APEX ecosystem.",
             "It uses the shell to surface controls, insights, and orchestration tools."
           ],
-          chips: ["Layer: Intelligence", "Scope: Behaviors / Assistance", "Shell: Inherited", "Mode: Studio / Dev"],
+          chips: [
+            "Layer: Intelligence",
+            "Scope: Behaviors / Assistance",
+            "Shell: Inherited",
+            "Mode: Studio / Dev"
+          ],
           ctxName: "APEXAI",
           ctxRole: "Intelligence Layer",
-          ctxScope: "Behaviors / Assistance / Orchestration"
+          ctxScope: "Behaviors / Assistance / Orchestration",
+          ctxRouting: [
+            "Workspace: AI Engine Overview",
+            "Right Panel: System Log",
+            "Context: Engine Meta"
+          ],
+          ctxNotes:
+            "APEXAI will orchestrate intelligent behaviors while respecting the shared APEXCORE interaction model.",
+          layerLabel: "APEXAI"
         }
       };
 
@@ -793,9 +986,14 @@
       const headerSubtitle = document.getElementById("headerSubtitle");
       const coreEngineTag = document.getElementById("coreEngineTag");
       const coreOverviewBody = document.getElementById("coreOverviewBody");
+      const coreOverviewTitle = document.getElementById("coreOverviewTitle");
       const ctxEngineName = document.getElementById("ctxEngineName");
       const ctxEngineRole = document.getElementById("ctxEngineRole");
       const ctxEngineScope = document.getElementById("ctxEngineScope");
+      const ctxRoutingRow = document.getElementById("ctxRoutingRow");
+      const ctxNotes = document.getElementById("ctxNotes");
+      const metaLayer = document.getElementById("metaLayer");
+
       const logList = document.getElementById("logList");
 
       const cmdFocusCore = document.getElementById("cmdFocusCore");
@@ -803,41 +1001,15 @@
       const cmdLogPulse = document.getElementById("cmdLogPulse");
       const contextPanel = document.getElementById("contextPanel");
       const contextCollapseBtn = document.getElementById("contextCollapseBtn");
+      const contextBody = document.getElementById("contextBody");
 
-      function setEngine(engineKey) {
-        const meta = engineMeta[engineKey];
-        if (!meta) return;
+      const rightPanel = document.getElementById("rightPanel");
+      const rightPanelTitle = document.getElementById("rightPanelTitle");
+      const rightPanelTag = document.getElementById("rightPanelTag");
+      const rightPanelBody = document.getElementById("rightPanelBody");
+      const commandBar = document.getElementById("commandBar");
 
-        engineButtons.forEach((btn) => {
-          btn.classList.toggle("active", btn.dataset.engine === engineKey);
-        });
-
-        headerSubtitle.textContent = meta.subtitle;
-        coreEngineTag.textContent = meta.tag;
-
-        coreOverviewBody.innerHTML = "";
-        meta.overview.forEach((line) => {
-          const p = document.createElement("p");
-          p.textContent = line;
-          coreOverviewBody.appendChild(p);
-        });
-
-        const grid = document.createElement("div");
-        grid.className = "apex-panel-grid";
-        meta.chips.forEach((chipText) => {
-          const chip = document.createElement("div");
-          chip.className = "apex-chip";
-          chip.textContent = chipText;
-          grid.appendChild(chip);
-        });
-        coreOverviewBody.appendChild(grid);
-
-        ctxEngineName.textContent = meta.ctxName;
-        ctxEngineRole.textContent = meta.ctxRole;
-        ctxEngineScope.textContent = meta.ctxScope;
-
-        appendLog(`[ENGINE] Switched active engine to ${engineKey}.`);
-      }
+      let activeEngine = "APEXCORE";
 
       function appendLog(message) {
         const li = document.createElement("li");
@@ -854,16 +1026,364 @@
         logList.insertBefore(li, logList.firstChild);
       }
 
+      function renderCoreOverview(meta) {
+        coreOverviewBody.innerHTML = "";
+        coreOverviewTitle.textContent = meta.overviewTitle || "CORE OVERVIEW";
+
+        meta.overview.forEach((line) => {
+          const p = document.createElement("p");
+          p.textContent = line;
+          coreOverviewBody.appendChild(p);
+        });
+
+        const grid = document.createElement("div");
+        grid.className = "apex-panel-grid";
+        meta.chips.forEach((chipText) => {
+          const chip = document.createElement("div");
+          chip.className = "apex-chip";
+          chip.textContent = chipText;
+          grid.appendChild(chip);
+        });
+        coreOverviewBody.appendChild(grid);
+      }
+
+      function renderContext(meta) {
+        ctxEngineName.textContent = meta.ctxName;
+        ctxEngineRole.textContent = meta.ctxRole;
+        ctxEngineScope.textContent = meta.ctxScope;
+        metaLayer.textContent = meta.layerLabel || meta.ctxName;
+
+        ctxRoutingRow.innerHTML = "";
+        meta.ctxRouting.forEach((route) => {
+          const pill = document.createElement("div");
+          pill.className = "apex-context-pill";
+          pill.textContent = route;
+          ctxRoutingRow.appendChild(pill);
+        });
+
+        ctxNotes.textContent = meta.ctxNotes;
+      }
+
+      function renderCommandBar(engineKey) {
+        commandBar.innerHTML = "";
+
+        const focusBtn = document.createElement("button");
+        focusBtn.className = "apex-command-btn primary";
+        focusBtn.id = "cmdFocusCoreDynamic";
+        focusBtn.innerHTML = "<span>FOCUS CORE</span>";
+        focusBtn.addEventListener("click", () => {
+          setEngine("APEXCORE");
+          appendLog("Focus returned to APEXCORE shell.");
+        });
+        commandBar.appendChild(focusBtn);
+
+        const toggleCtxBtn = document.createElement("button");
+        toggleCtxBtn.className = "apex-command-btn";
+        toggleCtxBtn.id = "cmdToggleContextDynamic";
+        toggleCtxBtn.innerHTML = "<span>TOGGLE CONTEXT</span>";
+        toggleCtxBtn.addEventListener("click", () => {
+          const isHidden = contextPanel.style.display === "none";
+          contextPanel.style.display = isHidden ? "flex" : "none";
+          appendLog(isHidden ? "Context panel restored." : "Context panel hidden.");
+        });
+        commandBar.appendChild(toggleCtxBtn);
+
+        const pulseBtn = document.createElement("button");
+        pulseBtn.className = "apex-command-btn";
+        pulseBtn.id = "cmdLogPulseDynamic";
+        pulseBtn.innerHTML = "<span>PULSE LOG</span>";
+        pulseBtn.addEventListener("click", () => {
+          appendLog("System pulse recorded from command bar.");
+        });
+        commandBar.appendChild(pulseBtn);
+
+        if (engineKey === "APEXRPG") {
+          const buildBtn = document.createElement("button");
+          buildBtn.className = "apex-command-btn rpg";
+          buildBtn.id = "cmdEncounterSnapshot";
+          buildBtn.innerHTML = "<span>SNAPSHOT ENCOUNTER</span>";
+          buildBtn.addEventListener("click", () => {
+            appendLog("Encounter snapshot recorded from APEXRPG.");
+          });
+          commandBar.appendChild(buildBtn);
+        }
+      }
+
+      function renderRightPanelForEngine(engineKey) {
+        if (engineKey === "APEXRPG") {
+          rightPanelTitle.textContent = "ENCOUNTER BUILDER";
+          rightPanelTag.textContent = "APEXRPG · TOOL";
+
+          rightPanelBody.innerHTML = "";
+
+          const form = document.createElement("div");
+          form.className = "encounter-form";
+
+          // Name
+          const rowName = document.createElement("div");
+          rowName.className = "encounter-row";
+          rowName.innerHTML = `
+            <div class="encounter-label">Encounter Name</div>
+            <input class="encounter-input" id="encName" placeholder="e.g., Bridge Ambush, Silent Ruins" />
+          `;
+          form.appendChild(rowName);
+
+          // Type / Environment / Tier
+          const rowInline = document.createElement("div");
+          rowInline.className = "encounter-inline";
+
+          rowInline.innerHTML = `
+            <div class="encounter-row">
+              <div class="encounter-label">Type</div>
+              <select class="encounter-select" id="encType">
+                <option value="Skirmish">Skirmish</option>
+                <option value="Set Piece">Set Piece</option>
+                <option value="Boss">Boss</option>
+                <option value="Social">Social</option>
+                <option value="Exploration">Exploration</option>
+              </select>
+            </div>
+            <div class="encounter-row">
+              <div class="encounter-label">Environment</div>
+              <select class="encounter-select" id="encEnv">
+                <option value="Urban">Urban</option>
+                <option value="Wilderness">Wilderness</option>
+                <option value="Dungeon">Dungeon</option>
+                <option value="Interior">Interior</option>
+                <option value="Frontier">Frontier</option>
+              </select>
+            </div>
+            <div class="encounter-row">
+              <div class="encounter-label">Tier</div>
+              <select class="encounter-select" id="encTier">
+                <option value="Low">Low</option>
+                <option value="Standard">Standard</option>
+                <option value="High">High</option>
+                <option value="Mythic">Mythic</option>
+              </select>
+            </div>
+          `;
+          form.appendChild(rowInline);
+
+          // Difficulty slider
+          const rowDiff = document.createElement("div");
+          rowDiff.className = "encounter-row";
+          rowDiff.innerHTML = `
+            <div class="encounter-label">Difficulty</div>
+            <div class="encounter-slider-row">
+              <input type="range" min="1" max="5" value="3" id="encDiff" />
+              <div class="encounter-slider-value" id="encDiffValue">3 · Moderate</div>
+            </div>
+          `;
+          form.appendChild(rowDiff);
+
+          // Party / Enemies / Rounds
+          const rowInline2 = document.createElement("div");
+          rowInline2.className = "encounter-inline";
+          rowInline2.innerHTML = `
+            <div class="encounter-row">
+              <div class="encounter-label">Party Size</div>
+              <input class="encounter-input" id="encParty" type="number" min="1" max="10" value="4" />
+            </div>
+            <div class="encounter-row">
+              <div class="encounter-label">Enemy Count</div>
+              <input class="encounter-input" id="encEnemies" type="number" min="1" max="20" value="6" />
+            </div>
+            <div class="encounter-row">
+              <div class="encounter-label">Target Rounds</div>
+              <input class="encounter-input" id="encRounds" type="number" min="1" max="10" value="3" />
+            </div>
+          `;
+          form.appendChild(rowInline2);
+
+          // Tags
+          const rowTags = document.createElement("div");
+          rowTags.className = "encounter-row";
+          rowTags.innerHTML = `
+            <div class="encounter-label">Tags</div>
+            <div class="encounter-tags" id="encTags">
+              <div class="encounter-tag" data-tag="Ambush">Ambush</div>
+              <div class="encounter-tag" data-tag="Boss">Boss</div>
+              <div class="encounter-tag" data-tag="Siege">Siege</div>
+              <div class="encounter-tag" data-tag="Stealth">Stealth</div>
+              <div class="encounter-tag" data-tag="Social">Social</div>
+              <div class="encounter-tag" data-tag="Exploration">Exploration</div>
+            </div>
+          `;
+          form.appendChild(rowTags);
+
+          // Notes
+          const rowNotes = document.createElement("div");
+          rowNotes.className = "encounter-row";
+          rowNotes.innerHTML = `
+            <div class="encounter-label">GM Notes</div>
+            <textarea class="encounter-textarea" id="encNotes" placeholder="Key beats, twists, fail states, or narrative hooks."></textarea>
+          `;
+          form.appendChild(rowNotes);
+
+          // Summary
+          const rowSummary = document.createElement("div");
+          rowSummary.className = "encounter-row";
+          rowSummary.innerHTML = `
+            <div class="encounter-label">Summary</div>
+            <div class="encounter-summary" id="encSummary">
+              Define encounter parameters to generate a structured summary here.
+            </div>
+            <div class="encounter-pill-row" id="encSummaryPills"></div>
+          `;
+          form.appendChild(rowSummary);
+
+          rightPanelBody.appendChild(form);
+
+          wireEncounterBuilder();
+        } else {
+          rightPanelTitle.textContent = "SYSTEM LOG";
+          rightPanelTag.textContent = "Live";
+          rightPanelBody.innerHTML = "";
+          rightPanelBody.appendChild(logList);
+        }
+      }
+
+      function wireEncounterBuilder() {
+        const diffInput = document.getElementById("encDiff");
+        const diffValue = document.getElementById("encDiffValue");
+        const nameInput = document.getElementById("encName");
+        const typeSelect = document.getElementById("encType");
+        const envSelect = document.getElementById("encEnv");
+        const tierSelect = document.getElementById("encTier");
+        const partyInput = document.getElementById("encParty");
+        const enemiesInput = document.getElementById("encEnemies");
+        const roundsInput = document.getElementById("encRounds");
+        const notesInput = document.getElementById("encNotes");
+        const tagsContainer = document.getElementById("encTags");
+        const summaryBox = document.getElementById("encSummary");
+        const summaryPills = document.getElementById("encSummaryPills");
+
+        function difficultyLabel(value) {
+          const v = Number(value);
+          if (v <= 1) return "1 · Trivial";
+          if (v === 2) return "2 · Easy";
+          if (v === 3) return "3 · Moderate";
+          if (v === 4) return "4 · Hard";
+          return "5 · Lethal";
+        }
+
+        function getActiveTags() {
+          return Array.from(tagsContainer.querySelectorAll(".encounter-tag.active")).map((el) =>
+            el.getAttribute("data-tag")
+          );
+        }
+
+        function updateSummary() {
+          const name = nameInput.value.trim() || "Unnamed Encounter";
+          const type = typeSelect.value;
+          const env = envSelect.value;
+          const tier = tierSelect.value;
+          const diff = Number(diffInput.value);
+          const party = Number(partyInput.value || 0);
+          const enemies = Number(enemiesInput.value || 0);
+          const rounds = Number(roundsInput.value || 0);
+          const tags = getActiveTags();
+          const notes = notesInput.value.trim();
+
+          const diffText = difficultyLabel(diff);
+
+          summaryBox.textContent =
+            name +
+            " is a " +
+            tier.toLowerCase() +
+            " " +
+            type.toLowerCase() +
+            " encounter in a " +
+            env.toLowerCase() +
+            " environment, tuned for a party of " +
+            party +
+            " against " +
+            enemies +
+            " enemies over approximately " +
+            rounds +
+            " rounds at " +
+            diffText.toLowerCase() +
+            " difficulty.";
+
+          if (tags.length || notes) {
+            summaryBox.textContent += " Tags and notes refine how this plays at the table.";
+          }
+
+          summaryPills.innerHTML = "";
+          const pillData = [
+            { label: "Type: " + type },
+            { label: "Env: " + env },
+            { label: "Tier: " + tier },
+            { label: "Diff: " + diffText },
+            { label: "Party: " + party },
+            { label: "Enemies: " + enemies },
+            { label: "Rounds: " + rounds }
+          ];
+
+          pillData.forEach((p) => {
+            const pill = document.createElement("div");
+            pill.className = "encounter-pill";
+            pill.textContent = p.label;
+            summaryPills.appendChild(pill);
+          });
+
+          tags.forEach((t) => {
+            const pill = document.createElement("div");
+            pill.className = "encounter-pill";
+            pill.textContent = "Tag: " + t;
+            summaryPills.appendChild(pill);
+          });
+        }
+
+        diffInput.addEventListener("input", () => {
+          diffValue.textContent = difficultyLabel(diffInput.value);
+          updateSummary();
+        });
+
+        [nameInput, typeSelect, envSelect, tierSelect, partyInput, enemiesInput, roundsInput, notesInput].forEach(
+          (el) => {
+            el.addEventListener("input", updateSummary);
+            el.addEventListener("change", updateSummary);
+          }
+        );
+
+        tagsContainer.addEventListener("click", (e) => {
+          const tag = e.target.closest(".encounter-tag");
+          if (!tag) return;
+          tag.classList.toggle("active");
+          updateSummary();
+        });
+
+        updateSummary();
+      }
+
+      function setEngine(engineKey) {
+        const meta = engineMeta[engineKey];
+        if (!meta) return;
+
+        activeEngine = engineKey;
+
+        engineButtons.forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.engine === engineKey);
+        });
+
+        headerSubtitle.textContent = meta.subtitle;
+        coreEngineTag.textContent = meta.tag;
+
+        renderCoreOverview(meta);
+        renderContext(meta);
+        renderCommandBar(engineKey);
+        renderRightPanelForEngine(engineKey);
+
+        appendLog(`[ENGINE] Switched active engine to ${engineKey}.`);
+      }
+
       engineButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           const engineKey = btn.dataset.engine;
           setEngine(engineKey);
         });
-      });
-
-      cmdFocusCore.addEventListener("click", () => {
-        setEngine("APEXCORE");
-        appendLog("Focus returned to APEXCORE shell.");
       });
 
       cmdToggleContext.addEventListener("click", () => {
@@ -877,11 +1397,15 @@
       });
 
       contextCollapseBtn.addEventListener("click", () => {
-        const body = document.getElementById("contextBody");
-        const collapsed = body.style.display === "none";
-        body.style.display = collapsed ? "flex" : "none";
+        const collapsed = contextBody.style.display === "none";
+        contextBody.style.display = collapsed ? "flex" : "none";
         contextCollapseBtn.textContent = collapsed ? "Collapse" : "Expand";
         appendLog(collapsed ? "Context details expanded." : "Context details collapsed.");
+      });
+
+      cmdFocusCore.addEventListener("click", () => {
+        setEngine("APEXCORE");
+        appendLog("Focus returned to APEXCORE shell.");
       });
 
       // Initial state
