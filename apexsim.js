@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// APEXSIM v3.2 — Cinematic Fade‑Out Trails + Debug + Glow
+// APEXSIM v3.3 — Steering Behaviors + Fade‑Out Trails + Debug + Glow
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -31,8 +31,8 @@ class Agent {
 
         // Trail buffer
         this.trail = [];
-        this.maxTrail = 40;      // number of points
-        this.trailFade = 1 / this.maxTrail; // alpha fade per segment
+        this.maxTrail = 40;
+        this.trailFade = 1 / this.maxTrail;
 
         // Debug storage
         this.debugCirclePos = vec();
@@ -44,7 +44,70 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Wander steering
+    // Steering behaviors
+    // --------------------------------------------------------
+
+    steerSeek(target) {
+        const desired = sub(target, this.pos);
+        const d = mag(desired);
+        if (d === 0) return vec(0, 0);
+
+        let desiredNorm = norm(desired);
+        desiredNorm = mul(desiredNorm, this.maxSpeed);
+
+        const steer = sub(desiredNorm, this.vel);
+        return limit(steer, this.maxForce);
+    }
+
+    steerFlee(target) {
+        const desired = sub(this.pos, target);
+        const d = mag(desired);
+        if (d === 0) return vec(0, 0);
+
+        let desiredNorm = norm(desired);
+        desiredNorm = mul(desiredNorm, this.maxSpeed);
+
+        const steer = sub(desiredNorm, this.vel);
+        return limit(steer, this.maxForce);
+    }
+
+    steerArrive(target, slowRadius = 80) {
+        const desired = sub(target, this.pos);
+        const d = mag(desired);
+        if (d === 0) return vec(0, 0);
+
+        let speed = this.maxSpeed;
+        if (d < slowRadius) {
+            speed = this.maxSpeed * (d / slowRadius);
+        }
+
+        let desiredNorm = norm(desired);
+        desiredNorm = mul(desiredNorm, speed);
+
+        const steer = sub(desiredNorm, this.vel);
+        return limit(steer, this.maxForce);
+    }
+
+    steerPursuit(targetAgent) {
+        const predictionTime = 20;
+        const futurePos = add(
+            targetAgent.pos,
+            mul(targetAgent.vel, predictionTime * 0.01)
+        );
+        return this.steerSeek(futurePos);
+    }
+
+    steerEvade(targetAgent) {
+        const predictionTime = 20;
+        const futurePos = add(
+            targetAgent.pos,
+            mul(targetAgent.vel, predictionTime * 0.01)
+        );
+        return this.steerFlee(futurePos);
+    }
+
+    // --------------------------------------------------------
+    // Wander steering (kept as core behavior)
     // --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
@@ -68,13 +131,30 @@ class Agent {
         return steer;
     }
 
+    // --------------------------------------------------------
+    // Behavior blending demo
+    // --------------------------------------------------------
+    computeSteering(target) {
+        // Simple blend: wander + arrive toward a shared target
+        const wanderForce = this.steerWander();
+        const arriveForce = this.steerArrive(target);
+
+        const wanderWeight = 0.6;
+        const arriveWeight = 0.4;
+
+        let steer = vec(0, 0);
+        steer = add(steer, mul(wanderForce, wanderWeight));
+        steer = add(steer, mul(arriveForce, arriveWeight));
+
+        return steer;
+    }
+
     update() {
         this.vel = add(this.vel, this.acc);
         this.vel = limit(this.vel, this.maxSpeed);
         this.pos = add(this.pos, this.vel);
         this.acc = vec(0, 0);
 
-        // Add to trail
         this.trail.push({ x: this.pos.x, y: this.pos.y });
         if (this.trail.length > this.maxTrail) this.trail.shift();
     }
@@ -90,10 +170,14 @@ const APEXSIM = {
     running: false,
     ctx: null,
 
-    // Debug toggles
+    // Debug toggles (unchanged)
     showTrails: true,
     showDebugVectors: true,
     showGlow: true,
+
+    // Shared steering target
+    steeringTarget: vec(400, 300),
+    steeringTargetAngle: 0,
 
     init(canvas) {
         this.ctx = canvas.getContext("2d");
@@ -104,15 +188,27 @@ const APEXSIM = {
         for (let i = 0; i < 20; i++) {
             this.agents.push(new Agent(rand() * this.width, rand() * this.height));
         }
+
+        this.steeringTarget = vec(this.width / 2, this.height / 2);
+        this.steeringTargetAngle = 0;
+    },
+
+    updateSteeringTarget() {
+        const radius = Math.min(this.width, this.height) * 0.25;
+        this.steeringTargetAngle += 0.01;
+
+        this.steeringTarget.x = this.width / 2 + Math.cos(this.steeringTargetAngle) * radius;
+        this.steeringTarget.y = this.height / 2 + Math.sin(this.steeringTargetAngle) * radius;
     },
 
     step() {
+        this.updateSteeringTarget();
+
         for (const a of this.agents) {
-            const wander = a.steerWander();
-            a.applyForce(wander);
+            const steer = a.computeSteering(this.steeringTarget);
+            a.applyForce(steer);
             a.update();
 
-            // Wrap edges
             if (a.pos.x < 0) a.pos.x = this.width;
             if (a.pos.x > this.width) a.pos.x = 0;
             if (a.pos.y < 0) a.pos.y = this.height;
@@ -133,7 +229,6 @@ const APEXSIM = {
                 const p1 = a.trail[i];
                 const p2 = a.trail[i + 1];
 
-                // Fade from 0 → 1 across the trail
                 const alpha = i * a.trailFade;
 
                 c.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
@@ -154,26 +249,29 @@ const APEXSIM = {
         const c = this.ctx;
 
         for (const a of this.agents) {
-            // Velocity vector
             c.strokeStyle = "#0f0";
             c.beginPath();
             c.moveTo(a.pos.x, a.pos.y);
             c.lineTo(a.pos.x + a.vel.x * 10, a.pos.y + a.vel.y * 10);
             c.stroke();
 
-            // Wander circle
             c.strokeStyle = "#f00";
             c.beginPath();
             c.arc(a.debugCirclePos.x, a.debugCirclePos.y, 12, 0, Math.PI * 2);
             c.stroke();
 
-            // Wander target
             c.strokeStyle = "#ff0";
             c.beginPath();
             c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
             c.stroke();
         }
+
+        // Draw steering target
+        c.strokeStyle = "#ffffff";
+        c.beginPath();
+        c.arc(this.steeringTarget.x, this.steeringTarget.y, 6, 0, Math.PI * 2);
+        c.stroke();
     },
 
     // --------------------------------------------------------
@@ -211,7 +309,6 @@ const APEXSIM = {
         if (this.showGlow) this.drawGlow();
         if (this.showDebugVectors) this.drawDebugVectors();
 
-        // Draw agents
         c.fillStyle = "#00eaff";
         for (const a of this.agents) {
             c.beginPath();
