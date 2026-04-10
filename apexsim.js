@@ -1,6 +1,6 @@
 // ------------------------------------------------------------
-// APEXSIM v3.7 — Dynamic Formation Leader
-// + Formation Control + Flocking + Obstacle Avoidance
+// APEXSIM v3.8 — Leader Behaviors (Patrol Mode)
+// + Dynamic Leader + Formation + Flocking + Obstacle Avoidance
 // + Trails + Glow + Debug
 // ------------------------------------------------------------
 
@@ -79,7 +79,7 @@ class Agent {
 
     // --------------------------------------------------------
     // Wander steering (noise source)
-// --------------------------------------------------------
+    // --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
         const wanderDistance = 20;
@@ -263,6 +263,153 @@ class Agent {
 }
 
 // ------------------------------------------------------------
+// Leader (autonomous, patrol + steering)
+// ------------------------------------------------------------
+class Leader {
+    constructor(x, y) {
+        this.pos = vec(x, y);
+        this.vel = vec(1, 0);
+        this.acc = vec(0, 0);
+
+        this.maxSpeed = 2.2;
+        this.maxForce = 0.06;
+
+        this.wanderAngle = 0;
+
+        this.waypoints = [];
+        this.currentWaypoint = 0;
+        this.arriveRadius = 60;
+    }
+
+    applyForce(f) {
+        this.acc = add(this.acc, f);
+    }
+
+    steerSeek(target) {
+        const desired = sub(target, this.pos);
+        const d = mag(desired);
+        if (d === 0) return vec(0, 0);
+
+        let desiredNorm = norm(desired);
+        desiredNorm = mul(desiredNorm, this.maxSpeed);
+
+        const steer = sub(desiredNorm, this.vel);
+        return limit(steer, this.maxForce);
+    }
+
+    steerArrive(target, slowRadius = 80) {
+        const desired = sub(target, this.pos);
+        const d = mag(desired);
+        if (d === 0) return vec(0, 0);
+
+        let speed = this.maxSpeed;
+        if (d < slowRadius) {
+            speed = this.maxSpeed * (d / slowRadius);
+        }
+
+        let desiredNorm = norm(desired);
+        desiredNorm = mul(desiredNorm, speed);
+
+        const steer = sub(desiredNorm, this.vel);
+        return limit(steer, this.maxForce);
+    }
+
+    steerWander() {
+        const wanderRadius = 10;
+        const wanderDistance = 25;
+        const change = 0.2;
+
+        this.wanderAngle += (rand() * 2 - 1) * change;
+
+        const circlePos = add(this.pos, mul(norm(this.vel), wanderDistance));
+        const wanderOffset = vec(
+            Math.cos(this.wanderAngle) * wanderRadius,
+            Math.sin(this.wanderAngle) * wanderRadius
+        );
+
+        const target = add(circlePos, wanderOffset);
+        const desired = sub(target, this.pos);
+        const steer = limit(sub(norm(desired), this.vel), this.maxForce);
+
+        return steer;
+    }
+
+    avoidObstacles(obstacles) {
+        if (!obstacles || obstacles.length === 0) return vec(0, 0);
+
+        const lookAhead = 50;
+        const forward = norm(this.vel);
+        const ahead = add(this.pos, mul(forward, lookAhead));
+        const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
+
+        let mostThreatening = null;
+
+        for (const obs of obstacles) {
+            const collision =
+                mag(sub(obs.pos, ahead)) <= obs.radius + 10 ||
+                mag(sub(obs.pos, aheadHalf)) <= obs.radius + 10;
+
+            if (collision) {
+                if (!mostThreatening) {
+                    mostThreatening = obs;
+                } else {
+                    const currentDist = mag(sub(obs.pos, this.pos));
+                    const bestDist = mag(sub(mostThreatening.pos, this.pos));
+                    if (currentDist < bestDist) {
+                        mostThreatening = obs;
+                    }
+                }
+            }
+        }
+
+        if (mostThreatening) {
+            let avoid = sub(ahead, mostThreatening.pos);
+            avoid = norm(avoid);
+            avoid = mul(avoid, this.maxForce * 3);
+            return avoid;
+        }
+
+        return vec(0, 0);
+    }
+
+    setWaypoints(points) {
+        this.waypoints = points;
+        this.currentWaypoint = 0;
+    }
+
+    updatePatrol(obstacles) {
+        if (!this.waypoints || this.waypoints.length === 0) return;
+
+        const target = this.waypoints[this.currentWaypoint];
+        const toTarget = sub(target, this.pos);
+        const dist = mag(toTarget);
+
+        let steer = vec(0, 0);
+
+        // Arrive at waypoint
+        steer = add(steer, this.steerArrive(target, this.arriveRadius));
+
+        // Obstacle avoidance
+        steer = add(steer, this.avoidObstacles(obstacles));
+
+        // Slight wander to keep motion organic
+        steer = add(steer, this.steerWander());
+
+        this.applyForce(steer);
+
+        this.vel = add(this.vel, this.acc);
+        this.vel = limit(this.vel, this.maxSpeed);
+        this.pos = add(this.pos, this.vel);
+        this.acc = vec(0, 0);
+
+        // Advance waypoint when close
+        if (dist < this.arriveRadius * 0.6) {
+            this.currentWaypoint = (this.currentWaypoint + 1) % this.waypoints.length;
+        }
+    }
+}
+
+// ------------------------------------------------------------
 // Simulation Engine
 // ------------------------------------------------------------
 const APEXSIM = {
@@ -270,11 +417,7 @@ const APEXSIM = {
     obstacles: [],
     formationOffsets: [],
     formationMode: "circle", // "circle", "line", "none"
-    leader: {
-        pos: vec(0, 0),
-        angle: 0,
-        radius: 120
-    },
+    leader: null,
     width: 800,
     height: 600,
     running: false,
@@ -303,10 +446,24 @@ const APEXSIM = {
             { pos: vec(this.width * 0.5, this.height * 0.7), radius: 45 }
         ];
 
-        // Leader starts at center
-        this.leader.pos = vec(this.width / 2, this.height / 2);
-        this.leader.angle = 0;
-        this.leader.radius = Math.min(this.width, this.height) * 0.25;
+        // Leader
+        this.leader = new Leader(this.width / 2, this.height / 2);
+
+        // Patrol waypoints (looping path)
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        const rX = Math.min(this.width, this.height) * 0.3;
+        const rY = Math.min(this.width, this.height) * 0.2;
+
+        const waypoints = [];
+        const steps = 8;
+        for (let i = 0; i < steps; i++) {
+            const angle = (i / steps) * Math.PI * 2;
+            const x = cx + Math.cos(angle) * rX;
+            const y = cy + Math.sin(angle) * rY;
+            waypoints.push(vec(x, y));
+        }
+        this.leader.setWaypoints(waypoints);
 
         this.buildFormationOffsets();
     },
@@ -346,24 +503,11 @@ const APEXSIM = {
         this.buildFormationOffsets();
     },
 
-    // --------------------------------------------------------
-    // Leader motion
-    // --------------------------------------------------------
-    updateLeader() {
-        // Leader moves in a smooth looping path
-        this.leader.angle += 0.01;
-        const center = vec(this.width / 2, this.height / 2);
-
-        const x = center.x + Math.cos(this.leader.angle) * this.leader.radius;
-        const y = center.y + Math.sin(this.leader.angle * 0.7) * this.leader.radius * 0.6;
-
-        this.leader.pos.x = x;
-        this.leader.pos.y = y;
-    },
-
     step() {
-        this.updateLeader();
+        // Update leader with patrol behavior
+        this.leader.updatePatrol(this.obstacles);
 
+        // Agents follow formation slots relative to leader
         for (let i = 0; i < this.agents.length; i++) {
             const a = this.agents[i];
             const neighbors = this.agents;
@@ -385,6 +529,12 @@ const APEXSIM = {
             if (a.pos.y < 0) a.pos.y = this.height;
             if (a.pos.y > this.height) a.pos.y = 0;
         }
+
+        // Keep leader inside bounds softly
+        if (this.leader.pos.x < 0) this.leader.pos.x = this.width;
+        if (this.leader.pos.x > this.width) this.leader.pos.x = 0;
+        if (this.leader.pos.y < 0) this.leader.pos.y = this.height;
+        if (this.leader.pos.y > this.height) this.leader.pos.y = 0;
     },
 
     // --------------------------------------------------------
@@ -480,6 +630,26 @@ const APEXSIM = {
         c.moveTo(this.leader.pos.x, this.leader.pos.y - 8);
         c.lineTo(this.leader.pos.x, this.leader.pos.y + 8);
         c.stroke();
+
+        // Waypoints
+        if (this.leader.waypoints && this.leader.waypoints.length > 0) {
+            c.strokeStyle = "rgba(255,255,255,0.25)";
+            c.beginPath();
+            for (let i = 0; i < this.leader.waypoints.length; i++) {
+                const wp = this.leader.waypoints[i];
+                if (i === 0) c.moveTo(wp.x, wp.y);
+                else c.lineTo(wp.x, wp.y);
+            }
+            c.closePath();
+            c.stroke();
+
+            c.fillStyle = "rgba(255,255,255,0.4)";
+            for (const wp of this.leader.waypoints) {
+                c.beginPath();
+                c.arc(wp.x, wp.y, 3, 0, Math.PI * 2);
+                c.fill();
+            }
+        }
     },
 
     // --------------------------------------------------------
@@ -525,6 +695,7 @@ const APEXSIM = {
             c.fill();
         }
 
+        // Agents
         c.fillStyle = "#00eaff";
         for (const a of this.agents) {
             c.beginPath();
