@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE — System Shell + APEXRPG + APEXCREATOR Viewer</title>
+  <title>APEXCORE — System Shell + APEXRPG + APEXCREATOR + APEXOPS</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -16,6 +16,8 @@
       --accent-rpg-soft: rgba(255, 122, 242, 0.12);
       --accent-creator: #7af2ff;
       --accent-creator-soft: rgba(122, 242, 255, 0.12);
+      --accent-ops: #ffc857;
+      --accent-ops-soft: rgba(255, 200, 87, 0.12);
       --text-main: #f5f7ff;
       --text-muted: #8a90a0;
       --text-soft: #5b6272;
@@ -188,6 +190,13 @@
       box-shadow: 0 0 12px rgba(122, 242, 255, 0.4);
     }
 
+    .apex-engine-btn[data-engine="APEXOPS"].active {
+      background: var(--accent-ops-soft);
+      border-color: var(--accent-ops);
+      color: var(--accent-ops);
+      box-shadow: 0 0 12px rgba(255, 200, 87, 0.4);
+    }
+
     .apex-sidebar-divider {
       height: 1px;
       background: linear-gradient(to right, transparent, var(--border-subtle), transparent);
@@ -309,6 +318,13 @@
       color: var(--accent-creator);
       background: var(--accent-creator-soft);
       box-shadow: 0 0 14px rgba(122, 242, 255, 0.4);
+    }
+
+    .apex-command-btn.ops {
+      border-color: var(--accent-ops);
+      color: var(--accent-ops);
+      background: var(--accent-ops-soft);
+      box-shadow: 0 0 14px rgba(255, 200, 87, 0.4);
     }
 
     .apex-header-right {
@@ -653,6 +669,98 @@
       background: rgba(0, 0, 0, 0.5);
     }
 
+    /* OPS RUNTIME INSPECTOR */
+
+    .ops-viewer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ops-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ops-label {
+      font-size: 11px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .ops-textarea {
+      width: 100%;
+      min-height: 120px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.6);
+      color: var(--text-main);
+      font-size: 11px;
+      font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+      padding: 6px 8px;
+      resize: vertical;
+      outline: none;
+      transition: var(--transition-fast);
+    }
+
+    .ops-textarea:focus {
+      border-color: var(--accent-ops);
+      box-shadow: 0 0 10px rgba(255, 200, 87, 0.4);
+    }
+
+    .ops-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ops-status {
+      font-size: 11px;
+      color: var(--text-soft);
+      padding: 4px 6px;
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--border-subtle);
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .ops-status.ok {
+      border-color: var(--accent-ops);
+      color: var(--accent-ops);
+    }
+
+    .ops-status.error {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .ops-summary {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      padding: 6px 8px;
+      border-radius: var(--radius-md);
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px dashed var(--border-subtle);
+    }
+
+    .ops-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .ops-pill {
+      font-size: 10px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-soft);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
     /* CONTEXT PANEL */
 
     .apex-context {
@@ -943,6 +1051,10 @@
           <span>APEXCREATOR</span>
           <small>Creator</small>
         </button>
+        <button class="apex-engine-btn" data-engine="APEXOPS">
+          <span>APEXOPS</span>
+          <small>Runtime</small>
+        </button>
         <button class="apex-engine-btn" data-engine="APEXSIM">
           <span>APEXSIM</span>
           <small>Simulation</small>
@@ -971,7 +1083,7 @@
         </div>
         <div class="apex-system-meta-row">
           <span>Build</span>
-          <span>v0.1.0</span>
+          <span>v0.2.0</span>
         </div>
         <div class="apex-system-meta-row">
           <span>Status</span>
@@ -1027,14 +1139,14 @@
             </p>
             <div class="apex-panel-grid">
               <div class="apex-chip">Shell: Active</div>
-              <div class="apex-chip">Engines: 6 Linked</div>
+              <div class="apex-chip">Engines: 7 Linked</div>
               <div class="apex-chip">Mode: Studio / Dev</div>
               <div class="apex-chip">Layer: APEXCORE</div>
             </div>
           </div>
         </section>
 
-        <!-- RIGHT PANEL: SYSTEM LOG / ENCOUNTER BUILDER / CREATOR VIEWER -->
+        <!-- RIGHT PANEL: SYSTEM LOG / ENCOUNTER BUILDER / CREATOR VIEWER / OPS INSPECTOR -->
         <section class="apex-panel" id="rightPanel">
           <div class="apex-panel-header">
             <div class="apex-panel-title" id="rightPanelTitle">SYSTEM LOG</div>
@@ -1048,7 +1160,7 @@
               </li>
               <li class="apex-log-item">
                 <span>[LINK]</span>
-                <span>Engines registered: APEXCORE, APEXRPG, APEXCREATOR, APEXSIM, APEXMMO, APEXAI.</span>
+                <span>Engines registered: APEXCORE, APEXRPG, APEXCREATOR, APEXOPS, APEXSIM, APEXMMO, APEXAI.</span>
               </li>
               <li class="apex-log-item">
                 <span>[STATE]</span>
@@ -1097,10 +1209,14 @@
           <span>Last Loaded JSON</span>
           <span id="ctxLastLoaded">None</span>
         </div>
+        <div class="apex-context-kv">
+          <span>Last Ops Analysis</span>
+          <span id="ctxLastOps">None</span>
+        </div>
 
         <div class="apex-context-section-label">NOTES</div>
         <p id="ctxNotes">
-          APEXCORE should remain engine‑agnostic. Domain‑specific tools (RPG, SIM, MMO, AI, CREATOR)
+          APEXCORE should remain engine‑agnostic. Domain‑specific tools (RPG, SIM, MMO, AI, CREATOR, OPS)
           attach to this shell but do not alter its identity.
         </p>
       </div>
@@ -1144,7 +1260,7 @@
             "APEXCORE is the shared operating layer for the APEX Engine Family. It defines the shell, panel system, and interaction model that all engines inherit.",
             "Use this shell to inspect engines, route control, and observe system‑level behavior without dropping into any specific domain."
           ],
-          chips: ["Shell: Active", "Engines: 6 Linked", "Mode: Studio / Dev", "Layer: APEXCORE"],
+          chips: ["Shell: Active", "Engines: 7 Linked", "Mode: Studio / Dev", "Layer: APEXCORE"],
           ctxName: "APEXCORE",
           ctxRole: "System Layer",
           ctxScope: "Shell / Panel Framework",
@@ -1208,6 +1324,32 @@
           ctxNotes:
             "The Viewer is a neutral surface for reading and validating engine exports without changing their identity.",
           layerLabel: "APEXCREATOR"
+        },
+        APEXOPS: {
+          subtitle: "Active Engine: APEXOPS · Role: Runtime Layer",
+          tag: "APEXOPS · RUNTIME",
+          overviewTitle: "ENGINE OVERVIEW · APEXOPS",
+          overview: [
+            "APEXOPS is the runtime‑side lens for APEX payloads. It inspects how an encounter is likely to behave when actually run.",
+            "It does not simulate; it evaluates operational readiness, pacing, and load based on structured data."
+          ],
+          chips: [
+            "Layer: Runtime",
+            "Scope: Ops / Readiness",
+            "Shell: Inherited",
+            "Mode: Studio / Dev"
+          ],
+          ctxName: "APEXOPS",
+          ctxRole: "Runtime Layer",
+          ctxScope: "Ops / Readiness / Flags",
+          ctxRouting: [
+            "Workspace: OPS Engine Overview",
+            "Right Panel: Runtime Inspector",
+            "Context: Ops Meta"
+          ],
+          ctxNotes:
+            "The Runtime Inspector consumes engine payloads and surfaces operational flags without performing full simulation.",
+          layerLabel: "APEXOPS"
         },
         APEXSIM: {
           subtitle: "Active Engine: APEXSIM · Role: Simulation Layer",
@@ -1291,6 +1433,7 @@
       const ctxNotes = document.getElementById("ctxNotes");
       const ctxLastExport = document.getElementById("ctxLastExport");
       const ctxLastLoaded = document.getElementById("ctxLastLoaded");
+      const ctxLastOps = document.getElementById("ctxLastOps");
       const metaLayer = document.getElementById("metaLayer");
 
       const logList = document.getElementById("logList");
@@ -1449,6 +1592,44 @@
           copyBtn.innerHTML = "<span>COPY SUMMARY</span>";
           copyBtn.addEventListener("click", () => {
             creatorCopySummary();
+          });
+          commandBar.appendChild(copyBtn);
+        }
+
+        if (engineKey === "APEXOPS") {
+          const loadBtn = document.createElement("button");
+          loadBtn.className = "apex-command-btn ops";
+          loadBtn.id = "cmdOpsLoad";
+          loadBtn.innerHTML = "<span>LOAD PAYLOAD</span>";
+          loadBtn.addEventListener("click", () => {
+            opsLoadPayload();
+          });
+          commandBar.appendChild(loadBtn);
+
+          const analyzeBtn = document.createElement("button");
+          analyzeBtn.className = "apex-command-btn";
+          analyzeBtn.id = "cmdOpsAnalyze";
+          analyzeBtn.innerHTML = "<span>ANALYZE RUNTIME</span>";
+          analyzeBtn.addEventListener("click", () => {
+            opsAnalyzeRuntime();
+          });
+          commandBar.appendChild(analyzeBtn);
+
+          const clearBtn = document.createElement("button");
+          clearBtn.className = "apex-command-btn";
+          clearBtn.id = "cmdOpsClear";
+          clearBtn.innerHTML = "<span>CLEAR INSPECTOR</span>";
+          clearBtn.addEventListener("click", () => {
+            opsClearInspector();
+          });
+          commandBar.appendChild(clearBtn);
+
+          const copyBtn = document.createElement("button");
+          copyBtn.className = "apex-command-btn";
+          copyBtn.id = "cmdOpsCopy";
+          copyBtn.innerHTML = "<span>COPY OPS SUMMARY</span>";
+          copyBtn.addEventListener("click", () => {
+            opsCopySummary();
           });
           commandBar.appendChild(copyBtn);
         }
@@ -1625,6 +1806,58 @@
           rightPanelBody.appendChild(viewer);
 
           wireCreatorViewer();
+        } else if (engineKey === "APEXOPS") {
+          rightPanelTitle.textContent = "RUNTIME INSPECTOR";
+          rightPanelTag.textContent = "APEXOPS · TOOL";
+
+          rightPanelBody.innerHTML = "";
+
+          const ops = document.createElement("div");
+          ops.className = "ops-viewer";
+
+          const rowInput = document.createElement("div");
+          rowInput.className = "ops-row";
+          rowInput.innerHTML = `
+            <div class="ops-label">PAYLOAD INPUT</div>
+            <textarea class="ops-textarea" id="opsJsonInput" placeholder="Paste an APEX JSON payload here (e.g., APEXRPG Encounter export)."></textarea>
+          `;
+          ops.appendChild(rowInput);
+
+          const rowActions = document.createElement("div");
+          rowActions.className = "ops-row";
+          rowActions.innerHTML = `
+            <div class="ops-label">ACTIONS</div>
+            <div class="ops-actions">
+              <button class="apex-btn ops" id="opsBtnLoad">Load Payload</button>
+              <button class="apex-btn" id="opsBtnAnalyze">Analyze Runtime</button>
+              <button class="apex-btn" id="opsBtnClear">Clear Inspector</button>
+              <button class="apex-btn" id="opsBtnCopySummary">Copy Ops Summary</button>
+            </div>
+          `;
+          ops.appendChild(rowActions);
+
+          const rowStatus = document.createElement("div");
+          rowStatus.className = "ops-row";
+          rowStatus.innerHTML = `
+            <div class="ops-label">STATUS</div>
+            <div class="ops-status" id="opsStatus">No payload loaded.</div>
+          `;
+          ops.appendChild(rowStatus);
+
+          const rowSummary = document.createElement("div");
+          rowSummary.className = "ops-row";
+          rowSummary.innerHTML = `
+            <div class="ops-label">RUNTIME SUMMARY</div>
+            <div class="ops-summary" id="opsSummary">
+              When a valid payload is loaded and analyzed, an operational summary will appear here.
+            </div>
+            <div class="ops-pill-row" id="opsPills"></div>
+          `;
+          ops.appendChild(rowSummary);
+
+          rightPanelBody.appendChild(ops);
+
+          wireOpsInspector();
         } else {
           rightPanelTitle.textContent = "SYSTEM LOG";
           rightPanelTag.textContent = "Live";
@@ -1996,6 +2229,258 @@
         appendLog("Creator Viewer cleared.", "[VIEWER]");
       }
 
+      /* OPS RUNTIME INSPECTOR LOGIC */
+
+      function wireOpsInspector() {
+        const input = document.getElementById("opsJsonInput");
+        const btnLoad = document.getElementById("opsBtnLoad");
+        const btnAnalyze = document.getElementById("opsBtnAnalyze");
+        const btnClear = document.getElementById("opsBtnClear");
+        const btnCopy = document.getElementById("opsBtnCopySummary");
+
+        if (btnLoad) btnLoad.addEventListener("click", () => opsLoadPayload());
+        if (btnAnalyze) btnAnalyze.addEventListener("click", () => opsAnalyzeRuntime());
+        if (btnClear) btnClear.addEventListener("click", () => opsClearInspector());
+        if (btnCopy) btnCopy.addEventListener("click", () => opsCopySummary());
+
+        if (input) {
+          input.addEventListener("keydown", (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              opsAnalyzeRuntime();
+            }
+          });
+        }
+      }
+
+      function opsGetElements() {
+        return {
+          input: document.getElementById("opsJsonInput"),
+          status: document.getElementById("opsStatus"),
+          summary: document.getElementById("opsSummary"),
+          pills: document.getElementById("opsPills")
+        };
+      }
+
+      function opsLoadPayload() {
+        const { input, status, summary, pills } = opsGetElements();
+        if (!input || !status || !summary || !pills) {
+          appendLog("Runtime Inspector not available.", "[WARN]");
+          return;
+        }
+
+        const raw = input.value.trim();
+        if (!raw) {
+          status.textContent = "No payload provided.";
+          status.className = "ops-status";
+          appendLog("OPS load attempted with empty input.", "[WARN]");
+          return;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (e) {
+          status.textContent = "Invalid JSON: parse error.";
+          status.className = "ops-status error";
+          summary.textContent = "The payload could not be parsed. Check structure before runtime analysis.";
+          pills.innerHTML = "";
+          appendLog("OPS parse error.", "[WARN]");
+          ctxLastOps.textContent = "Parse error";
+          return;
+        }
+
+        status.textContent = "Payload loaded. Ready for runtime analysis.";
+        status.className = "ops-status ok";
+        summary.textContent =
+          "Payload accepted by APEXOPS. Run 'Analyze Runtime' to compute operational characteristics and flags.";
+        pills.innerHTML = "";
+
+        const engine = parsed.engine || "Unknown";
+        const tool = parsed.tool || "Unknown";
+        const name = parsed.name || parsed.title || "Untitled Payload";
+
+        const pillData = [
+          { label: "Engine: " + engine },
+          { label: "Tool: " + tool },
+          { label: "Name: " + name }
+        ];
+
+        pillData.forEach((p) => {
+          const pill = document.createElement("div");
+          pill.className = "ops-pill";
+          pill.textContent = p.label;
+          pills.appendChild(pill);
+        });
+
+        ctxLastOps.textContent = "Loaded: " + name + " (" + engine + ")";
+        appendLog("OPS payload loaded from " + engine + " (" + tool + ").", "[OPS]");
+      }
+
+      function opsAnalyzeRuntime() {
+        const { input, status, summary, pills } = opsGetElements();
+        if (!input || !status || !summary || !pills) {
+          appendLog("Runtime Inspector not available.", "[WARN]");
+          return;
+        }
+
+        const raw = input.value.trim();
+        if (!raw) {
+          status.textContent = "No payload provided.";
+          status.className = "ops-status";
+          appendLog("OPS analysis attempted with empty input.", "[WARN]");
+          return;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (e) {
+          status.textContent = "Invalid JSON: parse error.";
+          status.className = "ops-status error";
+          summary.textContent = "The payload could not be parsed. Check structure before runtime analysis.";
+          pills.innerHTML = "";
+          appendLog("OPS parse error on analysis.", "[WARN]");
+          ctxLastOps.textContent = "Parse error";
+          return;
+        }
+
+        const engine = parsed.engine || "Unknown";
+        const tool = parsed.tool || "Unknown";
+        const name = parsed.name || parsed.title || "Untitled Payload";
+
+        let summaryText =
+          "Runtime analysis for " + name + " from " + engine + " (" + tool + "). ";
+
+        const flags = [];
+        const metrics = [];
+
+        if (engine === "APEXRPG" && tool === "EncounterBuilder") {
+          const party = Number(parsed.partySize || 0);
+          const enemies = Number(parsed.enemyCount || 0);
+          const rounds = Number(parsed.targetRounds || 0);
+          const diffVal = parsed.difficulty && parsed.difficulty.value ? Number(parsed.difficulty.value) : null;
+          const diffLabel = parsed.difficulty && parsed.difficulty.label ? parsed.difficulty.label : "Unknown difficulty";
+          const tier = parsed.tier || "Unknown tier";
+
+          const ratio = party > 0 ? enemies / party : 0;
+
+          metrics.push("Party: " + party);
+          metrics.push("Enemies: " + enemies);
+          metrics.push("Rounds: " + rounds);
+          metrics.push("Difficulty: " + diffLabel);
+          metrics.push("Tier: " + tier);
+          metrics.push("Enemy/Party Ratio: " + (party > 0 ? ratio.toFixed(2) : "N/A"));
+
+          if (party === 0) {
+            flags.push("No party size defined.");
+          }
+          if (enemies === 0) {
+            flags.push("No enemies defined.");
+          }
+          if (ratio > 3) {
+            flags.push("High enemy density relative to party size.");
+          } else if (ratio < 0.5 && enemies > 0) {
+            flags.push("Low enemy density; encounter may feel trivial.");
+          }
+
+          if (diffVal !== null) {
+            if (diffVal >= 5 && ratio >= 2) {
+              flags.push("Lethal difficulty combined with high enemy density.");
+            } else if (diffVal <= 1 && enemies <= party) {
+              flags.push("Trivial difficulty; encounter may not challenge the party.");
+            }
+          }
+
+          if (rounds <= 1) {
+            flags.push("Very short projected duration; may feel like a spike rather than a scene.");
+          } else if (rounds >= 6) {
+            flags.push("Long projected duration; consider pacing and player fatigue.");
+          }
+
+          const tagList = Array.isArray(parsed.tags) ? parsed.tags : [];
+          if (tagList.includes("Boss") && enemies > party * 2) {
+            flags.push("Boss encounter with high enemy count; may overwhelm action economy.");
+          }
+          if (tagList.includes("Ambush") && diffVal && diffVal >= 4) {
+            flags.push("Ambush at high difficulty; opening round may be extremely punishing.");
+          }
+
+          summaryText +=
+            "This is treated as an APEXRPG encounter. Metrics and flags are based on party size, enemy count, difficulty, and pacing.";
+
+        } else {
+          summaryText +=
+            "Engine/tool combination is not specialized in APEXOPS yet. Analysis is generic and limited to structural checks.";
+          if (!parsed.engine) flags.push("Missing 'engine' field.");
+          if (!parsed.tool) flags.push("Missing 'tool' field.");
+        }
+
+        status.textContent = flags.length ? "Analysis complete with flags." : "Analysis complete. No critical flags.";
+        status.className = flags.length ? "ops-status ok" : "ops-status ok";
+        summary.textContent = summaryText;
+
+        pills.innerHTML = "";
+
+        metrics.forEach((m) => {
+          const pill = document.createElement("div");
+          pill.className = "ops-pill";
+          pill.textContent = m;
+          pills.appendChild(pill);
+        });
+
+        if (flags.length) {
+          flags.forEach((f) => {
+            const pill = document.createElement("div");
+            pill.className = "ops-pill";
+            pill.textContent = "Flag: " + f;
+            pills.appendChild(pill);
+          });
+        } else {
+          const pill = document.createElement("div");
+          pill.className = "ops-pill";
+          pill.textContent = "No major runtime flags detected.";
+          pills.appendChild(pill);
+        }
+
+        ctxLastOps.textContent = "Analyzed: " + name + " (" + engine + ")";
+        appendLog(
+          "OPS runtime analysis complete for " + name + " (" + engine + "). Flags: " + flags.length + ".",
+          "[OPS]"
+        );
+      }
+
+      async function opsCopySummary() {
+        const { summary } = opsGetElements();
+        if (!summary) return;
+        const text = summary.textContent || "";
+        if (!text.trim()) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          appendLog("OPS runtime summary copied to clipboard.", "[OPS]");
+        } catch (e) {
+          appendLog("OPS summary clipboard write failed.", "[WARN]");
+        }
+      }
+
+      function opsClearInspector() {
+        const { input, status, summary, pills } = opsGetElements();
+        if (input) input.value = "";
+        if (status) {
+          status.textContent = "Inspector cleared. No payload loaded.";
+          status.className = "ops-status";
+        }
+        if (summary) {
+          summary.textContent =
+            "When a valid payload is loaded and analyzed, an operational summary will appear here.";
+        }
+        if (pills) pills.innerHTML = "";
+        ctxLastOps.textContent = "None";
+        appendLog("OPS Runtime Inspector cleared.", "[OPS]");
+      }
+
+      /* ENGINE SWITCHING */
+
       function setEngine(engineKey) {
         const meta = engineMeta[engineKey];
         if (!meta) return;
@@ -2014,7 +2499,7 @@
         renderCommandBar(engineKey);
         renderRightPanelForEngine(engineKey);
 
-        appendLog(`[ENGINE] Switched active engine to ${engineKey}.`);
+        appendLog("[ENGINE] Switched active engine to " + engineKey + ".");
       }
 
       engineButtons.forEach((btn) => {
