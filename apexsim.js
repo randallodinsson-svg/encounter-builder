@@ -1,6 +1,6 @@
 // ------------------------------------------------------------
-// APEXSIM v3.2 — SAFE MODE 2D
-// Deterministic 2D movement (x, y, vx, vy)
+// APEXSIM v3.3 — SAFE MODE 2D + ACCELERATION
+// Deterministic 2D movement with velocity + acceleration.
 // Guaranteed to load. Guaranteed to run.
 // ------------------------------------------------------------
 
@@ -13,7 +13,9 @@ export function createApexSim(scenario) {
       x: a.x ?? 0,
       y: a.y ?? 0,
       vx: a.vx ?? 0,
-      vy: a.vy ?? 0
+      vy: a.vy ?? 0,
+      ax: a.ax ?? 0,
+      ay: a.ay ?? 0
     })),
     events: []
   };
@@ -21,7 +23,13 @@ export function createApexSim(scenario) {
   function step(rand) {
     state.tick++;
 
-    // Basic 2D movement integration
+    // Apply acceleration first
+    for (const actor of state.actors) {
+      actor.vx += actor.ax;
+      actor.vy += actor.ay;
+    }
+
+    // Then integrate velocity into position
     for (const actor of state.actors) {
       actor.x += actor.vx;
       actor.y += actor.vy;
@@ -45,8 +53,8 @@ export function createApexSim(scenario) {
 }
 
 // ------------------------------------------------------------
-// Minimal Test Scenario V1 — SAFE MODE 2D
-// Two actors moving in 2D so you can see x,y change.
+// Minimal Test Scenario V2 — SAFE MODE 2D + ACCELERATION
+// Two actors with acceleration so you can see smooth motion.
 // ------------------------------------------------------------
 
 export const MinimalTestScenarioV1 = {
@@ -54,10 +62,10 @@ export const MinimalTestScenarioV1 = {
   maxTicks: 10,
 
   actors: [
-    // Moves to the right and down
-    { id: "actor-1", x: 0, y: 0, vx: 0.5, vy: 0.25 },
+    // Accelerates diagonally (speed increases each tick)
+    { id: "actor-1", x: 0, y: 0, vx: 0.2, vy: 0.1, ax: 0.05, ay: 0.02 },
 
-    // Moves to the right and up
-    { id: "actor-2", x: -2, y: 1, vx: 0.25, vy: -0.1 }
+    // Accelerates upward and right
+    { id: "actor-2", x: -2, y: 1, vx: 0.1, vy: -0.05, ax: 0.03, ay: -0.01 }
   ]
 };
