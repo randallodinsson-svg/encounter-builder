@@ -1,142 +1,92 @@
-// apexops.js
-// APEXOPS v2 — Interactive Runtime Inspector for APEXSIM
+/* ========================================================================
+   APEXOPS v3 — RUNTIME INSPECTOR MODULE
+   ------------------------------------------------------------------------
+   Author: Randy Sellhausen (APEXCORE Platform)
+   Module: APEXOPS — Runtime Inspector
+   Version: 3.0.0
+   Identity: Industrial, world‑agnostic, platform‑neutral
+   Purpose: Provide structured inspection, visualization, and analysis
+            of simulation results produced by APEXCORE + APEXSIM.
+   ======================================================================== */
 
 export class ApexOps {
-  constructor(rootElementId, simFactory = null) {
-    this.root = document.getElementById(rootElementId);
+  constructor(rootElementId, simFactory) {
+    this.rootId = rootElementId;
+    this.simFactory = simFactory;
+
+    this.root = null;
+    this.currentResult = null;
+
+    this._mount();
+  }
+
+  /* ========================================================================
+     MOUNT PANEL
+     ======================================================================== */
+  _mount() {
+    this.root = document.getElementById(this.rootId);
     if (!this.root) {
-      console.error(`APEXOPS: Root element #${rootElementId} not found.`);
+      console.warn(`APEXOPS: Root element '${this.rootId}' not found.`);
       return;
     }
-
-    this.simFactory = simFactory; // () => new ApexSim(scenario)
-    this.currentResult = null;
 
     this.root.innerHTML = `
-      <div id="apexops-container" style="font-family: monospace; padding: 20px; color: #eee; background:#111; min-height:100vh;">
-        <h2>APEXOPS Runtime Inspector v2</h2>
-
-        <div id="ops-controls" style="margin-bottom:20px;">
-          <button id="ops-run-btn" style="margin-right:10px;">Run Simulation</button>
-          <button id="ops-clear-btn">Clear</button>
+      <div style="font-size:12px; color:#ccc;">
+        <div style="margin-bottom:8px;">APEXOPS Runtime Inspector Ready.</div>
+        <div id="ops-live-view" style="white-space:pre; font-size:11px; color:#aaa;">
+          No simulation loaded.
         </div>
-
-        <div id="ops-summary" style="margin-bottom:20px;"></div>
-        <div id="ops-global" style="margin-bottom:20px;"></div>
-        <div id="ops-actors" style="margin-bottom:20px;"></div>
-        <div id="ops-timeline" style="margin-bottom:20px;"></div>
-        <div id="ops-logs" style="margin-bottom:20px;"></div>
-        <div id="ops-outcome" style="margin-bottom:20px; font-weight:bold;"></div>
       </div>
     `;
-
-    this._wireControls();
   }
 
-  _wireControls() {
-    const runBtn = document.getElementById("ops-run-btn");
-    const clearBtn = document.getElementById("ops-clear-btn");
-
-    if (runBtn) {
-      runBtn.addEventListener("click", () => {
-        if (!this.simFactory) {
-          console.error("APEXOPS: No simFactory provided. Cannot run simulation.");
-          return;
-        }
-        const sim = this.simFactory();
-        const result = sim.start();
-        this.loadSimulationResult(result);
-      });
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener("click", () => {
-        this.clearView();
-      });
-    }
-  }
-
-  clearView() {
-    this.currentResult = null;
-    const ids = ["ops-summary", "ops-global", "ops-actors", "ops-timeline", "ops-logs", "ops-outcome"];
-    ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = "";
-    });
-  }
-
+  /* ========================================================================
+     LOAD SIMULATION RESULT
+     ======================================================================== */
   loadSimulationResult(result) {
-    if (!result) {
-      console.error("APEXOPS: No simulation result provided.");
-      return;
-    }
-
     this.currentResult = result;
-    this.renderSummary(result);
-    this.renderGlobalState(result.finalState.global);
-    this.renderActors(result.finalState.actors);
-    this.renderTimeline(result.logs);
-    this.renderLogs(result.logs);
-    this.renderOutcome(result.outcome);
-  }
 
-  renderSummary(result) {
-    const el = document.getElementById("ops-summary");
-    if (!el) return;
-    el.innerHTML = `
-      <h3>Simulation Summary</h3>
-      <p>Total Ticks: ${result.ticks}</p>
-      <p>Outcome: ${result.outcome?.id || "None"}</p>
-    `;
-  }
+    const view = this.root.querySelector("#ops-live-view");
+    if (!view) return;
 
-  renderGlobalState(global) {
-    const el = document.getElementById("ops-global");
-    if (!el) return;
-    el.innerHTML = `
-      <h3>Global State</h3>
-      <pre>${JSON.stringify(global, null, 2)}</pre>
-    `;
-  }
-
-  renderActors(actors) {
-    const el = document.getElementById("ops-actors");
-    if (!el) return;
-    el.innerHTML = `<h3>Actors</h3>`;
-    for (const id in actors) {
-      el.innerHTML += `
-        <div style="margin-bottom:10px;">
-          <strong>${id}</strong>
-          <pre>${JSON.stringify(actors[id], null, 2)}</pre>
-        </div>
-      `;
+    try {
+      view.textContent = JSON.stringify(result, null, 2);
+    } catch {
+      view.textContent = String(result);
     }
   }
 
-  renderTimeline(logs) {
-    const el = document.getElementById("ops-timeline");
-    if (!el) return;
-    el.innerHTML = `<h3>Tick Timeline</h3>`;
-    logs.forEach(log => {
-      el.innerHTML += `<div>Tick ${log.tick}: ${log.message}</div>`;
-    });
+  /* ========================================================================
+     RUN SIMULATION (INTERNAL)
+     ------------------------------------------------------------------------
+     Used by APEXOPS UI or external callers.
+     ======================================================================== */
+  runSimulation(core) {
+    if (!this.simFactory) {
+      throw new Error("APEXOPS: No simFactory provided.");
+    }
+
+    const result = core.startSimulation(s => this.simFactory(s));
+    this.loadSimulationResult(result);
+    return result;
   }
 
-  renderLogs(logs) {
-    const el = document.getElementById("ops-logs");
-    if (!el) return;
-    el.innerHTML = `<h3>Event Log</h3>`;
-    logs.forEach(log => {
-      el.innerHTML += `<div>[${log.tick}] ${log.message}</div>`;
-    });
-  }
+  /* ========================================================================
+     RESET VIEW
+     ======================================================================== */
+  reset() {
+    this.currentResult = null;
 
-  renderOutcome(outcome) {
-    const el = document.getElementById("ops-outcome");
-    if (!el) return;
-    el.innerHTML = `
-      <h3>Outcome</h3>
-      <pre>${JSON.stringify(outcome, null, 2)}</pre>
-    `;
+    const view = this.root.querySelector("#ops-live-view");
+    if (view) {
+      view.textContent = "No simulation loaded.";
+    }
   }
+}
+
+/* ========================================================================
+   FACTORY — Create a fully configured APEXOPS instance
+   ======================================================================== */
+export function createApexOps(rootId, simFactory) {
+  return new ApexOps(rootId, simFactory);
 }
