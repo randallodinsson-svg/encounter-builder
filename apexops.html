@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXOPS + APEXAI Scenario Browser</title>
+    <title>APEXOPS + APEXAI Scenario Browser v2</title>
 </head>
 
 <body style="margin:0; background:#111; color:#eee; font-family:monospace;">
@@ -12,9 +12,9 @@
 <!-- ========================================================= -->
 <div id="apex-layout" style="display:flex; height:100vh;">
 
-    <!-- LEFT SIDEBAR: AI Scenario Browser -->
+    <!-- LEFT SIDEBAR: AI Scenario Browser v2 -->
     <div id="apex-sidebar" style="
-        width:300px;
+        width:320px;
         border-right:1px solid #333;
         padding:15px;
         overflow-y:auto;
@@ -23,7 +23,7 @@
         <h2 style="margin-top:0;">AI Scenario Browser</h2>
 
         <button id="ai-generate-btn" style="
-            margin-bottom:15px;
+            margin-bottom:10px;
             width:100%;
             padding:8px;
             background:#222;
@@ -31,6 +31,23 @@
             border:1px solid #444;
             cursor:pointer;
         ">Generate Scenarios</button>
+
+        <div style="margin-bottom:10px;">
+            <label for="ai-filter" style="font-size:12px; color:#aaa;">Filter by difficulty:</label>
+            <select id="ai-filter" style="
+                width:100%;
+                padding:6px;
+                background:#181818;
+                color:#eee;
+                border:1px solid #444;
+                margin-top:4px;
+            ">
+                <option value="all">All</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
 
         <div id="ai-scenario-list"></div>
     </div>
@@ -63,27 +80,59 @@
     ops.loadSimulationResult(initialResult);
 
     // ------------------------------------------------------
-    // SCENARIO BROWSER LOGIC
+    // SCENARIO BROWSER v2 LOGIC
     // ------------------------------------------------------
 
     const scenarioListEl = document.getElementById("ai-scenario-list");
     const generateBtn = document.getElementById("ai-generate-btn");
+    const filterSelect = document.getElementById("ai-filter");
 
-    // Render a scenario card
-    function renderScenarioCard(scenario, index) {
+    let scenarios = [];
+    let currentFilter = "all";
+
+    function classifyDifficulty(distance) {
+        if (distance <= 6) return "easy";
+        if (distance <= 8) return "medium";
+        return "hard";
+    }
+
+    function difficultyColor(diff) {
+        if (diff === "easy") return "#3fa34d";
+        if (diff === "medium") return "#e0a93b";
+        return "#d9534f";
+    }
+
+    // Render a single scenario card
+    function renderScenarioCard(scenario) {
+        const distance = scenario.actors[0].attributes.targetPosition;
+        const speed = scenario.actors[0].speed;
+        const accel = scenario.actors[0].acceleration;
+        const diff = scenario.difficulty || classifyDifficulty(distance);
+
         const card = document.createElement("div");
         card.style.border = "1px solid #444";
         card.style.padding = "10px";
         card.style.marginBottom = "10px";
         card.style.background = "#181818";
 
+        const runId = `run-${scenario.id}`;
+
         card.innerHTML = `
-            <strong>${scenario.label}</strong><br>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <strong style="font-size:13px;">${scenario.label}</strong>
+                <span style="
+                    font-size:11px;
+                    padding:2px 6px;
+                    border-radius:10px;
+                    background:${difficultyColor(diff)};
+                    color:#fff;
+                ">${diff.toUpperCase()}</span>
+            </div>
             <small>ID: ${scenario.id}</small><br>
-            <small>Distance: ${scenario.actors[0].attributes.targetPosition}</small><br>
-            <small>Speed: ${scenario.actors[0].speed}</small><br>
-            <small>Accel: ${scenario.actors[0].acceleration}</small><br>
-            <button id="run-${index}" style="
+            <small>Distance: ${distance}</small><br>
+            <small>Speed: ${speed}</small><br>
+            <small>Accel: ${accel}</small><br>
+            <button id="${runId}" style="
                 margin-top:10px;
                 width:100%;
                 padding:6px;
@@ -96,13 +145,11 @@
 
         scenarioListEl.appendChild(card);
 
-        // Wire the Run button
-        document.getElementById(`run-${index}`).addEventListener("click", () => {
+        document.getElementById(runId).addEventListener("click", () => {
             core.loadScenario(scenario);
             const result = core.startSimulation((scenario) => new ApexSim(scenario));
             ops.loadSimulationResult(result);
 
-            // AI analysis appended under outcome
             const analysis = ai.evaluateResult(result);
             const outcomeEl = document.getElementById("ops-outcome");
             outcomeEl.innerHTML += `
@@ -112,22 +159,52 @@
         });
     }
 
+    function renderScenarioList() {
+        scenarioListEl.innerHTML = "";
+
+        const filtered = scenarios.filter(s => {
+            if (currentFilter === "all") return true;
+            return s.difficulty === currentFilter;
+        });
+
+        filtered.forEach(renderScenarioCard);
+    }
+
     // Generate multiple scenarios
     generateBtn.addEventListener("click", () => {
-        scenarioListEl.innerHTML = ""; // clear old list
+        scenarios = [];
 
-        const count = 5; // number of scenarios to generate
+        const count = 8; // number of scenarios to generate
         for (let i = 0; i < count; i++) {
+            const distanceToSafety = 5 + Math.floor(Math.random() * 8); // 5–12
+            const civilianSpeed = 1;
+            const civilianAcceleration = 1;
+
             const scenario = ai.generateEvacScenario({
                 id: `ai_scenario_${Date.now()}_${i}`,
-                distanceToSafety: 5 + Math.floor(Math.random() * 6), // 5–10
-                civilianSpeed: 1,
-                civilianAcceleration: 1,
-                maxTicks: 20
+                label: `AI Evac Scenario #${i + 1}`,
+                distanceToSafety,
+                civilianSpeed,
+                civilianAcceleration,
+                maxTicks: 25
             });
 
-            renderScenarioCard(scenario, i);
+            scenario.difficulty = classifyDifficulty(distanceToSafety);
+            scenarios.push(scenario);
         }
+
+        // sort by distance (ascending)
+        scenarios.sort((a, b) =>
+            a.actors[0].attributes.targetPosition - b.actors[0].attributes.targetPosition
+        );
+
+        renderScenarioList();
+    });
+
+    // Filter change
+    filterSelect.addEventListener("change", () => {
+        currentFilter = filterSelect.value;
+        renderScenarioList();
     });
 </script>
 
