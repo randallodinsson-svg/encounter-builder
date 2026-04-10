@@ -26,7 +26,7 @@ export class ApexSim {
         velocity: actorDef.velocity ?? 0,
         speed: actorDef.speed ?? 1,
         acceleration: actorDef.acceleration ?? 0,
-        direction: actorDef.direction ?? 1, // +1 or -1
+        direction: actorDef.direction ?? 1,
         state: actorDef.state ?? {},
         attributes: actorDef.attributes ?? {},
         behavior: actorDef.behavior ?? null
@@ -50,7 +50,6 @@ export class ApexSim {
     }
 
     if (!this.outcome) {
-      // If no explicit outcome, let scenario decide or mark as failure
       this.outcome =
         this.scenario.checkOutcome?.(this.state, this.currentTick, this.logs) ||
         { id: "failure", label: "failure", reason: "Max ticks reached without success." };
@@ -68,12 +67,10 @@ export class ApexSim {
   _tick() {
     const { global, actors } = this.state;
 
-    // Tick start hook
     if (this.scenario.onTickStart) {
       this.scenario.onTickStart(this.state, this.currentTick, this.logs);
     }
 
-    // 1) Run behaviors → produce events
     const events = [];
     for (const id in actors) {
       const actor = actors[id];
@@ -89,11 +86,9 @@ export class ApexSim {
       }
     }
 
-    // 2) Apply movement (1D)
     for (const id in actors) {
       const actor = actors[id];
 
-      // Basic 1D movement model
       actor.velocity += actor.acceleration;
       if (actor.velocity < 0) actor.velocity = 0;
       if (actor.velocity > actor.speed) actor.velocity = actor.speed;
@@ -101,15 +96,12 @@ export class ApexSim {
       actor.position += actor.velocity * actor.direction;
     }
 
-    // 3) Process events
     for (const evt of events) {
       this._processEvent(evt, this.state);
     }
 
-    // 4) Update global tick count
     global.ticksElapsed = this.currentTick;
 
-    // 5) Check outcome
     if (this.scenario.checkOutcome) {
       const outcome = this.scenario.checkOutcome(this.state, this.currentTick, this.logs);
       if (outcome) {
@@ -117,7 +109,6 @@ export class ApexSim {
       }
     }
 
-    // Tick end hook
     if (this.scenario.onTickEnd) {
       this.scenario.onTickEnd(this.state, this.currentTick, this.logs);
     }
@@ -130,7 +121,6 @@ export class ApexSim {
     switch (id) {
       case "move":
         if (!actor) return;
-        // Direct position adjustment in addition to movement model
         actor.position += (params.distance ?? 1) * (params.direction ?? actor.direction ?? 1);
         this.log(
           `Event fired: move (actor=${actorId}, distance=${params.distance ?? 1}, dir=${params.direction ?? actor.direction ?? 1})`
@@ -187,7 +177,6 @@ export const MinimalTestScenarioV1 = {
       state: {},
       attributes: { role: "civilian" },
       behavior: (actor, state, tick) => {
-        // Civilian tries to move toward position >= 5
         if (!state.global.doorOpen && tick === 1) {
           return { event: "openDoor" };
         }
@@ -209,14 +198,11 @@ export const MinimalTestScenarioV1 = {
       direction: 1,
       state: {},
       attributes: { role: "helper" },
-      behavior: (actor, state, tick) => {
-        // Helper is idle in v2 minimal scenario
-        return null;
-      }
+      behavior: () => null
     }
   ],
 
-  checkOutcome(state, tick, logs) {
+  checkOutcome(state, tick) {
     const civilian = state.actors["civilian"];
 
     if (civilian && civilian.position >= 5) {
@@ -236,13 +222,5 @@ export const MinimalTestScenarioV1 = {
     }
 
     return null;
-  },
-
-  onTickStart(state, tick, logs) {
-    // Optional: could log or mutate state here
-  },
-
-  onTickEnd(state, tick, logs) {
-    // Optional: could log or mutate state here
   }
 };
