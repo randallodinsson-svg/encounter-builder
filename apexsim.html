@@ -27,10 +27,43 @@
 <!-- LAYOUT -->
 <div style="padding:16px;">
 
+  <!-- RUN BUTTON -->
   <button id="run-btn"
     style="padding:8px 14px; border:1px solid #2a6; background:#041a0f; color:#e5e5e5; cursor:pointer; font-size:13px;">
     Run Test Simulation
   </button>
+
+  <!-- APEXSIM CONTROL PANEL -->
+  <div id="apexsim-controls" style="
+    margin-top:20px;
+    padding:14px;
+    border:1px solid #222;
+    background:#0d1117;
+    font-size:12px;
+    color:#ccc;
+    line-height:1.4;
+  ">
+
+    <div style="font-size:13px; margin-bottom:10px; color:#7fffd4; font-weight:bold;">
+      APEXSIM Controls
+    </div>
+
+    <label style="display:flex; align-items:center; margin-bottom:8px;">
+      <input type="checkbox" id="sim-toggle-glow" checked style="margin-right:6px;">
+      Glow
+    </label>
+
+    <label style="display:flex; align-items:center; margin-bottom:8px;">
+      <input type="checkbox" id="sim-toggle-trails" checked style="margin-right:6px;">
+      Trails
+    </label>
+
+    <label style="display:flex; align-items:center; margin-bottom:8px;">
+      <input type="checkbox" id="sim-toggle-debug" checked style="margin-right:6px;">
+      Debug Vectors
+    </label>
+
+  </div>
 
   <!-- REQUIRED CANVAS FOR APEXSIM -->
   <canvas id="sim-canvas" width="800" height="400"></canvas>
@@ -46,6 +79,43 @@ No simulation run yet.
 
 <!-- Load APEXSIM engine -->
 <script src="./apexsim.js"></script>
+
+<!-- APEXSIM UI CONTROL PANEL — ONE AND DONE -->
+<script>
+// Wait until APEXSIM exists
+function bindApexSimControls() {
+  if (!window.APEXSIM) {
+    requestAnimationFrame(bindApexSimControls);
+    return;
+  }
+
+  // Glow toggle
+  const glowToggle = document.getElementById("sim-toggle-glow");
+  if (glowToggle) {
+    glowToggle.addEventListener("change", (e) => {
+      APEXSIM.showGlow = e.target.checked;
+    });
+  }
+
+  // Trails toggle
+  const trailsToggle = document.getElementById("sim-toggle-trails");
+  if (trailsToggle) {
+    trailsToggle.addEventListener("change", (e) => {
+      APEXSIM.showTrails = e.target.checked;
+    });
+  }
+
+  // Debug vectors toggle
+  const debugToggle = document.getElementById("sim-toggle-debug");
+  if (debugToggle) {
+    debugToggle.addEventListener("change", (e) => {
+      APEXSIM.showDebugVectors = e.target.checked;
+    });
+  }
+}
+
+bindApexSimControls();
+</script>
 
 <!-- Load APEXCORE as module -->
 <script type="module">
