@@ -1,1 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>APEXSIM — Simulation Panel</title>
+</head>
 
+<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
+
+<!-- HEADER -->
+<div style="padding:8px 12px; border-bottom:1px solid #222; background:#080a0d;">
+  <span style="font-weight:bold;">APEXSIM — SIMULATION PANEL</span>
+  <span style="color:#888; margin-left:8px;">v3</span>
+</div>
+
+<!-- LAYOUT -->
+<div style="padding:16px;">
+
+  <button id="run-btn"
+    style="padding:8px 14px; border:1px solid #2a6; background:#041a0f; color:#e5e5e5; cursor:pointer; font-size:13px;">
+    Run Test Simulation
+  </button>
+
+  <div style="margin-top:20px; font-size:12px; color:#888;">OUTPUT</div>
+
+  <pre id="output"
+    style="margin-top:6px; padding:12px; border:1px solid #222; background:#07090c; height:70vh; overflow:auto; font-size:12px;">
+No simulation run yet.
+  </pre>
+
+</div>
+
+<!-- SCRIPT -->
+<script type="module">
+  import { createApexCore } from './apexcore.js';
+  import { createApexSim, MinimalTestScenarioV1 } from './apexsim.js';
+
+  const core = createApexCore();
+
+  // Load default scenario
+  core.loadScenario(MinimalTestScenarioV1);
+
+  const runBtn = document.getElementById("run-btn");
+  const outputEl = document.getElementById("output");
+
+  runBtn.addEventListener("click", () => {
+    const result = core.startSimulation(s => createApexSim(s));
+    outputEl.textContent = JSON.stringify(result, null, 2);
+  });
+</script>
+
+</body>
+</html>
