@@ -1,5 +1,6 @@
 // ------------------------------------------------------------
-// APEXSIM v3.3 — Steering Behaviors + Fade‑Out Trails + Debug + Glow
+// APEXSIM v3.4 — Flocking (Separation, Alignment, Cohesion)
+// + Steering Base + Fade‑Out Trails + Debug + Glow
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -44,9 +45,8 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Steering behaviors
+    // Steering primitives
     // --------------------------------------------------------
-
     steerSeek(target) {
         const desired = sub(target, this.pos);
         const d = mag(desired);
@@ -88,27 +88,9 @@ class Agent {
         return limit(steer, this.maxForce);
     }
 
-    steerPursuit(targetAgent) {
-        const predictionTime = 20;
-        const futurePos = add(
-            targetAgent.pos,
-            mul(targetAgent.vel, predictionTime * 0.01)
-        );
-        return this.steerSeek(futurePos);
-    }
-
-    steerEvade(targetAgent) {
-        const predictionTime = 20;
-        const futurePos = add(
-            targetAgent.pos,
-            mul(targetAgent.vel, predictionTime * 0.01)
-        );
-        return this.steerFlee(futurePos);
-    }
-
     // --------------------------------------------------------
-    // Wander steering (kept as core behavior)
-    // --------------------------------------------------------
+    // Wander steering (kept as noise source)
+// --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
         const wanderDistance = 20;
@@ -132,21 +114,102 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Behavior blending demo
+    // Flocking behaviors
     // --------------------------------------------------------
-    computeSteering(target) {
-        // Simple blend: wander + arrive toward a shared target
-        const wanderForce = this.steerWander();
-        const arriveForce = this.steerArrive(target);
+    flock(neighbors) {
+        const separation = this.flockSeparation(neighbors);
+        const alignment = this.flockAlignment(neighbors);
+        const cohesion = this.flockCohesion(neighbors);
+        const wander = this.steerWander();
 
-        const wanderWeight = 0.6;
-        const arriveWeight = 0.4;
+        const sepWeight = 1.5;
+        const aliWeight = 1.0;
+        const cohWeight = 1.0;
+        const wanWeight = 0.3;
 
         let steer = vec(0, 0);
-        steer = add(steer, mul(wanderForce, wanderWeight));
-        steer = add(steer, mul(arriveForce, arriveWeight));
+        steer = add(steer, mul(separation, sepWeight));
+        steer = add(steer, mul(alignment, aliWeight));
+        steer = add(steer, mul(cohesion, cohWeight));
+        steer = add(steer, mul(wander, wanWeight));
+
+        this.applyForce(steer);
+    }
+
+    flockSeparation(neighbors) {
+        const desiredSeparation = 25;
+        let steer = vec(0, 0);
+        let count = 0;
+
+        for (const other of neighbors) {
+            const d = mag(sub(this.pos, other.pos));
+            if (d > 0 && d < desiredSeparation) {
+                let diff = sub(this.pos, other.pos);
+                diff = norm(diff);
+                diff = mul(diff, 1 / d);
+                steer = add(steer, diff);
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            steer = mul(steer, 1 / count);
+        }
+
+        if (mag(steer) > 0) {
+            steer = norm(steer);
+            steer = mul(steer, this.maxSpeed);
+            steer = sub(steer, this.vel);
+            steer = limit(steer, this.maxForce);
+        }
 
         return steer;
+    }
+
+    flockAlignment(neighbors) {
+        const neighborDist = 50;
+        let sum = vec(0, 0);
+        let count = 0;
+
+        for (const other of neighbors) {
+            const d = mag(sub(this.pos, other.pos));
+            if (d > 0 && d < neighborDist) {
+                sum = add(sum, other.vel);
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            sum = mul(sum, 1 / count);
+            sum = norm(sum);
+            sum = mul(sum, this.maxSpeed);
+            let steer = sub(sum, this.vel);
+            steer = limit(steer, this.maxForce);
+            return steer;
+        }
+
+        return vec(0, 0);
+    }
+
+    flockCohesion(neighbors) {
+        const neighborDist = 50;
+        let sum = vec(0, 0);
+        let count = 0;
+
+        for (const other of neighbors) {
+            const d = mag(sub(this.pos, other.pos));
+            if (d > 0 && d < neighborDist) {
+                sum = add(sum, other.pos);
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            sum = mul(sum, 1 / count);
+            return this.steerSeek(sum);
+        }
+
+        return vec(0, 0);
     }
 
     update() {
@@ -170,14 +233,10 @@ const APEXSIM = {
     running: false,
     ctx: null,
 
-    // Debug toggles (unchanged)
+    // Debug toggles
     showTrails: true,
     showDebugVectors: true,
     showGlow: true,
-
-    // Shared steering target
-    steeringTarget: vec(400, 300),
-    steeringTargetAngle: 0,
 
     init(canvas) {
         this.ctx = canvas.getContext("2d");
@@ -185,30 +244,23 @@ const APEXSIM = {
         this.height = canvas.height;
 
         this.agents = [];
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 40; i++) {
             this.agents.push(new Agent(rand() * this.width, rand() * this.height));
         }
-
-        this.steeringTarget = vec(this.width / 2, this.height / 2);
-        this.steeringTargetAngle = 0;
-    },
-
-    updateSteeringTarget() {
-        const radius = Math.min(this.width, this.height) * 0.25;
-        this.steeringTargetAngle += 0.01;
-
-        this.steeringTarget.x = this.width / 2 + Math.cos(this.steeringTargetAngle) * radius;
-        this.steeringTarget.y = this.height / 2 + Math.sin(this.steeringTargetAngle) * radius;
     },
 
     step() {
-        this.updateSteeringTarget();
+        // Flocking: each agent considers all others as potential neighbors
+        for (let i = 0; i < this.agents.length; i++) {
+            const a = this.agents[i];
+            const neighbors = this.agents; // simple global neighborhood
+            a.flock(neighbors);
+        }
 
         for (const a of this.agents) {
-            const steer = a.computeSteering(this.steeringTarget);
-            a.applyForce(steer);
             a.update();
 
+            // Wrap edges
             if (a.pos.x < 0) a.pos.x = this.width;
             if (a.pos.x > this.width) a.pos.x = 0;
             if (a.pos.y < 0) a.pos.y = this.height;
@@ -249,29 +301,26 @@ const APEXSIM = {
         const c = this.ctx;
 
         for (const a of this.agents) {
+            // Velocity vector
             c.strokeStyle = "#0f0";
             c.beginPath();
             c.moveTo(a.pos.x, a.pos.y);
             c.lineTo(a.pos.x + a.vel.x * 10, a.pos.y + a.vel.y * 10);
             c.stroke();
 
+            // Wander circle
             c.strokeStyle = "#f00";
             c.beginPath();
             c.arc(a.debugCirclePos.x, a.debugCirclePos.y, 12, 0, Math.PI * 2);
             c.stroke();
 
+            // Wander target
             c.strokeStyle = "#ff0";
             c.beginPath();
             c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
             c.stroke();
         }
-
-        // Draw steering target
-        c.strokeStyle = "#ffffff";
-        c.beginPath();
-        c.arc(this.steeringTarget.x, this.steeringTarget.y, 6, 0, Math.PI * 2);
-        c.stroke();
     },
 
     // --------------------------------------------------------
