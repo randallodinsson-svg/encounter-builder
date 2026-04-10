@@ -1,468 +1,126 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>APEXCORE — System Shell</title>
-</head>
+/* ========================================================================
+   APEXSIM v3 — DETERMINISTIC SIMULATION ENGINE
+   ------------------------------------------------------------------------
+   Author: Randy Sellhausen (APEXCORE Platform)
+   Module: APEXSIM — Simulation Layer
+   Version: 3.0.0 (Standard Edition)
+   Identity: Industrial, world‑agnostic, platform‑neutral
+   Purpose: Deterministic tick‑based simulation engine compatible with
+            APEXCORE v3 and APEXOPS v3.
+   ======================================================================== */
 
-<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
+export class ApexSim {
+  constructor(scenario) {
+    this.scenario = scenario;
 
-<!-- HEADER -->
-<div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
-  <div>
-    <span style="font-weight:bold;">APEXCORE — SYSTEM SHELL</span>
-    <span style="color:#888; margin-left:8px;">Engine Router v2</span>
-  </div>
-  <div style="font-size:12px; color:#aaa;">
-    Mode: <span style="color:#6cf;">Studio / Dev</span> · Status: <span style="color:#6f6;">ONLINE</span>
-  </div>
-</div>
+    // Simulation state container
+    this.state = {
+      tick: 0,
+      actors: [],
+      events: [],
+      done: false
+    };
 
-<!-- LAYOUT -->
-<div style="display:flex; height:calc(100vh - 40px);">
-
-  <!-- LEFT: ENGINE LIST -->
-  <div style="width:220px; border-right:1px solid #222; padding:12px; background:#050608;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">ENGINES</div>
-    <div id="engine-list"></div>
-  </div>
-
-  <!-- CENTER: WORKSPACE -->
-  <div style="flex:1; border-right:1px solid #222; padding:12px; background:#07090c;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">WORKSPACE</div>
-    <div id="workspace-panel" style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto;"></div>
-  </div>
-
-  <!-- RIGHT: SYSTEM LOG + CONTEXT -->
-  <div style="width:320px; padding:12px; background:#050608;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">SYSTEM LOG</div>
-    <div id="system-log" style="border:1px solid #222; padding:8px; background:#07090c; height:45%; overflow:auto; font-size:11px;"></div>
-
-    <div style="font-size:11px; color:#888; margin:8px 0 4px;">CONTEXT</div>
-    <div id="context-panel" style="border:1px solid #222; padding:8px; background:#07090c; height:45%; overflow:auto; font-size:11px;"></div>
-  </div>
-
-</div>
-
-<!-- SCRIPT -->
-<script type="module">
-  /* ------------------------------------------------------------
-     ENGINE REGISTRY
-  ------------------------------------------------------------ */
-  const engines = [
-    { id:"APEXCORE", role:"System Layer", scope:"Shell / Panel Framework", workspace:"Core Overview",
-      description:"APEXCORE is the shared operating layer for the APEX Engine Family." },
-
-    { id:"APEXRPG", role:"Narrative", scope:"Story / Encounter Logic", workspace:"Narrative Tools",
-      description:"APEXRPG manages narrative structures and encounter logic." },
-
-    { id:"APEXCREATOR", role:"Creator", scope:"Authoring / Layout", workspace:"Creator Workspace",
-      description:"APEXCREATOR provides creator-facing tools for building encounters." },
-
-    { id:"APEXOPS", role:"Runtime", scope:"Inspection / Telemetry", workspace:"Ops Console",
-      description:"APEXOPS is the runtime inspector for simulations and encounters." },
-
-    { id:"APEXSIM", role:"Simulation", scope:"Engine / Tick Loop", workspace:"Simulation View",
-      description:"APEXSIM runs deterministic simulations over time." },
-
-    { id:"APEXMMO", role:"Scale", scope:"Multi-Node / Sharding", workspace:"Scale Dashboard",
-      description:"APEXMMO handles scale, distribution, and multi-node orchestration." },
-
-    { id:"APEXAI", role:"Intelligence", scope:"Scenario / Behavior / Analysis", workspace:"AI Scenario Browser",
-      description:"APEXAI generates, classifies, and analyzes scenarios for simulation and inspection." }
-  ];
-
-  const engineListEl = document.getElementById("engine-list");
-  const workspacePanel = document.getElementById("workspace-panel");
-  const systemLog = document.getElementById("system-log");
-  const contextPanel = document.getElementById("context-panel");
-
-  let activeEngineId = "APEXCORE";
-
-  // APEXAI state
-  const aiState = {
-    scenarios: [],
-    difficulty: "all"
-  };
-
-  /* ------------------------------------------------------------
-     LOGGING
-  ------------------------------------------------------------ */
-  function log(line) {
-    const ts = new Date().toISOString().split("T")[1].split(".")[0];
-    const div = document.createElement("div");
-    div.textContent = `[${ts}] ${line}`;
-    systemLog.prepend(div);
+    // Deterministic seed (inherited from APEXCORE)
+    this.rand = null;
+    this.emit = null;
   }
 
-  /* ------------------------------------------------------------
-     ENGINE LIST RENDER
-  ------------------------------------------------------------ */
-  function renderEngineList() {
-    engineListEl.innerHTML = "";
-    engines.forEach(engine => {
-      const btn = document.createElement("div");
-      btn.textContent = engine.id;
-      btn.style.padding = "6px 8px";
-      btn.style.marginBottom = "4px";
-      btn.style.cursor = "pointer";
-      btn.style.fontSize = "12px";
-      btn.style.border = "1px solid #222";
-      btn.style.background = engine.id === activeEngineId ? "#111822" : "#050608";
-      btn.style.color = engine.id === activeEngineId ? "#7fd0ff" : "#e5e5e5";
+  /* ========================================================================
+     INITIALIZE SIMULATION
+     ======================================================================== */
+  _init(context) {
+    this.rand = context.rand;
+    this.emit = context.emit;
 
-      btn.addEventListener("click", () => {
-        if (engine.id === activeEngineId) return;
-        activeEngineId = engine.id;
-        log(`[EVENT] Switched active engine to ${engine.id}.`);
-        renderEngineList();
-        renderWorkspace();
-        renderContext();
-      });
+    // Initialize actors if scenario defines them
+    if (this.scenario.actors) {
+      this.state.actors = JSON.parse(JSON.stringify(this.scenario.actors));
+    }
 
-      engineListEl.appendChild(btn);
-    });
+    this.emit("sim:init", { scenarioId: this.scenario.id });
   }
 
-  /* ------------------------------------------------------------
-     APEXAI HELPERS
-  ------------------------------------------------------------ */
-  function generateAIScenarios() {
-    aiState.scenarios = [
-      {
-        id: "ai-1",
-        title: "Highway Pursuit — Wet Conditions",
-        difficulty: "hard",
-        summary: "High-speed pursuit on a wet highway with reduced traction and mixed civilian traffic."
-      },
-      {
-        id: "ai-2",
-        title: "Urban Patrol — Night Shift",
-        difficulty: "medium",
-        summary: "Routine patrol through dense urban grid with pedestrians, parked vehicles, and random events."
-      },
-      {
-        id: "ai-3",
-        title: "Training Loop — Closed Course",
-        difficulty: "easy",
-        summary: "Controlled training environment with predictable turns and no civilian interference."
-      },
-      {
-        id: "ai-4",
-        title: "Bridge Incident — Limited Visibility",
-        difficulty: "hard",
-        summary: "Incident on a narrow bridge with fog, stalled vehicles, and constrained maneuvering space."
-      },
-      {
-        id: "ai-5",
-        title: "Suburban Response — Daytime",
-        difficulty: "medium",
-        summary: "Response through suburban streets with intersections, driveways, and moderate traffic."
+  /* ========================================================================
+     SINGLE TICK
+     ======================================================================== */
+  _tick() {
+    this.state.tick++;
+
+    // Example deterministic event
+    const r = this.rand();
+    if (r > 0.95) {
+      const evt = {
+        tick: this.state.tick,
+        type: "random-spike",
+        value: r
+      };
+      this.state.events.push(evt);
+      this.emit("sim:event", evt);
+    }
+
+    // Example actor update
+    for (const actor of this.state.actors) {
+      if (typeof actor.update === "function") {
+        actor.update({ rand: this.rand });
       }
-    ];
-    log("[AI] Generated scenario set via APEXAI panel.");
+    }
+
+    // Example termination condition
+    if (this.state.tick >= (this.scenario.maxTicks || 20)) {
+      this.state.done = true;
+    }
   }
 
-  function renderAIScenariosList() {
-    const listEl = document.getElementById("ai-scenario-list");
-    if (!listEl) return;
+  /* ========================================================================
+     RUN SIMULATION (MAIN ENTRY POINT)
+     ======================================================================== */
+  run(context) {
+    this._init(context);
 
-    listEl.innerHTML = "";
-
-    const filtered = aiState.scenarios.filter(s => {
-      if (aiState.difficulty === "all") return true;
-      return s.difficulty === aiState.difficulty;
-    });
-
-    if (filtered.length === 0) {
-      listEl.innerHTML = `<div style="font-size:12px; color:#777;">No scenarios. Click “Generate Scenarios” above.</div>`;
-      return;
+    while (!this.state.done) {
+      this._tick();
     }
 
-    filtered.forEach(s => {
-      const card = document.createElement("div");
-      card.style.border = "1px solid #222";
-      card.style.background = "#05070b";
-      card.style.padding = "8px";
-      card.style.marginBottom = "8px";
-      card.style.fontSize = "12px";
+    const result = {
+      scenarioId: this.scenario.id,
+      ticks: this.state.tick,
+      events: this.state.events,
+      actors: this.state.actors
+    };
 
-      const diffColor =
-        s.difficulty === "easy" ? "#6f6" :
-        s.difficulty === "medium" ? "#fc6" :
-        "#f66";
-
-      card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <div style="font-weight:bold; color:#e5e5e5;">${s.title}</div>
-          <div style="font-size:11px; color:${diffColor}; text-transform:uppercase;">${s.difficulty}</div>
-        </div>
-        <div style="font-size:11px; color:#ccc; margin-bottom:6px;">${s.summary}</div>
-        <div style="display:flex; justify-content:flex-end; gap:6px;">
-          <button data-id="${s.id}" class="ai-run-btn"
-            style="font-size:11px; padding:4px 8px; border:1px solid #2a6; background:#050; color:#e5e5e5; cursor:pointer;">
-            Run in APEXOPS
-          </button>
-        </div>
-      `;
-
-      listEl.appendChild(card);
-    });
-
-    Array.from(listEl.querySelectorAll(".ai-run-btn")).forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        const scenario = aiState.scenarios.find(s => s.id === id);
-        if (!scenario) return;
-
-        window.__APEX_AI_SELECTED_SCENARIO = scenario;
-        log(`[AI] Requested run of scenario "${scenario.title}" in APEXOPS.`);
-
-        activeEngineId = "APEXOPS";
-        renderEngineList();
-        renderWorkspace();
-        renderContext();
-      });
-    });
+    this.emit("sim:complete", result);
+    return result;
   }
+}
 
-  function initAIPanel() {
-    const genBtn = document.getElementById("ai-generate-btn");
-    const diffSelect = document.getElementById("ai-difficulty-select");
+/* ========================================================================
+   MINIMAL TEST SCENARIO (BUILT-IN)
+   ------------------------------------------------------------------------
+   Used by APEXOPS and APEXSIM panels for quick validation.
+   ======================================================================== */
 
-    if (genBtn) {
-      genBtn.addEventListener("click", () => {
-        generateAIScenarios();
-        renderAIScenariosList();
-      });
-    }
+export const MinimalTestScenarioV1 = {
+  id: "minimal-test-v1",
+  title: "Minimal Test Scenario",
+  summary: "A deterministic test scenario for validating APEXSIM.",
+  maxTicks: 10,
 
-    if (diffSelect) {
-      diffSelect.addEventListener("change", () => {
-        aiState.difficulty = diffSelect.value;
-        renderAIScenariosList();
-      });
-    }
-
-    renderAIScenariosList();
-  }
-
-  /* ------------------------------------------------------------
-     WORKSPACE RENDER (APEXOPS + APEXAI + APEXSIM)
-  ------------------------------------------------------------ */
-  function renderWorkspace() {
-    const engine = engines.find(e => e.id === activeEngineId);
-
-    /* -------------------------
-       SPECIAL CASE: APEXOPS
-    ------------------------- */
-    if (engine.id === "APEXOPS") {
-      workspacePanel.innerHTML = `
-        <h2 style="margin-top:0; font-size:16px;">APEXOPS — Runtime Inspector</h2>
-        <div id="ops-container" style="margin-top:12px; border:1px solid #222; background:#050608; padding:12px;">
-          <div style="font-size:12px; color:#aaa; margin-bottom:8px;">
-            Runtime inspection panel for simulations and encounters. When invoked from APEXAI, the selected scenario is logged below.
-          </div>
-          <div id="apexops-root"></div>
-        </div>
-      `;
-
-      Promise.all([
-        import('./apexops.js'),
-        import('./apexsim.js'),
-        import('./apexcore.js'),
-        import('./apexai.js')
-      ]).then(([opsMod, simMod, coreMod, aiMod]) => {
-        const { ApexOps } = opsMod;
-        const { ApexSim, MinimalTestScenarioV1 } = simMod;
-        const { ApexCore } = coreMod;
-        const { ApexAI } = aiMod;
-
-        const core = new ApexCore();
-        const ai = new ApexAI(core);
-
-        const ops = new ApexOps("apexops-root", () => new ApexSim(MinimalTestScenarioV1));
-        core.registerModule("ops", ops);
-
-        core.loadScenario(MinimalTestScenarioV1);
-        const result = core.startSimulation(s => new ApexSim(s));
-        ops.loadSimulationResult(result);
-
-        if (window.__APEX_AI_SELECTED_SCENARIO) {
-          const sc = window.__APEX_AI_SELECTED_SCENARIO;
-          log(`[AI→OPS] Scenario "${sc.title}" (difficulty: ${sc.difficulty}) handed off from APEXAI.`);
-          delete window.__APEX_AI_SELECTED_SCENARIO;
-        }
-
-        log("[OPS] APEXOPS panel mounted.");
-      });
-
-      return;
-    }
-
-    /* -------------------------
-       SPECIAL CASE: APEXAI
-    ------------------------- */
-    if (engine.id === "APEXAI") {
-      workspacePanel.innerHTML = `
-        <h2 style="margin-top:0; font-size:16px;">APEXAI — Scenario Browser</h2>
-        <div style="font-size:12px; color:#aaa; margin-bottom:8px; max-width:720px;">
-          Generate scenarios, filter by difficulty, and hand off selected scenarios to APEXOPS for full runtime inspection.
-        </div>
-
-        <div style="border:1px solid #222; background:#050608; padding:10px; margin-bottom:10px; font-size:12px;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
-            <button id="ai-generate-btn"
-              style="font-size:11px; padding:4px 10px; border:1px solid #2a6; background:#050; color:#e5e5e5; cursor:pointer;">
-              Generate Scenarios
-            </button>
-
-            <div>
-              <span style="font-size:11px; color:#888; margin-right:4px;">Difficulty:</span>
-              <select id="ai-difficulty-select"
-                style="font-size:11px; background:#050608; color:#e5e5e5; border:1px solid #333; padding:2px 4px;">
-                <option value="all">All</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="ai-scenario-list"></div>
-        </div>
-      `;
-
-      initAIPanel();
-      log("[AI] APEXAI Scenario Browser panel mounted.");
-      return;
-    }
-
-    /* -------------------------
-       SPECIAL CASE: APEXSIM
-    ------------------------- */
-    if (engine.id === "APEXSIM") {
-      workspacePanel.innerHTML = `
-        <h2 style="margin-top:0; font-size:16px;">APEXSIM — Simulation View</h2>
-        <div style="font-size:12px; color:#aaa; margin-bottom:8px; max-width:720px;">
-          Run a test simulation using the shared APEXCORE + APEXSIM pipeline and inspect the raw result payload.
-        </div>
-
-        <div style="border:1px solid #222; background:#050608; padding:10px; margin-bottom:10px; font-size:12px;">
-          <button id="sim-run-btn"
-            style="font-size:11px; padding:4px 10px; border:1px solid #26a; background:#041326; color:#e5e5e5; cursor:pointer;">
-            Run Test Simulation
-          </button>
-
-          <div id="sim-output"
-            style="margin-top:10px; font-size:11px; color:#ccc; white-space:pre; background:#05070b; border:1px solid #222; padding:8px; max-height:360px; overflow:auto;">
-            No simulation run yet.
-          </div>
-        </div>
-      `;
-
-      const runBtn = document.getElementById("sim-run-btn");
-      const outEl = document.getElementById("sim-output");
-
-      if (runBtn && outEl) {
-        runBtn.addEventListener("click", () => {
-          log("[SIM] Starting test simulation via APEXSIM panel.");
-
-          Promise.all([
-            import('./apexsim.js'),
-            import('./apexcore.js')
-          ]).then(([simMod, coreMod]) => {
-            const { ApexSim, MinimalTestScenarioV1 } = simMod;
-            const { ApexCore } = coreMod;
-
-            const core = new ApexCore();
-            core.loadScenario(MinimalTestScenarioV1);
-            const result = core.startSimulation(s => new ApexSim(s));
-
-            try {
-              outEl.textContent = JSON.stringify(result, null, 2);
-            } catch {
-              outEl.textContent = String(result);
-            }
-
-            log("[SIM] Test simulation completed and result rendered in APEXSIM panel.");
-          }).catch(err => {
-            outEl.textContent = "Error running simulation: " + err;
-            log("[SIM] Error running test simulation: " + err);
-          });
-        });
+  actors: [
+    {
+      id: "actor-1",
+      x: 0,
+      update({ rand }) {
+        // Simple deterministic movement
+        this.x += rand() * 0.5;
       }
-
-      log("[SIM] APEXSIM panel mounted.");
-      return;
     }
+  ]
+};
 
-    /* -------------------------
-       DEFAULT ENGINE PANEL
-    ------------------------- */
-    workspacePanel.innerHTML = `
-      <h2 style="margin-top:0; font-size:16px;">${engine.workspace}</h2>
-      <p style="font-size:13px; color:#ccc; max-width:640px;">${engine.description}</p>
-      <div style="margin-top:12px; font-size:12px; color:#aaa;">
-        <div>Engine: <span style="color:#fff;">${engine.id}</span></div>
-        <div>Role: <span style="color:#fff;">${engine.role}</span></div>
-        <div>Scope: <span style="color:#fff;">${engine.scope}</span></div>
-      </div>
-      <div style="margin-top:16px; font-size:11px; color:#777;">
-        This is the APEXCORE shell view for <span style="color:#fff;">${engine.id}</span>.
-        Engine-specific tools, panels, and inspectors attach here without altering the identity of APEXCORE itself.
-      </div>
-    `;
-  }
-
-  /* ------------------------------------------------------------
-     CONTEXT PANEL
-  ------------------------------------------------------------ */
-  function renderContext() {
-    const engine = engines.find(e => e.id === activeEngineId);
-
-    contextPanel.innerHTML = `
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px; color:#888;">ACTIVE ENGINE</div>
-        <div style="font-size:12px;">Name: <span style="color:#fff;">${engine.id}</span></div>
-        <div style="font-size:12px;">Role: <span style="color:#fff;">${engine.role}</span></div>
-        <div style="font-size:12px;">Scope: <span style="color:#fff;">${engine.scope}</span></div>
-      </div>
-
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px; color:#888;">ROUTING</div>
-        <div style="font-size:12px;">Workspace: <span style="color:#fff;">${engine.workspace}</span></div>
-        <div style="font-size:12px;">Right Panel: <span style="color:#fff;">System Log</span></div>
-        <div style="font-size:12px;">Context: <span style="color:#fff;">Engine Meta</span></div>
-      </div>
-
-      <div style="margin-bottom:8px;">
-        <div style="font-size:11px; color:#888;">EXPORT</div>
-        <div style="font-size:12px;">Last Encounter Export: <span style="color:#777;">None</span></div>
-        <div style="font-size:12px;">Last Loaded JSON: <span style="color:#777;">None</span></div>
-        <div style="font-size:12px;">Last Ops Analysis: <span style="color:#777;">None</span></div>
-      </div>
-
-      <div>
-        <div style="font-size:11px; color:#888;">NOTES</div>
-        <div style="font-size:11px; color:#aaa; margin-top:2px;">
-          APEXCORE remains engine-agnostic. Domain-specific tools attach to this shell but do not alter its identity.
-        </div>
-      </div>
-    `;
-  }
-
-  /* ------------------------------------------------------------
-     INITIAL BOOT
-  ------------------------------------------------------------ */
-  log("[BOOT] APEXCORE shell initialized.");
-  log("[LINK] Engines registered: " + engines.map(e => e.id).join(", ") + ".");
-  log("[STATE] Mode set to Studio / Dev.");
-
-  renderEngineList();
-  renderWorkspace();
-  renderContext();
-</script>
-
-</body>
-</html>
+/* ========================================================================
+   FACTORY — Create a new APEXSIM instance
+   ======================================================================== */
+export function createApexSim(scenario) {
+  return new ApexSim(scenario);
+}
