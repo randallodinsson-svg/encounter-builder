@@ -1,1 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>APEXCORE — System Shell Routing</title>
+</head>
+<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
 
+<div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
+  <div>
+    <span style="font-weight:bold;">APEXCORE — SYSTEM SHELL</span>
+    <span style="color:#888; margin-left:8px;">Engine Router v1</span>
+  </div>
+  <div style="font-size:12px; color:#aaa;">
+    Mode: <span style="color:#6cf;">Studio / Dev</span> · Status: <span style="color:#6f6;">ONLINE</span>
+  </div>
+</div>
+
+<div style="display:flex; height:calc(100vh - 40px);">
+
+  <!-- LEFT: ENGINE LIST -->
+  <div style="width:220px; border-right:1px solid #222; padding:12px; background:#050608;">
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">ENGINES</div>
+    <div id="engine-list"></div>
+  </div>
+
+  <!-- CENTER: ACTIVE ENGINE PANEL -->
+  <div style="flex:1; border-right:1px solid #222; padding:12px; background:#07090c;">
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">WORKSPACE</div>
+    <div id="workspace-panel" style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto;">
+      <!-- Filled by router -->
+    </div>
+  </div>
+
+  <!-- RIGHT: SYSTEM LOG + CONTEXT -->
+  <div style="width:320px; padding:12px; background:#050608;">
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">SYSTEM LOG</div>
+    <div id="system-log" style="border:1px solid #222; padding:8px; background:#07090c; height:45%; overflow:auto; font-size:11px;"></div>
+
+    <div style="font-size:11px; color:#888; margin:8px 0 4px;">CONTEXT</div>
+    <div id="context-panel" style="border:1px solid #222; padding:8px; background:#07090c; height:45%; overflow:auto; font-size:11px;"></div>
+  </div>
+
+</div>
+
+<script type="module">
+  // Simple engine registry for the shell router
+  const engines = [
+    {
+      id: "APEXCORE",
+      role: "System Layer",
+      scope: "Shell / Panel Framework",
+      description: "APEXCORE is the shared operating layer for the APEX Engine Family. It defines the shell, panel system, and interaction model that all engines inherit.",
+      workspace: "Core Overview"
+    },
+    {
+      id: "APEXRPG",
+      role: "Narrative",
+      scope: "Story / Encounter Logic",
+      description: "APEXRPG manages narrative structures, encounter logic, and progression frameworks. It remains world-agnostic and system-focused.",
+      workspace: "Narrative Tools"
+    },
+    {
+      id: "APEXCREATOR",
+      role: "Creator",
+      scope: "Authoring / Layout",
+      description: "APEXCREATOR provides creator-facing tools for building, arranging, and exporting encounters and systems.",
+      workspace: "Creator Workspace"
+    },
+    {
+      id: "APEXOPS",
+      role: "Runtime",
+      scope: "Inspection / Telemetry",
+      description: "APEXOPS is the runtime inspector for simulations and encounters. It visualizes state, logs, and outcomes.",
+      workspace: "Ops Console"
+    },
+    {
+      id: "APEXSIM",
+      role: "Simulation",
+      scope: "Engine / Tick Loop",
+      description: "APEXSIM runs deterministic simulations over time, coordinating actors, events, and outcomes.",
+      workspace: "Simulation View"
+    },
+    {
+      id: "APEXMMO",
+      role: "Scale",
+      scope: "Multi-Node / Sharding",
+      description: "APEXMMO focuses on scale, distribution, and multi-node orchestration for large systems.",
+      workspace: "Scale Dashboard"
+    },
+    {
+      id: "APEXAI",
+      role: "Intelligence",
+      scope: "Scenario / Behavior / Analysis",
+      description: "APEXAI generates scenarios, behaviors, and evaluations that plug into APEXSIM and APEXOPS.",
+      workspace: "AI Console"
+    }
+  ];
+
+  const engineListEl = document.getElementById("engine-list");
+  const workspacePanel = document.getElementById("workspace-panel");
+  const systemLog = document.getElementById("system-log");
+  const contextPanel = document.getElementById("context-panel");
+
+  let activeEngineId = "APEXCORE";
+
+  function log(line) {
+    const ts = new Date().toISOString().split("T")[1].split(".")[0];
+    const div = document.createElement("div");
+    div.textContent = `[${ts}] ${line}`;
+    systemLog.prepend(div);
+  }
+
+  function renderEngineList() {
+    engineListEl.innerHTML = "";
+    engines.forEach(engine => {
+      const btn = document.createElement("div");
+      btn.textContent = engine.id;
+      btn.style.padding = "6px 8px";
+      btn.style.marginBottom = "4px";
+      btn.style.cursor = "pointer";
+      btn.style.fontSize = "12px";
+      btn.style.border = "1px solid #222";
+      btn.style.background = engine.id === activeEngineId ? "#111822" : "#050608";
+      btn.style.color = engine.id === activeEngineId ? "#7fd0ff" : "#e5e5e5";
+
+      btn.addEventListener("click", () => {
+        if (engine.id === activeEngineId) return;
+        activeEngineId = engine.id;
+        log(`[EVENT] [ENGINE] Switched active engine to ${engine.id}.`);
+        renderEngineList();
+        renderWorkspace();
+        renderContext();
+      });
+
+      engineListEl.appendChild(btn);
+    });
+  }
+
+  function renderWorkspace() {
+    const engine = engines.find(e => e.id === activeEngineId);
+    workspacePanel.innerHTML = `
+      <h2 style="margin-top:0; font-size:16px;">${engine.workspace}</h2>
+      <p style="font-size:13px; color:#ccc; max-width:640px;">${engine.description}</p>
+      <div style="margin-top:12px; font-size:12px; color:#aaa;">
+        <div>Engine: <span style="color:#fff;">${engine.id}</span></div>
+        <div>Role: <span style="color:#fff;">${engine.role}</span></div>
+        <div>Scope: <span style="color:#fff;">${engine.scope}</span></div>
+      </div>
+      <div style="margin-top:16px; font-size:11px; color:#777;">
+        This is the APEXCORE shell view for <span style="color:#fff;">${engine.id}</span>.
+        Engine-specific tools, panels, and inspectors attach here without altering the identity of APEXCORE itself.
+      </div>
+    `;
+  }
+
+  function renderContext() {
+    const engine = engines.find(e => e.id === activeEngineId);
+    contextPanel.innerHTML = `
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px; color:#888;">ACTIVE ENGINE</div>
+        <div style="font-size:12px;">Name: <span style="color:#fff;">${engine.id}</span></div>
+        <div style="font-size:12px;">Role: <span style="color:#fff;">${engine.role}</span></div>
+        <div style="font-size:12px;">Scope: <span style="color:#fff;">${engine.scope}</span></div>
+      </div>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px; color:#888;">ROUTING</div>
+        <div style="font-size:12px;">Workspace: <span style="color:#fff;">${engine.workspace}</span></div>
+        <div style="font-size:12px;">Right Panel: <span style="color:#fff;">System Log</span></div>
+        <div style="font-size:12px;">Context: <span style="color:#fff;">Engine Meta</span></div>
+      </div>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px; color:#888;">EXPORT</div>
+        <div style="font-size:12px;">Last Encounter Export: <span style="color:#777;">None</span></div>
+        <div style="font-size:12px;">Last Loaded JSON: <span style="color:#777;">None</span></div>
+        <div style="font-size:12px;">Last Ops Analysis: <span style="color:#777;">None</span></div>
+      </div>
+      <div>
+        <div style="font-size:11px; color:#888;">NOTES</div>
+        <div style="font-size:11px; color:#aaa; margin-top:2px;">
+          APEXCORE remains engine-agnostic. Domain-specific tools attach to this shell but do not alter its identity.
+        </div>
+      </div>
+    `;
+  }
+
+  // Initial boot
+  log("[BOOT] APEXCORE shell initialized.");
+  log("[LINK] Engines registered: " + engines.map(e => e.id).join(", ") + ".");
+  log("[STATE] Mode set to Studio / Dev.");
+  renderEngineList();
+  renderWorkspace();
+  renderContext();
+</script>
+
+</body>
+</html>
