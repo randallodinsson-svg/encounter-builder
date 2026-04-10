@@ -1,211 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>APEXOPS + APEXAI Scenario Browser v2</title>
+  <meta charset="UTF-8" />
+  <title>APEXOPS — Runtime Inspector</title>
 </head>
 
-<body style="margin:0; background:#111; color:#eee; font-family:monospace;">
+<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
 
-<!-- ========================================================= -->
-<!--  FULL PAGE LAYOUT: SIDEBAR + INSPECTOR                    -->
-<!-- ========================================================= -->
-<div id="apex-layout" style="display:flex; height:100vh;">
+<!-- HEADER -->
+<div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
+  <div>
+    <span style="font-weight:bold;">APEXOPS — RUNTIME INSPECTOR</span>
+    <span style="color:#888; margin-left:8px;">v2</span>
+  </div>
+  <div style="font-size:12px; color:#aaa;">
+    Mode: <span style="color:#6cf;">Studio / Dev</span> · Status: <span style="color:#6f6;">ONLINE</span>
+  </div>
+</div>
 
-    <!-- LEFT SIDEBAR: AI Scenario Browser v2 -->
-    <div id="apex-sidebar" style="
-        width:320px;
-        border-right:1px solid #333;
-        padding:15px;
-        overflow-y:auto;
-        background:#111;
-    ">
-        <h2 style="margin-top:0;">AI Scenario Browser</h2>
+<!-- LAYOUT -->
+<div style="display:flex; height:calc(100vh - 40px);">
 
-        <button id="ai-generate-btn" style="
-            margin-bottom:10px;
-            width:100%;
-            padding:8px;
-            background:#222;
-            color:#eee;
-            border:1px solid #444;
-            cursor:pointer;
-        ">Generate Scenarios</button>
+  <!-- LEFT: CONTROLS -->
+  <div style="width:240px; border-right:1px solid #222; padding:12px; background:#050608;">
+    <div style="font-size:11px; color:#888; margin-bottom:6px;">SIMULATION CONTROLS</div>
 
-        <div style="margin-bottom:10px;">
-            <label for="ai-filter" style="font-size:12px; color:#aaa;">Filter by difficulty:</label>
-            <select id="ai-filter" style="
-                width:100%;
-                padding:6px;
-                background:#181818;
-                color:#eee;
-                border:1px solid #444;
-                margin-top:4px;
-            ">
-                <option value="all">All</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-            </select>
-        </div>
+    <button id="ops-run-btn"
+      style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #2a6; background:#041a0f; color:#e5e5e5; cursor:pointer; margin-bottom:6px;">
+      Run Simulation
+    </button>
 
-        <div id="ai-scenario-list"></div>
+    <button id="ops-step-btn"
+      style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #264a6a; background:#041326; color:#e5e5e5; cursor:pointer; margin-bottom:6px;">
+      Step Tick
+    </button>
+
+    <button id="ops-reset-btn"
+      style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #6a2626; background:#260404; color:#e5e5e5; cursor:pointer;">
+      Reset
+    </button>
+
+    <div style="margin-top:20px; font-size:11px; color:#888;">ACTIVE SCENARIO</div>
+    <div id="ops-scenario-meta" style="font-size:11px; color:#ccc; margin-top:4px;"></div>
+  </div>
+
+  <!-- CENTER: WORKSPACE -->
+  <div style="flex:1; border-right:1px solid #222; padding:12px; background:#07090c;">
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">SIMULATION OUTPUT</div>
+    <div id="ops-output"
+      style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto; white-space:pre; font-size:12px;">
+      No simulation run yet.
     </div>
+  </div>
 
-    <!-- RIGHT PANEL: APEXOPS Inspector -->
-    <div id="apexops-root" style="flex:1; overflow-y:auto;"></div>
+  <!-- RIGHT: SYSTEM LOG -->
+  <div style="width:320px; padding:12px; background:#050608;">
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">SYSTEM LOG</div>
+    <div id="ops-log"
+      style="border:1px solid #222; padding:8px; background:#07090c; height:100%; overflow:auto; font-size:11px;"></div>
+  </div>
 
 </div>
 
-
-<!-- ========================================================= -->
-<!--  SCRIPT: APEXCORE + APEXAI + APEXSIM + APEXOPS            -->
-<!-- ========================================================= -->
+<!-- SCRIPT -->
 <script type="module">
-    import { ApexSim, MinimalTestScenarioV1 } from './apexsim.js';
-    import { ApexOps } from './apexops.js';
-    import { ApexCore } from './apexcore.js';
-    import { ApexAI } from './apexai.js';
+  /* ------------------------------------------------------------
+     IMPORT MODULES
+     ------------------------------------------------------------ */
+  import { createApexCore } from './apexcore.js';
+  import { ApexSim, MinimalTestScenarioV1 } from './apexsim.js';
+  import { createApexAI } from './apexai.js';
 
-    // CORE + AI + OPS
-    const core = new ApexCore();
-    const ai = new ApexAI(core);
-    const ops = new ApexOps("apexops-root", () => new ApexSim(MinimalTestScenarioV1));
+  /* ------------------------------------------------------------
+     INITIALIZE CORE + AI
+     ------------------------------------------------------------ */
+  const core = createApexCore();
+  const ai = createApexAI(core);
 
-    core.registerModule("ops", ops);
+  /* ------------------------------------------------------------
+     DOM ELEMENTS
+     ------------------------------------------------------------ */
+  const runBtn = document.getElementById("ops-run-btn");
+  const stepBtn = document.getElementById("ops-step-btn");
+  const resetBtn = document.getElementById("ops-reset-btn");
+  const outputEl = document.getElementById("ops-output");
+  const logEl = document.getElementById("ops-log");
+  const metaEl = document.getElementById("ops-scenario-meta");
 
-    // Load default scenario
+  /* ------------------------------------------------------------
+     LOGGING
+     ------------------------------------------------------------ */
+  function log(msg) {
+    const ts = new Date().toISOString().split("T")[1].split(".")[0];
+    const div = document.createElement("div");
+    div.textContent = `[${ts}] ${msg}`;
+    logEl.prepend(div);
+  }
+
+  /* ------------------------------------------------------------
+     LOAD DEFAULT SCENARIO
+     ------------------------------------------------------------ */
+  core.loadScenario(MinimalTestScenarioV1);
+  metaEl.textContent = `ID: ${core.activeScenario.id}`;
+
+  /* ------------------------------------------------------------
+     RUN SIMULATION
+     ------------------------------------------------------------ */
+  runBtn.addEventListener("click", () => {
+    log("Running full simulation…");
+
+    const result = core.startSimulation(s => new ApexSim(s));
+
+    outputEl.textContent = JSON.stringify(result, null, 2);
+    log("Simulation complete.");
+  });
+
+  /* ------------------------------------------------------------
+     STEP TICK (if supported)
+     ------------------------------------------------------------ */
+  stepBtn.addEventListener("click", () => {
+    log("Step‑tick requested.");
+
+    // If ApexSim supports step() in future versions, hook here.
+    outputEl.textContent = "Step mode not implemented in this scenario.";
+  });
+
+  /* ------------------------------------------------------------
+     RESET
+     ------------------------------------------------------------ */
+  resetBtn.addEventListener("click", () => {
+    log("Resetting scenario…");
+
     core.loadScenario(MinimalTestScenarioV1);
-    const initialResult = core.startSimulation((scenario) => new ApexSim(scenario));
-    ops.loadSimulationResult(initialResult);
+    metaEl.textContent = `ID: ${core.activeScenario.id}`;
+    outputEl.textContent = "No simulation run yet.";
+  });
 
-    // ------------------------------------------------------
-    // SCENARIO BROWSER v2 LOGIC
-    // ------------------------------------------------------
+  /* ------------------------------------------------------------
+     EVENT HOOKS
+     ------------------------------------------------------------ */
+  core.on("simulation:start", () => log("Simulation started."));
+  core.on("simulation:complete", () => log("Simulation completed."));
+  core.on("scenario:loaded", sc => log(`Scenario loaded: ${sc.id}`));
 
-    const scenarioListEl = document.getElementById("ai-scenario-list");
-    const generateBtn = document.getElementById("ai-generate-btn");
-    const filterSelect = document.getElementById("ai-filter");
-
-    let scenarios = [];
-    let currentFilter = "all";
-
-    function classifyDifficulty(distance) {
-        if (distance <= 6) return "easy";
-        if (distance <= 8) return "medium";
-        return "hard";
-    }
-
-    function difficultyColor(diff) {
-        if (diff === "easy") return "#3fa34d";
-        if (diff === "medium") return "#e0a93b";
-        return "#d9534f";
-    }
-
-    // Render a single scenario card
-    function renderScenarioCard(scenario) {
-        const distance = scenario.actors[0].attributes.targetPosition;
-        const speed = scenario.actors[0].speed;
-        const accel = scenario.actors[0].acceleration;
-        const diff = scenario.difficulty || classifyDifficulty(distance);
-
-        const card = document.createElement("div");
-        card.style.border = "1px solid #444";
-        card.style.padding = "10px";
-        card.style.marginBottom = "10px";
-        card.style.background = "#181818";
-
-        const runId = `run-${scenario.id}`;
-
-        card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                <strong style="font-size:13px;">${scenario.label}</strong>
-                <span style="
-                    font-size:11px;
-                    padding:2px 6px;
-                    border-radius:10px;
-                    background:${difficultyColor(diff)};
-                    color:#fff;
-                ">${diff.toUpperCase()}</span>
-            </div>
-            <small>ID: ${scenario.id}</small><br>
-            <small>Distance: ${distance}</small><br>
-            <small>Speed: ${speed}</small><br>
-            <small>Accel: ${accel}</small><br>
-            <button id="${runId}" style="
-                margin-top:10px;
-                width:100%;
-                padding:6px;
-                background:#222;
-                color:#eee;
-                border:1px solid #444;
-                cursor:pointer;
-            ">Run</button>
-        `;
-
-        scenarioListEl.appendChild(card);
-
-        document.getElementById(runId).addEventListener("click", () => {
-            core.loadScenario(scenario);
-            const result = core.startSimulation((scenario) => new ApexSim(scenario));
-            ops.loadSimulationResult(result);
-
-            const analysis = ai.evaluateResult(result);
-            const outcomeEl = document.getElementById("ops-outcome");
-            outcomeEl.innerHTML += `
-                <h3>AI Analysis</h3>
-                <pre>${JSON.stringify(analysis, null, 2)}</pre>
-            `;
-        });
-    }
-
-    function renderScenarioList() {
-        scenarioListEl.innerHTML = "";
-
-        const filtered = scenarios.filter(s => {
-            if (currentFilter === "all") return true;
-            return s.difficulty === currentFilter;
-        });
-
-        filtered.forEach(renderScenarioCard);
-    }
-
-    // Generate multiple scenarios
-    generateBtn.addEventListener("click", () => {
-        scenarios = [];
-
-        const count = 8; // number of scenarios to generate
-        for (let i = 0; i < count; i++) {
-            const distanceToSafety = 5 + Math.floor(Math.random() * 8); // 5–12
-            const civilianSpeed = 1;
-            const civilianAcceleration = 1;
-
-            const scenario = ai.generateEvacScenario({
-                id: `ai_scenario_${Date.now()}_${i}`,
-                label: `AI Evac Scenario #${i + 1}`,
-                distanceToSafety,
-                civilianSpeed,
-                civilianAcceleration,
-                maxTicks: 25
-            });
-
-            scenario.difficulty = classifyDifficulty(distanceToSafety);
-            scenarios.push(scenario);
-        }
-
-        // sort by distance (ascending)
-        scenarios.sort((a, b) =>
-            a.actors[0].attributes.targetPosition - b.actors[0].attributes.targetPosition
-        );
-
-        renderScenarioList();
-    });
-
-    // Filter change
-    filterSelect.addEventListener("change", () => {
-        currentFilter = filterSelect.value;
-        renderScenarioList();
-    });
+  log("APEXOPS Runtime Inspector initialized.");
 </script>
 
 </body>
