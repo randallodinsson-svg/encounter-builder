@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// APEXSIM v3.1 — Trails + Debug Vectors + Glow (One‑and‑Done)
+// APEXSIM v3.2 — Cinematic Fade‑Out Trails + Debug + Glow
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -31,7 +31,8 @@ class Agent {
 
         // Trail buffer
         this.trail = [];
-        this.maxTrail = 40;
+        this.maxTrail = 40;      // number of points
+        this.trailFade = 1 / this.maxTrail; // alpha fade per segment
 
         // Debug storage
         this.debugCirclePos = vec();
@@ -120,24 +121,29 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Trails
+    // Cinematic Fade‑Out Trails
     // --------------------------------------------------------
     drawTrails() {
         const c = this.ctx;
-        c.strokeStyle = "rgba(0, 255, 255, 0.25)";
-        c.lineWidth = 1;
 
         for (const a of this.agents) {
             if (a.trail.length < 2) continue;
 
-            c.beginPath();
-            c.moveTo(a.trail[0].x, a.trail[0].y);
+            for (let i = 0; i < a.trail.length - 1; i++) {
+                const p1 = a.trail[i];
+                const p2 = a.trail[i + 1];
 
-            for (let i = 1; i < a.trail.length; i++) {
-                c.lineTo(a.trail[i].x, a.trail[i].y);
+                // Fade from 0 → 1 across the trail
+                const alpha = i * a.trailFade;
+
+                c.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
+                c.lineWidth = 1;
+
+                c.beginPath();
+                c.moveTo(p1.x, p1.y);
+                c.lineTo(p2.x, p2.y);
+                c.stroke();
             }
-
-            c.stroke();
         }
     },
 
