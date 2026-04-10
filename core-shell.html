@@ -11,7 +11,7 @@
 <div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
   <div>
     <span style="font-weight:bold;">APEXCORE — SYSTEM SHELL</span>
-    <span style="color:#888; margin-left:8px;">Engine Router v1</span>
+    <span style="color:#888; margin-left:8px;">Engine Router v2</span>
   </div>
   <div style="font-size:12px; color:#aaa;">
     Mode: <span style="color:#6cf;">Studio / Dev</span> · Status: <span style="color:#6f6;">ONLINE</span>
@@ -46,7 +46,6 @@
 
 <!-- SCRIPT -->
 <script type="module">
-
   /* ------------------------------------------------------------
      ENGINE REGISTRY
   ------------------------------------------------------------ */
@@ -69,8 +68,8 @@
     { id:"APEXMMO", role:"Scale", scope:"Multi-Node / Sharding", workspace:"Scale Dashboard",
       description:"APEXMMO handles scale, distribution, and multi-node orchestration." },
 
-    { id:"APEXAI", role:"Intelligence", scope:"Scenario / Behavior / Analysis", workspace:"AI Console",
-      description:"APEXAI generates scenarios, behaviors, and evaluations." }
+    { id:"APEXAI", role:"Intelligence", scope:"Scenario / Behavior / Analysis", workspace:"AI Scenario Browser",
+      description:"APEXAI generates, classifies, and analyzes scenarios for simulation and inspection." }
   ];
 
   const engineListEl = document.getElementById("engine-list");
@@ -79,6 +78,12 @@
   const contextPanel = document.getElementById("context-panel");
 
   let activeEngineId = "APEXCORE";
+
+  // AI state (for APEXAI panel)
+  const aiState = {
+    scenarios: [],
+    difficulty: "all"
+  };
 
   /* ------------------------------------------------------------
      LOGGING
@@ -120,7 +125,136 @@
   }
 
   /* ------------------------------------------------------------
-     WORKSPACE RENDER (APEXOPS WIRED IN)
+     APEXAI HELPERS
+  ------------------------------------------------------------ */
+  function generateAIScenarios() {
+    const base = [
+      {
+        id: "ai-1",
+        title: "Highway Pursuit — Wet Conditions",
+        difficulty: "hard",
+        summary: "High-speed pursuit on a wet highway with reduced traction and mixed civilian traffic."
+      },
+      {
+        id: "ai-2",
+        title: "Urban Patrol — Night Shift",
+        difficulty: "medium",
+        summary: "Routine patrol through dense urban grid with pedestrians, parked vehicles, and random events."
+      },
+      {
+        id: "ai-3",
+        title: "Training Loop — Closed Course",
+        difficulty: "easy",
+        summary: "Controlled training environment with predictable turns and no civilian interference."
+      },
+      {
+        id: "ai-4",
+        title: "Bridge Incident — Limited Visibility",
+        difficulty: "hard",
+        summary: "Incident on a narrow bridge with fog, stalled vehicles, and constrained maneuvering space."
+      },
+      {
+        id: "ai-5",
+        title: "Suburban Response — Daytime",
+        difficulty: "medium",
+        summary: "Response through suburban streets with intersections, driveways, and moderate traffic."
+      }
+    ];
+
+    aiState.scenarios = base;
+    log("[AI] Generated scenario set via APEXAI panel.");
+  }
+
+  function renderAIScenariosList() {
+    const listEl = document.getElementById("ai-scenario-list");
+    if (!listEl) return;
+
+    listEl.innerHTML = "";
+
+    const filtered = aiState.scenarios.filter(s => {
+      if (aiState.difficulty === "all") return true;
+      return s.difficulty === aiState.difficulty;
+    });
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `<div style="font-size:12px; color:#777;">No scenarios. Click “Generate Scenarios” above.</div>`;
+      return;
+    }
+
+    filtered.forEach(s => {
+      const card = document.createElement("div");
+      card.style.border = "1px solid #222";
+      card.style.background = "#05070b";
+      card.style.padding = "8px";
+      card.style.marginBottom = "8px";
+      card.style.fontSize = "12px";
+
+      const diffColor =
+        s.difficulty === "easy" ? "#6f6" :
+        s.difficulty === "medium" ? "#fc6" :
+        "#f66";
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <div style="font-weight:bold; color:#e5e5e5;">${s.title}</div>
+          <div style="font-size:11px; color:${diffColor}; text-transform:uppercase;">${s.difficulty}</div>
+        </div>
+        <div style="font-size:11px; color:#ccc; margin-bottom:6px;">${s.summary}</div>
+        <div style="display:flex; justify-content:flex-end; gap:6px;">
+          <button data-id="${s.id}" class="ai-run-btn"
+            style="font-size:11px; padding:4px 8px; border:1px solid #2a6; background:#050; color:#e5e5e5; cursor:pointer;">
+            Run in APEXOPS
+          </button>
+        </div>
+      `;
+
+      listEl.appendChild(card);
+    });
+
+    // Wire run buttons
+    Array.from(listEl.querySelectorAll(".ai-run-btn")).forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const scenario = aiState.scenarios.find(s => s.id === id);
+        if (!scenario) return;
+
+        // Store selection for OPS to read
+        window.__APEX_AI_SELECTED_SCENARIO = scenario;
+        log(`[AI] Requested run of scenario "${scenario.title}" in APEXOPS.`);
+
+        // Switch to OPS
+        activeEngineId = "APEXOPS";
+        renderEngineList();
+        renderWorkspace();
+        renderContext();
+      });
+    });
+  }
+
+  function initAIPanel() {
+    const genBtn = document.getElementById("ai-generate-btn");
+    const diffSelect = document.getElementById("ai-difficulty-select");
+
+    if (genBtn) {
+      genBtn.addEventListener("click", () => {
+        generateAIScenarios();
+        renderAIScenariosList();
+      });
+    }
+
+    if (diffSelect) {
+      diffSelect.addEventListener("change", () => {
+        aiState.difficulty = diffSelect.value;
+        renderAIScenariosList();
+      });
+    }
+
+    // Initial render
+    renderAIScenariosList();
+  }
+
+  /* ------------------------------------------------------------
+     WORKSPACE RENDER (APEXOPS + APEXAI WIRED IN)
   ------------------------------------------------------------ */
   function renderWorkspace() {
     const engine = engines.find(e => e.id === activeEngineId);
@@ -132,6 +266,9 @@
       workspacePanel.innerHTML = `
         <h2 style="margin-top:0; font-size:16px;">APEXOPS — Runtime Inspector</h2>
         <div id="ops-container" style="margin-top:12px; border:1px solid #222; background:#050608; padding:12px;">
+          <div style="font-size:12px; color:#aaa; margin-bottom:8px;">
+            Runtime inspection panel for simulations and encounters. When invoked from APEXAI, the selected scenario is logged below.
+          </div>
           <div id="apexops-root"></div>
         </div>
       `;
@@ -143,7 +280,6 @@
         import('./apexcore.js'),
         import('./apexai.js')
       ]).then(([opsMod, simMod, coreMod, aiMod]) => {
-
         const { ApexOps } = opsMod;
         const { ApexSim, MinimalTestScenarioV1 } = simMod;
         const { ApexCore } = coreMod;
@@ -159,9 +295,54 @@
         const result = core.startSimulation(s => new ApexSim(s));
         ops.loadSimulationResult(result);
 
+        // If APEXAI handed off a scenario, log it
+        if (window.__APEX_AI_SELECTED_SCENARIO) {
+          const sc = window.__APEX_AI_SELECTED_SCENARIO;
+          log(`[AI→OPS] Scenario "${sc.title}" (difficulty: ${sc.difficulty}) handed off from APEXAI.`);
+          delete window.__APEX_AI_SELECTED_SCENARIO;
+        }
+
         log("[OPS] APEXOPS panel mounted.");
       });
 
+      return;
+    }
+
+    /* -------------------------
+       SPECIAL CASE: APEXAI
+    ------------------------- */
+    if (engine.id === "APEXAI") {
+      workspacePanel.innerHTML = `
+        <h2 style="margin-top:0; font-size:16px;">APEXAI — Scenario Browser</h2>
+        <div style="font-size:12px; color:#aaa; margin-bottom:8px; max-width:720px;">
+          Generate scenarios, filter by difficulty, and hand off selected scenarios to APEXOPS for full runtime inspection.
+        </div>
+
+        <div style="border:1px solid #222; background:#050608; padding:10px; margin-bottom:10px; font-size:12px;">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;">
+            <button id="ai-generate-btn"
+              style="font-size:11px; padding:4px 10px; border:1px solid #2a6; background:#050; color:#e5e5e5; cursor:pointer;">
+              Generate Scenarios
+            </button>
+
+            <div>
+              <span style="font-size:11px; color:#888; margin-right:4px;">Difficulty:</span>
+              <select id="ai-difficulty-select"
+                style="font-size:11px; background:#050608; color:#e5e5e5; border:1px solid #333; padding:2px 4px;">
+                <option value="all">All</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="ai-scenario-list"></div>
+        </div>
+      `;
+
+      initAIPanel();
+      log("[AI] APEXAI Scenario Browser panel mounted.");
       return;
     }
 
@@ -178,6 +359,7 @@
       </div>
       <div style="margin-top:16px; font-size:11px; color:#777;">
         This is the APEXCORE shell view for <span style="color:#fff;">${engine.id}</span>.
+        Engine-specific tools, panels, and inspectors attach here without altering the identity of APEXCORE itself.
       </div>
     `;
   }
@@ -229,7 +411,6 @@
   renderEngineList();
   renderWorkspace();
   renderContext();
-
 </script>
 
 </body>
