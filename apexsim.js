@@ -1,6 +1,7 @@
 // ------------------------------------------------------------
-// APEXSIM v3.6 — Formation Control
-// + Flocking + Obstacle Avoidance + Trails + Glow + Debug
+// APEXSIM v3.7 — Dynamic Formation Leader
+// + Formation Control + Flocking + Obstacle Avoidance
+// + Trails + Glow + Debug
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -267,8 +268,13 @@ class Agent {
 const APEXSIM = {
     agents: [],
     obstacles: [],
-    formationSlots: [],
+    formationOffsets: [],
     formationMode: "circle", // "circle", "line", "none"
+    leader: {
+        pos: vec(0, 0),
+        angle: 0,
+        radius: 120
+    },
     width: 800,
     height: 600,
     running: false,
@@ -297,52 +303,78 @@ const APEXSIM = {
             { pos: vec(this.width * 0.5, this.height * 0.7), radius: 45 }
         ];
 
-        this.buildFormationSlots();
+        // Leader starts at center
+        this.leader.pos = vec(this.width / 2, this.height / 2);
+        this.leader.angle = 0;
+        this.leader.radius = Math.min(this.width, this.height) * 0.25;
+
+        this.buildFormationOffsets();
     },
 
     // --------------------------------------------------------
-    // Formation slot generation
-    // --------------------------------------------------------
-    buildFormationSlots() {
-        this.formationSlots = [];
+    // Formation slot offsets (relative to leader)
+// --------------------------------------------------------
+    buildFormationOffsets() {
+        this.formationOffsets = [];
         const n = this.agents.length;
-        const center = vec(this.width / 2, this.height / 2);
 
         if (this.formationMode === "circle") {
-            const radius = Math.min(this.width, this.height) * 0.25;
+            const radius = 80;
             for (let i = 0; i < n; i++) {
                 const angle = (i / n) * Math.PI * 2;
-                const x = center.x + Math.cos(angle) * radius;
-                const y = center.y + Math.sin(angle) * radius;
-                this.formationSlots.push(vec(x, y));
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                this.formationOffsets.push(vec(x, y));
             }
         } else if (this.formationMode === "line") {
             const spacing = 20;
-            const startX = center.x - (n / 2) * spacing;
-            const y = center.y;
+            const startX = -(n / 2) * spacing;
+            const y = 0;
             for (let i = 0; i < n; i++) {
                 const x = startX + i * spacing;
-                this.formationSlots.push(vec(x, y));
+                this.formationOffsets.push(vec(x, y));
             }
         } else {
-            // "none" → no slots
             for (let i = 0; i < n; i++) {
-                this.formationSlots.push(null);
+                this.formationOffsets.push(null);
             }
         }
     },
 
     setFormation(mode) {
         this.formationMode = mode;
-        this.buildFormationSlots();
+        this.buildFormationOffsets();
+    },
+
+    // --------------------------------------------------------
+    // Leader motion
+    // --------------------------------------------------------
+    updateLeader() {
+        // Leader moves in a smooth looping path
+        this.leader.angle += 0.01;
+        const center = vec(this.width / 2, this.height / 2);
+
+        const x = center.x + Math.cos(this.leader.angle) * this.leader.radius;
+        const y = center.y + Math.sin(this.leader.angle * 0.7) * this.leader.radius * 0.6;
+
+        this.leader.pos.x = x;
+        this.leader.pos.y = y;
     },
 
     step() {
+        this.updateLeader();
+
         for (let i = 0; i < this.agents.length; i++) {
             const a = this.agents[i];
             const neighbors = this.agents;
-            const slot = this.formationSlots[i] || null;
-            a.flock(neighbors, this.obstacles, slot);
+
+            const offset = this.formationOffsets[i];
+            let slotWorld = null;
+            if (offset) {
+                slotWorld = add(this.leader.pos, offset);
+            }
+
+            a.flock(neighbors, this.obstacles, slotWorld);
         }
 
         for (const a of this.agents) {
@@ -382,7 +414,7 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Debug vectors + obstacle + formation debug
+    // Debug vectors + obstacle + formation + leader debug
     // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
@@ -410,9 +442,11 @@ const APEXSIM = {
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
             c.stroke();
 
-            // Formation slot debug
-            const slot = this.formationSlots[i];
-            if (slot) {
+            // Formation slot debug (world position)
+            const offset = this.formationOffsets[i];
+            if (offset) {
+                const slot = add(this.leader.pos, offset);
+
                 c.strokeStyle = "rgba(255,255,255,0.4)";
                 c.beginPath();
                 c.arc(slot.x, slot.y, 4, 0, Math.PI * 2);
@@ -433,6 +467,19 @@ const APEXSIM = {
             c.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
             c.stroke();
         }
+
+        // Leader debug
+        c.strokeStyle = "#ffffff";
+        c.beginPath();
+        c.arc(this.leader.pos.x, this.leader.pos.y, 6, 0, Math.PI * 2);
+        c.stroke();
+
+        c.beginPath();
+        c.moveTo(this.leader.pos.x - 8, this.leader.pos.y);
+        c.lineTo(this.leader.pos.x + 8, this.leader.pos.y);
+        c.moveTo(this.leader.pos.x, this.leader.pos.y - 8);
+        c.lineTo(this.leader.pos.x, this.leader.pos.y + 8);
+        c.stroke();
     },
 
     // --------------------------------------------------------
