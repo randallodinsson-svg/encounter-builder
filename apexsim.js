@@ -1,163 +1,178 @@
-// apexsim_v1.js
-// APEXSIM v1 — Deterministic Simulation Engine + Minimal Test Scenario
+// apexsim.js
+// APEXSIM v2 — 1D Movement + Behavior Engine
 
 export class ApexSim {
   constructor(scenario) {
-    this.scenario = structuredClone(scenario);
-    this.tick = 0;
-    this.running = false;
+    this.scenario = scenario;
+    this.maxTicks = scenario.maxTicks ?? 20;
+    this.currentTick = 0;
+    this.logs = [];
+    this.state = this._initializeState(scenario);
+    this.outcome = null;
+  }
 
-    this.state = {
-      global: { ...(this.scenario.state || {}), ticksElapsed: 0 },
-      actors: this.indexActors(this.scenario.actors || []),
-      logs: [],
-      outcome: null
+  _initializeState(scenario) {
+    const global = {
+      ...scenario.initialGlobalState,
+      ticksElapsed: 0
     };
-  }
 
-  indexActors(actorsArray) {
-    const map = {};
-    for (const actor of actorsArray) {
-      map[actor.id] = { ...actor };
+    const actors = {};
+    for (const actorDef of scenario.actors) {
+      actors[actorDef.id] = {
+        id: actorDef.id,
+        type: actorDef.type ?? "actor",
+        position: actorDef.position ?? 0,
+        velocity: actorDef.velocity ?? 0,
+        speed: actorDef.speed ?? 1,
+        acceleration: actorDef.acceleration ?? 0,
+        direction: actorDef.direction ?? 1, // +1 or -1
+        state: actorDef.state ?? {},
+        attributes: actorDef.attributes ?? {},
+        behavior: actorDef.behavior ?? null
+      };
     }
-    return map;
-  }
 
-  start() {
-    this.running = true;
-    this.log("Simulation started");
-    while (this.running) {
-      this.step();
-    }
-    return this.buildResult();
-  }
-
-  step() {
-    this.tick++;
-    this.state.global.ticksElapsed = this.tick;
-
-    this.processTimeline();
-    this.evaluateTriggers();
-    this.updateActors();
-    this.checkOutcomes();
-  }
-
-  processTimeline() {
-    const entries = this.scenario.timeline || [];
-    for (const entry of entries) {
-      if (entry.time === this.tick) {
-        this.fireEventById(entry.eventId);
-      }
-    }
-  }
-
-  evaluateTriggers() {
-    const triggers = this.scenario.triggers || [];
-    for (const trigger of triggers) {
-      if (trigger.consumed) continue;
-      if (this.evaluateCondition(trigger.condition)) {
-        for (const eventId of trigger.events) {
-          this.fireEventById(eventId);
-        }
-        if (trigger.oneShot) trigger.consumed = true;
-      }
-    }
-  }
-
-  updateActors() {
-    // v1 placeholder for future behavior logic
-    for (const actorId in this.state.actors) {
-      const actor = this.state.actors[actorId];
-      // status, cooldowns, etc. in later versions
-    }
-  }
-
-  fireEventById(eventId) {
-    const event = (this.scenario.events || []).find(e => e.id === eventId);
-    if (!event) return;
-    this.applyEventEffects(event);
-    this.log(`Event fired: ${event.id}`);
-  }
-
-  applyEventEffects(event) {
-    if (event.effects?.global) {
-      Object.assign(this.state.global, event.effects.global);
-    }
-    if (event.effects?.actors) {
-      for (const change of event.effects.actors) {
-        const actor = this.state.actors[change.id];
-        if (!actor) continue;
-        Object.assign(actor, change.patch || {});
-      }
-    }
-  }
-
-  evaluateCondition(condition) {
-    if (!condition) return false;
-    switch (condition.type) {
-      case "tickEquals":
-        return this.tick === condition.value;
-      case "globalEquals":
-        return this.state.global[condition.key] === condition.value;
-      case "actorPositionGte": {
-        const actor = this.state.actors[condition.actorId];
-        return actor && actor.position >= condition.value;
-      }
-      default:
-        return false;
-    }
-  }
-
-  checkOutcomes() {
-    const outcomes = this.scenario.outcomes || [];
-    for (const outcome of outcomes) {
-      if (this.evaluateCondition(outcome.condition)) {
-        this.state.outcome = outcome;
-        this.running = false;
-        this.log(`Outcome reached: ${outcome.id} (${outcome.type})`);
-        break;
-      }
-    }
+    return { global, actors };
   }
 
   log(message) {
-    this.state.logs.push({
-      tick: this.tick,
-      message
-    });
+    this.logs.push({ tick: this.currentTick, message });
   }
 
-  buildResult() {
+  start() {
+    this.currentTick = 0;
+    this.log("Simulation started");
+
+    while (this.currentTick < this.maxTicks && !this.outcome) {
+      this._tick();
+      this.currentTick++;
+    }
+
+    if (!this.outcome) {
+      // If no explicit outcome, let scenario decide or mark as failure
+      this.outcome =
+        this.scenario.checkOutcome?.(this.state, this.currentTick, this.logs) ||
+        { id: "failure", label: "failure", reason: "Max ticks reached without success." };
+      this.log(`Outcome reached: ${this.outcome.id} (${this.outcome.label || this.outcome.id})`);
+    }
+
     return {
+      ticks: this.currentTick,
       finalState: this.state,
-      outcome: this.state.outcome,
-      ticks: this.tick,
-      logs: this.state.logs
+      logs: this.logs,
+      outcome: this.outcome
     };
+  }
+
+  _tick() {
+    const { global, actors } = this.state;
+
+    // Tick start hook
+    if (this.scenario.onTickStart) {
+      this.scenario.onTickStart(this.state, this.currentTick, this.logs);
+    }
+
+    // 1) Run behaviors → produce events
+    const events = [];
+    for (const id in actors) {
+      const actor = actors[id];
+      if (typeof actor.behavior === "function") {
+        const result = actor.behavior(actor, this.state, this.currentTick);
+        if (result && result.event) {
+          events.push({
+            actorId: id,
+            id: result.event,
+            params: result.params ?? {}
+          });
+        }
+      }
+    }
+
+    // 2) Apply movement (1D)
+    for (const id in actors) {
+      const actor = actors[id];
+
+      // Basic 1D movement model
+      actor.velocity += actor.acceleration;
+      if (actor.velocity < 0) actor.velocity = 0;
+      if (actor.velocity > actor.speed) actor.velocity = actor.speed;
+
+      actor.position += actor.velocity * actor.direction;
+    }
+
+    // 3) Process events
+    for (const evt of events) {
+      this._processEvent(evt, this.state);
+    }
+
+    // 4) Update global tick count
+    global.ticksElapsed = this.currentTick;
+
+    // 5) Check outcome
+    if (this.scenario.checkOutcome) {
+      const outcome = this.scenario.checkOutcome(this.state, this.currentTick, this.logs);
+      if (outcome) {
+        this.outcome = outcome;
+      }
+    }
+
+    // Tick end hook
+    if (this.scenario.onTickEnd) {
+      this.scenario.onTickEnd(this.state, this.currentTick, this.logs);
+    }
+  }
+
+  _processEvent(event, state) {
+    const { id, params, actorId } = event;
+    const actor = state.actors[actorId];
+
+    switch (id) {
+      case "move":
+        if (!actor) return;
+        // Direct position adjustment in addition to movement model
+        actor.position += (params.distance ?? 1) * (params.direction ?? actor.direction ?? 1);
+        this.log(
+          `Event fired: move (actor=${actorId}, distance=${params.distance ?? 1}, dir=${params.direction ?? actor.direction ?? 1})`
+        );
+        break;
+
+      case "changeDirection":
+        if (!actor) return;
+        actor.direction = params.direction ?? actor.direction;
+        this.log(`Event fired: changeDirection (actor=${actorId}, dir=${actor.direction})`);
+        break;
+
+      case "accelerate":
+        if (!actor) return;
+        actor.acceleration = params.acceleration ?? actor.acceleration;
+        this.log(`Event fired: accelerate (actor=${actorId}, accel=${actor.acceleration})`);
+        break;
+
+      case "openDoor":
+        state.global.doorOpen = true;
+        this.log("Event fired: openDoor");
+        break;
+
+      default:
+        this.log(`Event fired: ${id}`);
+        break;
+    }
   }
 }
 
-// -----------------------------
-// Minimal Test Scenario (v1)
-// -----------------------------
+// ------------------------------------------------------
+// Minimal Test Scenario v1 (upgraded for v2 movement)
+// ------------------------------------------------------
 
 export const MinimalTestScenarioV1 = {
-  id: "minimal_test_scenario_v1",
-  metadata: {
-    name: "Room Evacuation — Basic",
-    description: "Simple deterministic scenario to validate the APEXSIM v1 loop.",
-    version: "1.0"
-  },
+  id: "minimal_v2_1d",
+  label: "Minimal 1D Movement Scenario",
 
-  settings: {
-    timeMode: "tick",
-    maxTicks: 10
-  },
+  maxTicks: 20,
 
-  environment: {
-    id: "room_1",
-    type: "room",
-    description: "A single room with one exit door."
+  initialGlobalState: {
+    doorOpen: false
   },
 
   actors: [
@@ -165,111 +180,69 @@ export const MinimalTestScenarioV1 = {
       id: "civilian",
       type: "human",
       position: 0,
+      velocity: 0,
+      speed: 1,
+      acceleration: 1,
+      direction: 1,
       state: {},
-      attributes: {
-        speed: 1
+      attributes: { role: "civilian" },
+      behavior: (actor, state, tick) => {
+        // Civilian tries to move toward position >= 5
+        if (!state.global.doorOpen && tick === 1) {
+          return { event: "openDoor" };
+        }
+
+        if (state.global.doorOpen && actor.position < 5) {
+          return { event: "move", params: { distance: 1 } };
+        }
+
+        return null;
       }
     },
     {
       id: "helper",
       type: "human",
       position: 0,
-      state: {}
+      velocity: 0,
+      speed: 1,
+      acceleration: 0,
+      direction: 1,
+      state: {},
+      attributes: { role: "helper" },
+      behavior: (actor, state, tick) => {
+        // Helper is idle in v2 minimal scenario
+        return null;
+      }
     }
   ],
 
-  state: {
-    doorOpen: false,
-    ticksElapsed: 0
+  checkOutcome(state, tick, logs) {
+    const civilian = state.actors["civilian"];
+
+    if (civilian && civilian.position >= 5) {
+      return {
+        id: "success",
+        label: "success",
+        reason: "Civilian reached safe position."
+      };
+    }
+
+    if (tick >= 19) {
+      return {
+        id: "failure",
+        label: "failure",
+        reason: "Civilian did not reach safe position in time."
+      };
+    }
+
+    return null;
   },
 
-  events: [
-    {
-      id: "openDoor",
-      effects: {
-        global: {
-          doorOpen: true
-        }
-      }
-    },
-    {
-      id: "moveCivilian",
-      effects: {
-        actors: [
-          {
-            id: "civilian",
-            patch: {
-              // v1: simple increment-by-1 model; engine just overwrites
-              position: 0 // placeholder; logic is driven by scenario design
-            }
-          }
-        ]
-      }
-    }
-  ],
+  onTickStart(state, tick, logs) {
+    // Optional: could log or mutate state here
+  },
 
-  triggers: [
-    {
-      id: "trigger_open_door",
-      condition: {
-        type: "tickEquals",
-        value: 2
-      },
-      events: ["openDoor"],
-      oneShot: true
-    },
-    {
-      id: "trigger_move_civilian",
-      condition: {
-        type: "globalEquals",
-        key: "doorOpen",
-        value: true
-      },
-      events: ["moveCivilian"],
-      oneShot: false
-    }
-  ],
-
-  outcomes: [
-    {
-      id: "success",
-      type: "success",
-      condition: {
-        type: "actorPositionGte",
-        actorId: "civilian",
-        value: 5
-      }
-    },
-    {
-      id: "failure",
-      type: "failure",
-      condition: {
-        type: "globalEquals",
-        key: "ticksElapsed",
-        value: 10
-      }
-    }
-  ],
-
-  timeline: [
-    {
-      time: 2,
-      eventId: "openDoor"
-    }
-  ]
+  onTickEnd(state, tick, logs) {
+    // Optional: could log or mutate state here
+  }
 };
-
-// -----------------------------
-// Example Runner / APEXOPS Hook
-// -----------------------------
-
-export function runMinimalTestScenario() {
-  const sim = new ApexSim(MinimalTestScenarioV1);
-  const result = sim.start();
-
-  // This is the conceptual APEXOPS hook:
-  // APEXOPS.loadSimulationResult(result);
-
-  console.log("APEXSIM v1 — Minimal Test Scenario Result:", result);
-  return result;
-}
