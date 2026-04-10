@@ -1,7 +1,7 @@
 // ------------------------------------------------------------
-// APEXSIM v3.8 — Leader Behaviors (Patrol Mode)
-// + Dynamic Leader + Formation + Flocking + Obstacle Avoidance
-// + Trails + Glow + Debug
+// APEXSIM v3.9 — Multi‑Leader Hierarchy
+// + Multiple Leaders + Squads + Formation + Flocking
+// + Obstacle Avoidance + Trails + Glow + Debug
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -21,7 +21,7 @@ function limit(v, max) { const m = mag(v); return m > max ? mul(norm(v), max) : 
 // Agent
 // ------------------------------------------------------------
 class Agent {
-    constructor(x, y) {
+    constructor(x, y, squadId = 0) {
         this.pos = vec(x, y);
         this.vel = vec((rand() - 0.5) * 2, (rand() - 0.5) * 2);
         this.acc = vec(0, 0);
@@ -30,6 +30,8 @@ class Agent {
         this.maxForce = 0.05;
 
         this.wanderAngle = 0;
+
+        this.squadId = squadId;
 
         // Trail buffer
         this.trail = [];
@@ -266,7 +268,8 @@ class Agent {
 // Leader (autonomous, patrol + steering)
 // ------------------------------------------------------------
 class Leader {
-    constructor(x, y) {
+    constructor(x, y, id = 0) {
+        this.id = id;
         this.pos = vec(x, y);
         this.vel = vec(1, 0);
         this.acc = vec(0, 0);
@@ -415,9 +418,9 @@ class Leader {
 const APEXSIM = {
     agents: [],
     obstacles: [],
-    formationOffsets: [],
-    formationMode: "circle", // "circle", "line", "none"
-    leader: null,
+    leaders: [],
+    squads: [],          // array of { leaderId, agentIndices, formationOffsets }
+    formationMode: "circle", // "circle", "line"
     width: 800,
     height: 600,
     running: false,
@@ -434,10 +437,12 @@ const APEXSIM = {
         this.height = canvas.height;
 
         this.agents = [];
-        const count = 40;
-        for (let i = 0; i < count; i++) {
-            this.agents.push(new Agent(rand() * this.width, rand() * this.height));
-        }
+        this.leaders = [];
+        this.squads = [];
+
+        const totalAgents = 48;
+        const squadCount = 3;
+        const agentsPerSquad = Math.floor(totalAgents / squadCount);
 
         // Static obstacles
         this.obstacles = [
@@ -446,81 +451,128 @@ const APEXSIM = {
             { pos: vec(this.width * 0.5, this.height * 0.7), radius: 45 }
         ];
 
-        // Leader
-        this.leader = new Leader(this.width / 2, this.height / 2);
-
-        // Patrol waypoints (looping path)
-        const cx = this.width / 2;
-        const cy = this.height / 2;
-        const rX = Math.min(this.width, this.height) * 0.3;
-        const rY = Math.min(this.width, this.height) * 0.2;
-
-        const waypoints = [];
-        const steps = 8;
-        for (let i = 0; i < steps; i++) {
-            const angle = (i / steps) * Math.PI * 2;
-            const x = cx + Math.cos(angle) * rX;
-            const y = cy + Math.sin(angle) * rY;
-            waypoints.push(vec(x, y));
+        // Create leaders with offset patrol loops
+        for (let i = 0; i < squadCount; i++) {
+            const angle = (i / squadCount) * Math.PI * 2;
+            const cx = this.width / 2 + Math.cos(angle) * 80;
+            const cy = this.height / 2 + Math.sin(angle) * 60;
+            const leader = new Leader(cx, cy, i);
+            this.leaders.push(leader);
         }
-        this.leader.setWaypoints(waypoints);
 
-        this.buildFormationOffsets();
+        // Assign patrol waypoints per leader (phase‑shifted ellipses)
+        const steps = 8;
+        const rX = Math.min(this.width, this.height) * 0.25;
+        const rY = Math.min(this.width, this.height) * 0.18;
+        for (let i = 0; i < this.leaders.length; i++) {
+            const leader = this.leaders[i];
+            const waypoints = [];
+            const phase = (i / this.leaders.length) * Math.PI * 2;
+            for (let s = 0; s < steps; s++) {
+                const a = (s / steps) * Math.PI * 2 + phase;
+                const x = this.width / 2 + Math.cos(a) * rX;
+                const y = this.height / 2 + Math.sin(a) * rY;
+                waypoints.push(vec(x, y));
+            }
+            leader.setWaypoints(waypoints);
+        }
+
+        // Create agents and squads
+        let agentIndex = 0;
+        for (let s = 0; s < squadCount; s++) {
+            const squadAgentIndices = [];
+            for (let j = 0; j < agentsPerSquad; j++) {
+                const a = new Agent(rand() * this.width, rand() * this.height, s);
+                this.agents.push(a);
+                squadAgentIndices.push(agentIndex);
+                agentIndex++;
+            }
+            this.squads.push({
+                leaderId: s,
+                agentIndices: squadAgentIndices,
+                formationOffsets: []
+            });
+        }
+
+        // If any leftover agents (due to division), assign to last squad
+        while (agentIndex < totalAgents) {
+            const s = this.squads.length - 1;
+            const a = new Agent(rand() * this.width, rand() * this.height, s);
+            this.agents.push(a);
+            this.squads[s].agentIndices.push(agentIndex);
+            agentIndex++;
+        }
+
+        this.buildAllSquadFormations();
     },
 
     // --------------------------------------------------------
-    // Formation slot offsets (relative to leader)
+    // Formation slot offsets per squad (relative to its leader)
 // --------------------------------------------------------
-    buildFormationOffsets() {
-        this.formationOffsets = [];
-        const n = this.agents.length;
+    buildAllSquadFormations() {
+        for (const squad of this.squads) {
+            const n = squad.agentIndices.length;
+            squad.formationOffsets = [];
 
-        if (this.formationMode === "circle") {
-            const radius = 80;
-            for (let i = 0; i < n; i++) {
-                const angle = (i / n) * Math.PI * 2;
-                const x = Math.cos(angle) * radius;
-                const y = Math.sin(angle) * radius;
-                this.formationOffsets.push(vec(x, y));
-            }
-        } else if (this.formationMode === "line") {
-            const spacing = 20;
-            const startX = -(n / 2) * spacing;
-            const y = 0;
-            for (let i = 0; i < n; i++) {
-                const x = startX + i * spacing;
-                this.formationOffsets.push(vec(x, y));
-            }
-        } else {
-            for (let i = 0; i < n; i++) {
-                this.formationOffsets.push(null);
+            if (this.formationMode === "circle") {
+                const radius = 60;
+                for (let i = 0; i < n; i++) {
+                    const angle = (i / n) * Math.PI * 2;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    squad.formationOffsets.push(vec(x, y));
+                }
+            } else if (this.formationMode === "line") {
+                const spacing = 18;
+                const startX = -(n / 2) * spacing;
+                const y = 0;
+                for (let i = 0; i < n; i++) {
+                    const x = startX + i * spacing;
+                    squad.formationOffsets.push(vec(x, y));
+                }
             }
         }
     },
 
     setFormation(mode) {
         this.formationMode = mode;
-        this.buildFormationOffsets();
+        this.buildAllSquadFormations();
     },
 
     step() {
-        // Update leader with patrol behavior
-        this.leader.updatePatrol(this.obstacles);
+        // Update leaders
+        for (const leader of this.leaders) {
+            leader.updatePatrol(this.obstacles);
 
-        // Agents follow formation slots relative to leader
-        for (let i = 0; i < this.agents.length; i++) {
-            const a = this.agents[i];
-            const neighbors = this.agents;
-
-            const offset = this.formationOffsets[i];
-            let slotWorld = null;
-            if (offset) {
-                slotWorld = add(this.leader.pos, offset);
-            }
-
-            a.flock(neighbors, this.obstacles, slotWorld);
+            // Soft wrap
+            if (leader.pos.x < 0) leader.pos.x = this.width;
+            if (leader.pos.x > this.width) leader.pos.x = 0;
+            if (leader.pos.y < 0) leader.pos.y = this.height;
+            if (leader.pos.y > this.height) leader.pos.y = 0;
         }
 
+        // Agents follow their squad leader + formation
+        for (const squad of this.squads) {
+            const leader = this.leaders[squad.leaderId];
+            const indices = squad.agentIndices;
+            const offsets = squad.formationOffsets;
+
+            for (let i = 0; i < indices.length; i++) {
+                const idx = indices[i];
+                const a = this.agents[idx];
+                const neighbors = this.agents; // global flocking for now
+
+                const offset = offsets[i] || null;
+                let slotWorld = null;
+                if (offset) {
+                    slotWorld = add(leader.pos, offset);
+                }
+
+                a.flock(neighbors, this.obstacles, slotWorld);
+            }
+        }
+
+        // Update agents + wrap
         for (const a of this.agents) {
             a.update();
 
@@ -529,12 +581,6 @@ const APEXSIM = {
             if (a.pos.y < 0) a.pos.y = this.height;
             if (a.pos.y > this.height) a.pos.y = 0;
         }
-
-        // Keep leader inside bounds softly
-        if (this.leader.pos.x < 0) this.leader.pos.x = this.width;
-        if (this.leader.pos.x > this.width) this.leader.pos.x = 0;
-        if (this.leader.pos.y < 0) this.leader.pos.y = this.height;
-        if (this.leader.pos.y > this.height) this.leader.pos.y = 0;
     },
 
     // --------------------------------------------------------
@@ -564,11 +610,12 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Debug vectors + obstacle + formation + leader debug
+    // Debug vectors + obstacle + formation + leaders
     // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
 
+        // Agents
         for (let i = 0; i < this.agents.length; i++) {
             const a = this.agents[i];
 
@@ -591,11 +638,21 @@ const APEXSIM = {
             c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
             c.stroke();
+        }
 
-            // Formation slot debug (world position)
-            const offset = this.formationOffsets[i];
-            if (offset) {
-                const slot = add(this.leader.pos, offset);
+        // Formation slots per squad
+        for (const squad of this.squads) {
+            const leader = this.leaders[squad.leaderId];
+            const indices = squad.agentIndices;
+            const offsets = squad.formationOffsets;
+
+            for (let i = 0; i < indices.length; i++) {
+                const idx = indices[i];
+                const a = this.agents[idx];
+                const offset = offsets[i];
+                if (!offset) continue;
+
+                const slot = add(leader.pos, offset);
 
                 c.strokeStyle = "rgba(255,255,255,0.4)";
                 c.beginPath();
@@ -618,36 +675,39 @@ const APEXSIM = {
             c.stroke();
         }
 
-        // Leader debug
-        c.strokeStyle = "#ffffff";
-        c.beginPath();
-        c.arc(this.leader.pos.x, this.leader.pos.y, 6, 0, Math.PI * 2);
-        c.stroke();
-
-        c.beginPath();
-        c.moveTo(this.leader.pos.x - 8, this.leader.pos.y);
-        c.lineTo(this.leader.pos.x + 8, this.leader.pos.y);
-        c.moveTo(this.leader.pos.x, this.leader.pos.y - 8);
-        c.lineTo(this.leader.pos.x, this.leader.pos.y + 8);
-        c.stroke();
-
-        // Waypoints
-        if (this.leader.waypoints && this.leader.waypoints.length > 0) {
-            c.strokeStyle = "rgba(255,255,255,0.25)";
+        // Leaders + their waypoints
+        for (const leader of this.leaders) {
+            // Leader marker
+            c.strokeStyle = "#ffffff";
             c.beginPath();
-            for (let i = 0; i < this.leader.waypoints.length; i++) {
-                const wp = this.leader.waypoints[i];
-                if (i === 0) c.moveTo(wp.x, wp.y);
-                else c.lineTo(wp.x, wp.y);
-            }
-            c.closePath();
+            c.arc(leader.pos.x, leader.pos.y, 6, 0, Math.PI * 2);
             c.stroke();
 
-            c.fillStyle = "rgba(255,255,255,0.4)";
-            for (const wp of this.leader.waypoints) {
+            c.beginPath();
+            c.moveTo(leader.pos.x - 8, leader.pos.y);
+            c.lineTo(leader.pos.x + 8, leader.pos.y);
+            c.moveTo(leader.pos.x, leader.pos.y - 8);
+            c.lineTo(leader.pos.x, leader.pos.y + 8);
+            c.stroke();
+
+            // Waypoints
+            if (leader.waypoints && leader.waypoints.length > 0) {
+                c.strokeStyle = "rgba(255,255,255,0.25)";
                 c.beginPath();
-                c.arc(wp.x, wp.y, 3, 0, Math.PI * 2);
-                c.fill();
+                for (let i = 0; i < leader.waypoints.length; i++) {
+                    const wp = leader.waypoints[i];
+                    if (i === 0) c.moveTo(wp.x, wp.y);
+                    else c.lineTo(wp.x, wp.y);
+                }
+                c.closePath();
+                c.stroke();
+
+                c.fillStyle = "rgba(255,255,255,0.4)";
+                for (const wp of leader.waypoints) {
+                    c.beginPath();
+                    c.arc(wp.x, wp.y, 3, 0, Math.PI * 2);
+                    c.fill();
+                }
             }
         }
     },
