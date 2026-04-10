@@ -9,9 +9,9 @@ export function createApexSim(scenario) {
     actors: scenario.actors.map(a => ({
       id: a.id,
       x: a.x ?? 0,
-      vx: a.vx ?? 0,
+      vx: a.vx ?? 0
     })),
-    events: [],
+    events: []
   };
 
   function step(rand) {
@@ -48,7 +48,7 @@ export function createApexSim(scenario) {
         id: a.id,
         x: a.x,
         vx: a.vx
-      })),
+      }))
     };
   }
 
@@ -65,7 +65,7 @@ export const MinimalTestScenarioV1 = {
 
   actors: [
     { id: "actor-1", x: 0, vx: 0.5 },
-    { id: "actor-2", x: -2, vx: 0.25 },
+    { id: "actor-2", x: -2, vx: 0.25 }
   ],
 
   onTick({ state, rand }) {
@@ -86,10 +86,10 @@ export const MinimalTestScenarioV1 = {
           actorId: actor.id,
           x: actor.x,
           tick: state.tick,
-          threshold: 5,
+          threshold: 5
         });
       }
     }
     return events;
-  },
+  }
 };
