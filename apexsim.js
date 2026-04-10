@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// APEXSIM v3.4 — Flocking (Separation, Alignment, Cohesion)
+// APEXSIM v3.5 — Obstacle Avoidance + Flocking
 // + Steering Base + Fade‑Out Trails + Debug + Glow
 // ------------------------------------------------------------
 
@@ -89,7 +89,7 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Wander steering (kept as noise source)
+    // Wander steering (noise source)
 // --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
@@ -116,22 +116,25 @@ class Agent {
     // --------------------------------------------------------
     // Flocking behaviors
     // --------------------------------------------------------
-    flock(neighbors) {
+    flock(neighbors, obstacles) {
         const separation = this.flockSeparation(neighbors);
         const alignment = this.flockAlignment(neighbors);
         const cohesion = this.flockCohesion(neighbors);
         const wander = this.steerWander();
+        const avoid = this.avoidObstacles(obstacles);
 
         const sepWeight = 1.5;
         const aliWeight = 1.0;
         const cohWeight = 1.0;
         const wanWeight = 0.3;
+        const avoWeight = 2.0;
 
         let steer = vec(0, 0);
         steer = add(steer, mul(separation, sepWeight));
         steer = add(steer, mul(alignment, aliWeight));
         steer = add(steer, mul(cohesion, cohWeight));
         steer = add(steer, mul(wander, wanWeight));
+        steer = add(steer, mul(avoid, avoWeight));
 
         this.applyForce(steer);
     }
@@ -142,6 +145,7 @@ class Agent {
         let count = 0;
 
         for (const other of neighbors) {
+            if (other === this) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < desiredSeparation) {
                 let diff = sub(this.pos, other.pos);
@@ -172,6 +176,7 @@ class Agent {
         let count = 0;
 
         for (const other of neighbors) {
+            if (other === this) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < neighborDist) {
                 sum = add(sum, other.vel);
@@ -197,6 +202,7 @@ class Agent {
         let count = 0;
 
         for (const other of neighbors) {
+            if (other === this) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < neighborDist) {
                 sum = add(sum, other.pos);
@@ -207,6 +213,49 @@ class Agent {
         if (count > 0) {
             sum = mul(sum, 1 / count);
             return this.steerSeek(sum);
+        }
+
+        return vec(0, 0);
+    }
+
+    // --------------------------------------------------------
+    // Obstacle avoidance
+    // --------------------------------------------------------
+    avoidObstacles(obstacles) {
+        if (!obstacles || obstacles.length === 0) return vec(0, 0);
+
+        const lookAhead = 40;
+        const avoidForce = vec(0, 0);
+
+        const forward = norm(this.vel);
+        const ahead = add(this.pos, mul(forward, lookAhead));
+        const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
+
+        let mostThreatening = null;
+
+        for (const obs of obstacles) {
+            const collision =
+                mag(sub(obs.pos, ahead)) <= obs.radius ||
+                mag(sub(obs.pos, aheadHalf)) <= obs.radius;
+
+            if (collision) {
+                if (!mostThreatening) {
+                    mostThreatening = obs;
+                } else {
+                    const currentDist = mag(sub(obs.pos, this.pos));
+                    const bestDist = mag(sub(mostThreatening.pos, this.pos));
+                    if (currentDist < bestDist) {
+                        mostThreatening = obs;
+                    }
+                }
+            }
+        }
+
+        if (mostThreatening) {
+            let avoid = sub(ahead, mostThreatening.pos);
+            avoid = norm(avoid);
+            avoid = mul(avoid, this.maxForce * 2);
+            return avoid;
         }
 
         return vec(0, 0);
@@ -228,6 +277,7 @@ class Agent {
 // ------------------------------------------------------------
 const APEXSIM = {
     agents: [],
+    obstacles: [],
     width: 800,
     height: 600,
     running: false,
@@ -247,20 +297,25 @@ const APEXSIM = {
         for (let i = 0; i < 40; i++) {
             this.agents.push(new Agent(rand() * this.width, rand() * this.height));
         }
+
+        // Static obstacles
+        this.obstacles = [
+            { pos: vec(this.width * 0.33, this.height * 0.5), radius: 40 },
+            { pos: vec(this.width * 0.66, this.height * 0.4), radius: 35 },
+            { pos: vec(this.width * 0.5, this.height * 0.7), radius: 45 }
+        ];
     },
 
     step() {
-        // Flocking: each agent considers all others as potential neighbors
         for (let i = 0; i < this.agents.length; i++) {
             const a = this.agents[i];
-            const neighbors = this.agents; // simple global neighborhood
-            a.flock(neighbors);
+            const neighbors = this.agents;
+            a.flock(neighbors, this.obstacles);
         }
 
         for (const a of this.agents) {
             a.update();
 
-            // Wrap edges
             if (a.pos.x < 0) a.pos.x = this.width;
             if (a.pos.x > this.width) a.pos.x = 0;
             if (a.pos.y < 0) a.pos.y = this.height;
@@ -295,7 +350,7 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Debug vectors
+    // Debug vectors + obstacle debug
     // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
@@ -319,6 +374,14 @@ const APEXSIM = {
             c.beginPath();
             c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
+            c.stroke();
+        }
+
+        // Obstacles
+        c.strokeStyle = "#ff8800";
+        for (const obs of this.obstacles) {
+            c.beginPath();
+            c.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
             c.stroke();
         }
     },
@@ -357,6 +420,14 @@ const APEXSIM = {
         if (this.showTrails) this.drawTrails();
         if (this.showGlow) this.drawGlow();
         if (this.showDebugVectors) this.drawDebugVectors();
+
+        // Obstacles fill (subtle)
+        c.fillStyle = "rgba(255, 136, 0, 0.15)";
+        for (const obs of this.obstacles) {
+            c.beginPath();
+            c.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
+            c.fill();
+        }
 
         c.fillStyle = "#00eaff";
         for (const a of this.agents) {
