@@ -1,11 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>APEXOPS + APEXAI Scenario Browser</title>
+</head>
+
+<body style="margin:0; background:#111; color:#eee; font-family:monospace;">
+
+<!-- ========================================================= -->
+<!--  FULL PAGE LAYOUT: SIDEBAR + INSPECTOR                    -->
+<!-- ========================================================= -->
+<div id="apex-layout" style="display:flex; height:100vh;">
+
+    <!-- LEFT SIDEBAR: AI Scenario Browser -->
+    <div id="apex-sidebar" style="
+        width:300px;
+        border-right:1px solid #333;
+        padding:15px;
+        overflow-y:auto;
+        background:#111;
+    ">
+        <h2 style="margin-top:0;">AI Scenario Browser</h2>
+
+        <button id="ai-generate-btn" style="
+            margin-bottom:15px;
+            width:100%;
+            padding:8px;
+            background:#222;
+            color:#eee;
+            border:1px solid #444;
+            cursor:pointer;
+        ">Generate Scenarios</button>
+
+        <div id="ai-scenario-list"></div>
+    </div>
+
+    <!-- RIGHT PANEL: APEXOPS Inspector -->
+    <div id="apexops-root" style="flex:1; overflow-y:auto;"></div>
+
+</div>
+
+
+<!-- ========================================================= -->
+<!--  SCRIPT: APEXCORE + APEXAI + APEXSIM + APEXOPS            -->
+<!-- ========================================================= -->
 <script type="module">
-  import { ApexSim, MinimalTestScenarioV1 } from './apexsim.js';
-  import { ApexOps } from './apexops.js';
+    import { ApexSim, MinimalTestScenarioV1 } from './apexsim.js';
+    import { ApexOps } from './apexops.js';
+    import { ApexCore } from './apexcore.js';
+    import { ApexAI } from './apexai.js';
 
-  const ops = new ApexOps("apexops-root", () => new ApexSim(MinimalTestScenarioV1));
+    // CORE + AI + OPS
+    const core = new ApexCore();
+    const ai = new ApexAI(core);
+    const ops = new ApexOps("apexops-root", () => new ApexSim(MinimalTestScenarioV1));
 
-  // Optionally auto-run once on load:
-  const sim = new ApexSim(MinimalTestScenarioV1);
-  const result = sim.start();
-  ops.loadSimulationResult(result);
+    core.registerModule("ops", ops);
+
+    // Load default scenario
+    core.loadScenario(MinimalTestScenarioV1);
+    const initialResult = core.startSimulation((scenario) => new ApexSim(scenario));
+    ops.loadSimulationResult(initialResult);
+
+    // ------------------------------------------------------
+    // SCENARIO BROWSER LOGIC
+    // ------------------------------------------------------
+
+    const scenarioListEl = document.getElementById("ai-scenario-list");
+    const generateBtn = document.getElementById("ai-generate-btn");
+
+    // Render a scenario card
+    function renderScenarioCard(scenario, index) {
+        const card = document.createElement("div");
+        card.style.border = "1px solid #444";
+        card.style.padding = "10px";
+        card.style.marginBottom = "10px";
+        card.style.background = "#181818";
+
+        card.innerHTML = `
+            <strong>${scenario.label}</strong><br>
+            <small>ID: ${scenario.id}</small><br>
+            <small>Distance: ${scenario.actors[0].attributes.targetPosition}</small><br>
+            <small>Speed: ${scenario.actors[0].speed}</small><br>
+            <small>Accel: ${scenario.actors[0].acceleration}</small><br>
+            <button id="run-${index}" style="
+                margin-top:10px;
+                width:100%;
+                padding:6px;
+                background:#222;
+                color:#eee;
+                border:1px solid #444;
+                cursor:pointer;
+            ">Run</button>
+        `;
+
+        scenarioListEl.appendChild(card);
+
+        // Wire the Run button
+        document.getElementById(`run-${index}`).addEventListener("click", () => {
+            core.loadScenario(scenario);
+            const result = core.startSimulation((scenario) => new ApexSim(scenario));
+            ops.loadSimulationResult(result);
+
+            // AI analysis appended under outcome
+            const analysis = ai.evaluateResult(result);
+            const outcomeEl = document.getElementById("ops-outcome");
+            outcomeEl.innerHTML += `
+                <h3>AI Analysis</h3>
+                <pre>${JSON.stringify(analysis, null, 2)}</pre>
+            `;
+        });
+    }
+
+    // Generate multiple scenarios
+    generateBtn.addEventListener("click", () => {
+        scenarioListEl.innerHTML = ""; // clear old list
+
+        const count = 5; // number of scenarios to generate
+        for (let i = 0; i < count; i++) {
+            const scenario = ai.generateEvacScenario({
+                id: `ai_scenario_${Date.now()}_${i}`,
+                distanceToSafety: 5 + Math.floor(Math.random() * 6), // 5–10
+                civilianSpeed: 1,
+                civilianAcceleration: 1,
+                maxTicks: 20
+            });
+
+            renderScenarioCard(scenario, i);
+        }
+    });
 </script>
+
+</body>
+</html>
