@@ -1,205 +1,31 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>APEXCORE — System Shell</title>
-</head>
+<!-- APEXSIM CONTROL PANEL -->
+<div id="apexsim-controls" style="
+  margin-top:20px;
+  padding:14px;
+  border:1px solid #222;
+  background:#0d1117;
+  font-size:12px;
+  color:#ccc;
+  line-height:1.4;
+">
 
-<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
-
-<!-- HEADER -->
-<div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
-  <div>
-    <span style="font-weight:bold;">APEXCORE — SYSTEM SHELL</span>
-    <span style="color:#888; margin-left:8px;">v3</span>
-  </div>
-  <div style="font-size:12px; color:#aaa;">
-    Mode: <span style="color:#6cf;">Studio / Dev</span> · Status: <span style="color:#6f6;">ONLINE</span>
-  </div>
-</div>
-
-<!-- LAYOUT -->
-<div style="display:flex; height:calc(100vh - 40px);">
-
-  <!-- LEFT: ENGINE LIST -->
-  <div style="width:220px; border-right:1px solid #222; padding:12px; background:#050608;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">ENGINES</div>
-    <div id="engine-list"></div>
+  <div style="font-size:13px; margin-bottom:10px; color:#7fffd4; font-weight:bold;">
+    APEXSIM Controls
   </div>
 
-  <!-- CENTER: WORKSPACE -->
-  <div style="flex:1; border-right:1px solid #222; padding:12px; background:#07090c;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">WORKSPACE</div>
-    <div id="workspace-panel" style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto;"></div>
-  </div>
+  <label style="display:flex; align-items:center; margin-bottom:8px;">
+    <input type="checkbox" id="sim-toggle-glow" checked style="margin-right:6px;">
+    Glow
+  </label>
 
-  <!-- RIGHT: SYSTEM LOG + CONTEXT -->
-  <div style="width:320px; padding:12px; background:#050608;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">SYSTEM LOG</div>
-    <div id="system-log" style="border:1px solid #222; padding:8px; background:#07090c; height:45%; overflow:auto; font-size:11px;"></div>
+  <label style="display:flex; align-items:center; margin-bottom:8px;">
+    <input type="checkbox" id="sim-toggle-trails" checked style="margin-right:6px;">
+    Trails
+  </label>
 
-    <div style="font-size:11px; color:#888; margin:8px 0 4px;">CONTEXT</div>
-    <div id="context-panel" style="border:1px solid #222; padding:8px; background:#07090c; height:45%; overflow:auto; font-size:11px;"></div>
-  </div>
+  <label style="display:flex; align-items:center; margin-bottom:8px;">
+    <input type="checkbox" id="sim-toggle-debug" checked style="margin-right:6px;">
+    Debug Vectors
+  </label>
 
 </div>
-
-<!-- SCRIPT -->
-<script type="module">
-  /* ------------------------------------------------------------
-     ENGINE REGISTRY
-     ------------------------------------------------------------ */
-  const engines = [
-    { id:"APEXCORE", role:"System Layer", scope:"Shell / Lifecycle / Event Bus", workspace:"Core Overview",
-      description:"APEXCORE v3 provides the unified system shell, lifecycle manager, and event bus." },
-
-    { id:"APEXRPG", role:"Narrative", scope:"Story / Encounter Logic", workspace:"Narrative Tools",
-      description:"APEXRPG manages narrative structures and encounter logic." },
-
-    { id:"APEXCREATOR", role:"Creator", scope:"Authoring / Layout", workspace:"Creator Workspace",
-      description:"APEXCREATOR provides creator-facing tools for building encounters." },
-
-    { id:"APEXOPS", role:"Runtime", scope:"Inspection / Telemetry", workspace:"Ops Console",
-      description:"APEXOPS v3 is the runtime inspector for simulations and encounters." },
-
-    { id:"APEXSIM", role:"Simulation", scope:"Engine / Tick Loop", workspace:"Simulation View",
-      description:"APEXSIM v3 runs deterministic simulations over time." },
-
-    { id:"APEXMMO", role:"Scale", scope:"Multi-Node / Sharding", workspace:"Scale Dashboard",
-      description:"APEXMMO handles scale, distribution, and multi-node orchestration." },
-
-    { id:"APEXAI", role:"Intelligence", scope:"Scenario / Behavior / Analysis", workspace:"AI Scenario Browser",
-      description:"APEXAI v3 generates, classifies, and analyzes scenarios for simulation and inspection." }
-  ];
-
-  const engineListEl = document.getElementById("engine-list");
-  const workspacePanel = document.getElementById("workspace-panel");
-  const systemLog = document.getElementById("system-log");
-  const contextPanel = document.getElementById("context-panel");
-
-  let activeEngineId = "APEXCORE";
-
-  /* ------------------------------------------------------------
-     LOGGING
-     ------------------------------------------------------------ */
-  function log(line) {
-    const ts = new Date().toISOString().split("T")[1].split(".")[0];
-    const div = document.createElement("div");
-    div.textContent = `[${ts}] ${line}`;
-    systemLog.prepend(div);
-  }
-
-  /* ------------------------------------------------------------
-     ENGINE LIST RENDER
-     ------------------------------------------------------------ */
-  function renderEngineList() {
-    engineListEl.innerHTML = "";
-    engines.forEach(engine => {
-      const btn = document.createElement("div");
-      btn.textContent = engine.id;
-      btn.style.padding = "6px 8px";
-      btn.style.marginBottom = "4px";
-      btn.style.cursor = "pointer";
-      btn.style.fontSize = "12px";
-      btn.style.border = "1px solid #222";
-      btn.style.background = engine.id === activeEngineId ? "#111822" : "#050608";
-      btn.style.color = engine.id === activeEngineId ? "#7fd0ff" : "#e5e5e5";
-
-      btn.addEventListener("click", () => {
-        if (engine.id === activeEngineId) return;
-        activeEngineId = engine.id;
-        log(`[ENGINE] Switched active engine to ${engine.id}.`);
-        renderEngineList();
-        renderWorkspace();
-        renderContext();
-      });
-
-      engineListEl.appendChild(btn);
-    });
-  }
-
-  /* ------------------------------------------------------------
-     CONTEXT PANEL
-     ------------------------------------------------------------ */
-  function renderContext() {
-    const engine = engines.find(e => e.id === activeEngineId);
-
-    contextPanel.innerHTML = `
-      <div style="font-size:12px; color:#ccc;">
-        <div><strong>Active Engine:</strong> ${engine.id}</div>
-        <div><strong>Role:</strong> ${engine.role}</div>
-        <div><strong>Scope:</strong> ${engine.scope}</div>
-        <div style="margin-top:8px; font-size:11px; color:#888;">
-          ${engine.description}
-        </div>
-      </div>
-    `;
-  }
-
-  /* ------------------------------------------------------------
-     WORKSPACE RENDER
-     ------------------------------------------------------------ */
-  function renderWorkspace() {
-    const engine = engines.find(e => e.id === activeEngineId);
-
-    /* -------------------------
-       APEXOPS
-    ------------------------- */
-    if (engine.id === "APEXOPS") {
-      workspacePanel.innerHTML = `
-        <h2 style="margin-top:0; font-size:16px;">APEXOPS — Runtime Inspector</h2>
-        <iframe src="./apexops.html"
-          style="width:100%; height:90%; border:1px solid #222; background:#000;"></iframe>
-      `;
-      return;
-    }
-
-    /* -------------------------
-       APEXAI
-    ------------------------- */
-    if (engine.id === "APEXAI") {
-      workspacePanel.innerHTML = `
-        <h2 style="margin-top:0; font-size:16px;">APEXAI — Scenario Browser</h2>
-        <iframe src="./apexai.html"
-          style="width:100%; height:90%; border:1px solid #222; background:#000;"></iframe>
-      `;
-      return;
-    }
-
-    /* -------------------------
-       APEXSIM
-    ------------------------- */
-    if (engine.id === "APEXSIM") {
-      workspacePanel.innerHTML = `
-        <h2 style="margin-top:0; font-size:16px;">APEXSIM — Simulation View</h2>
-        <iframe src="./apexsim.html"
-          style="width:100%; height:90%; border:1px solid #222; background:#000;"></iframe>
-      `;
-      return;
-    }
-
-    /* -------------------------
-       DEFAULT ENGINE PANEL
-    ------------------------- */
-    workspacePanel.innerHTML = `
-      <h2 style="margin-top:0; font-size:16px;">${engine.workspace}</h2>
-      <p style="font-size:13px; color:#ccc; max-width:640px;">${engine.description}</p>
-      <div style="margin-top:12px; font-size:12px; color:#aaa;">
-        <div>Engine: <span style="color:#fff;">${engine.id}</span></div>
-        <div>Role: <span style="color:#fff;">${engine.role}</span></div>
-        <div>Scope: <span style="color:#fff;">${engine.scope}</span></div>
-      </div>
-    `;
-  }
-
-  /* ------------------------------------------------------------
-     INITIALIZE SHELL
-     ------------------------------------------------------------ */
-  renderEngineList();
-  renderWorkspace();
-  renderContext();
-  log("APEXCORE System Shell initialized.");
-</script>
-
-</body>
-</html>
