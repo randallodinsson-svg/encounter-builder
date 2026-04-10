@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// APEXSIM v3.1 — With Trails + Debug Vectors
+// APEXSIM v3.1 — Trails + Debug Vectors + Glow (One‑and‑Done)
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -32,6 +32,10 @@ class Agent {
         // Trail buffer
         this.trail = [];
         this.maxTrail = 40;
+
+        // Debug storage
+        this.debugCirclePos = vec();
+        this.debugTarget = vec();
     }
 
     applyForce(f) {
@@ -42,8 +46,8 @@ class Agent {
     // Wander steering
     // --------------------------------------------------------
     steerWander() {
-        const wanderRadius = 1.2;
-        const wanderDistance = 2.0;
+        const wanderRadius = 12;
+        const wanderDistance = 20;
         const change = 0.3;
 
         this.wanderAngle += (rand() * 2 - 1) * change;
@@ -88,6 +92,7 @@ const APEXSIM = {
     // Debug toggles
     showTrails: true,
     showDebugVectors: true,
+    showGlow: true,
 
     init(canvas) {
         this.ctx = canvas.getContext("2d");
@@ -114,6 +119,9 @@ const APEXSIM = {
         }
     },
 
+    // --------------------------------------------------------
+    // Trails
+    // --------------------------------------------------------
     drawTrails() {
         const c = this.ctx;
         c.strokeStyle = "rgba(0, 255, 255, 0.25)";
@@ -133,6 +141,9 @@ const APEXSIM = {
         }
     },
 
+    // --------------------------------------------------------
+    // Debug vectors
+    // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
 
@@ -159,11 +170,39 @@ const APEXSIM = {
         }
     },
 
+    // --------------------------------------------------------
+    // Glow effect
+    // --------------------------------------------------------
+    drawGlow() {
+        const c = this.ctx;
+
+        for (const a of this.agents) {
+            const glowSize = 8 + mag(a.vel) * 4;
+
+            const gradient = c.createRadialGradient(
+                a.pos.x, a.pos.y, 0,
+                a.pos.x, a.pos.y, glowSize
+            );
+
+            gradient.addColorStop(0, "rgba(0, 234, 255, 0.35)");
+            gradient.addColorStop(1, "rgba(0, 234, 255, 0)");
+
+            c.fillStyle = gradient;
+            c.beginPath();
+            c.arc(a.pos.x, a.pos.y, glowSize, 0, Math.PI * 2);
+            c.fill();
+        }
+    },
+
+    // --------------------------------------------------------
+    // Draw
+    // --------------------------------------------------------
     draw() {
         const c = this.ctx;
         c.clearRect(0, 0, this.width, this.height);
 
         if (this.showTrails) this.drawTrails();
+        if (this.showGlow) this.drawGlow();
         if (this.showDebugVectors) this.drawDebugVectors();
 
         // Draw agents
