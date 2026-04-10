@@ -1,6 +1,6 @@
 // ------------------------------------------------------------
-// APEXSIM v3.5 — Obstacle Avoidance + Flocking
-// + Steering Base + Fade‑Out Trails + Debug + Glow
+// APEXSIM v3.6 — Formation Control
+// + Flocking + Obstacle Avoidance + Trails + Glow + Debug
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -59,18 +59,6 @@ class Agent {
         return limit(steer, this.maxForce);
     }
 
-    steerFlee(target) {
-        const desired = sub(this.pos, target);
-        const d = mag(desired);
-        if (d === 0) return vec(0, 0);
-
-        let desiredNorm = norm(desired);
-        desiredNorm = mul(desiredNorm, this.maxSpeed);
-
-        const steer = sub(desiredNorm, this.vel);
-        return limit(steer, this.maxForce);
-    }
-
     steerArrive(target, slowRadius = 80) {
         const desired = sub(target, this.pos);
         const d = mag(desired);
@@ -114,20 +102,22 @@ class Agent {
     }
 
     // --------------------------------------------------------
-    // Flocking behaviors
+    // Flocking + Formation
     // --------------------------------------------------------
-    flock(neighbors, obstacles) {
+    flock(neighbors, obstacles, formationTarget) {
         const separation = this.flockSeparation(neighbors);
         const alignment = this.flockAlignment(neighbors);
         const cohesion = this.flockCohesion(neighbors);
         const wander = this.steerWander();
         const avoid = this.avoidObstacles(obstacles);
+        const formation = formationTarget ? this.steerArrive(formationTarget, 60) : vec(0, 0);
 
         const sepWeight = 1.5;
         const aliWeight = 1.0;
-        const cohWeight = 1.0;
-        const wanWeight = 0.3;
+        const cohWeight = 0.8;
+        const wanWeight = 0.25;
         const avoWeight = 2.0;
+        const formWeight = 1.2;
 
         let steer = vec(0, 0);
         steer = add(steer, mul(separation, sepWeight));
@@ -135,6 +125,7 @@ class Agent {
         steer = add(steer, mul(cohesion, cohWeight));
         steer = add(steer, mul(wander, wanWeight));
         steer = add(steer, mul(avoid, avoWeight));
+        steer = add(steer, mul(formation, formWeight));
 
         this.applyForce(steer);
     }
@@ -225,8 +216,6 @@ class Agent {
         if (!obstacles || obstacles.length === 0) return vec(0, 0);
 
         const lookAhead = 40;
-        const avoidForce = vec(0, 0);
-
         const forward = norm(this.vel);
         const ahead = add(this.pos, mul(forward, lookAhead));
         const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
@@ -278,12 +267,14 @@ class Agent {
 const APEXSIM = {
     agents: [],
     obstacles: [],
+    formationSlots: [],
+    formationMode: "circle", // "circle", "line", "none"
     width: 800,
     height: 600,
     running: false,
     ctx: null,
 
-    // Debug toggles
+    // Debug toggles (wired to your UI)
     showTrails: true,
     showDebugVectors: true,
     showGlow: true,
@@ -294,7 +285,8 @@ const APEXSIM = {
         this.height = canvas.height;
 
         this.agents = [];
-        for (let i = 0; i < 40; i++) {
+        const count = 40;
+        for (let i = 0; i < count; i++) {
             this.agents.push(new Agent(rand() * this.width, rand() * this.height));
         }
 
@@ -304,13 +296,53 @@ const APEXSIM = {
             { pos: vec(this.width * 0.66, this.height * 0.4), radius: 35 },
             { pos: vec(this.width * 0.5, this.height * 0.7), radius: 45 }
         ];
+
+        this.buildFormationSlots();
+    },
+
+    // --------------------------------------------------------
+    // Formation slot generation
+    // --------------------------------------------------------
+    buildFormationSlots() {
+        this.formationSlots = [];
+        const n = this.agents.length;
+        const center = vec(this.width / 2, this.height / 2);
+
+        if (this.formationMode === "circle") {
+            const radius = Math.min(this.width, this.height) * 0.25;
+            for (let i = 0; i < n; i++) {
+                const angle = (i / n) * Math.PI * 2;
+                const x = center.x + Math.cos(angle) * radius;
+                const y = center.y + Math.sin(angle) * radius;
+                this.formationSlots.push(vec(x, y));
+            }
+        } else if (this.formationMode === "line") {
+            const spacing = 20;
+            const startX = center.x - (n / 2) * spacing;
+            const y = center.y;
+            for (let i = 0; i < n; i++) {
+                const x = startX + i * spacing;
+                this.formationSlots.push(vec(x, y));
+            }
+        } else {
+            // "none" → no slots
+            for (let i = 0; i < n; i++) {
+                this.formationSlots.push(null);
+            }
+        }
+    },
+
+    setFormation(mode) {
+        this.formationMode = mode;
+        this.buildFormationSlots();
     },
 
     step() {
         for (let i = 0; i < this.agents.length; i++) {
             const a = this.agents[i];
             const neighbors = this.agents;
-            a.flock(neighbors, this.obstacles);
+            const slot = this.formationSlots[i] || null;
+            a.flock(neighbors, this.obstacles, slot);
         }
 
         for (const a of this.agents) {
@@ -350,12 +382,14 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Debug vectors + obstacle debug
+    // Debug vectors + obstacle + formation debug
     // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
 
-        for (const a of this.agents) {
+        for (let i = 0; i < this.agents.length; i++) {
+            const a = this.agents[i];
+
             // Velocity vector
             c.strokeStyle = "#0f0";
             c.beginPath();
@@ -375,6 +409,21 @@ const APEXSIM = {
             c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
             c.stroke();
+
+            // Formation slot debug
+            const slot = this.formationSlots[i];
+            if (slot) {
+                c.strokeStyle = "rgba(255,255,255,0.4)";
+                c.beginPath();
+                c.arc(slot.x, slot.y, 4, 0, Math.PI * 2);
+                c.stroke();
+
+                c.strokeStyle = "rgba(255,255,255,0.2)";
+                c.beginPath();
+                c.moveTo(a.pos.x, a.pos.y);
+                c.lineTo(slot.x, slot.y);
+                c.stroke();
+            }
         }
 
         // Obstacles
