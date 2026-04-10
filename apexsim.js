@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// APEXSIM v3.5 — SAFE MODE 2D + STEERING BEHAVIORS
+// APEXSIM v3.6 — SAFE MODE 2D + STEERING + RNG FIX
 // Seek, Flee, Wander, Patrol
 // Behaviors produce acceleration; physics handles the rest.
 // ------------------------------------------------------------
@@ -151,8 +151,15 @@ export function createApexSim(scenario) {
     return state.tick < state.maxTicks;
   }
 
+  // ------------------------------------------------------------
+  // RUN — with built‑in RNG fallback
+  // ------------------------------------------------------------
+
   function run(rand) {
+    rand = rand || Math.random;   // <— FIX: wander now always works
+
     while (step(rand)) {}
+
     return {
       scenarioId: scenario.id,
       ticks: state.tick,
@@ -165,7 +172,7 @@ export function createApexSim(scenario) {
 }
 
 // ------------------------------------------------------------
-// Minimal Test Scenario V4 — Steering Behaviors
+// Minimal Test Scenario V1 — Steering Behaviors
 // ------------------------------------------------------------
 
 export const MinimalTestScenarioV1 = {
@@ -175,16 +182,9 @@ export const MinimalTestScenarioV1 = {
   maxSpeed: 2.5,
 
   actors: [
-    // SEEK a point
     { id: "seeker", x: 0, y: 0, behavior: "seek", target: { x: 5, y: 5 } },
-
-    // FLEE from that same point
     { id: "fleeer", x: 2, y: 2, behavior: "flee", target: { x: 5, y: 5 } },
-
-    // WANDER randomly
     { id: "wanderer", x: -2, y: 0, behavior: "wander", wanderAngle: 0 },
-
-    // PATROL between two points
     { id: "patroller", x: -4, y: -4, behavior: "patrol",
       path: [ { x: -4, y: -4 }, { x: -1, y: -1 } ] }
   ]
