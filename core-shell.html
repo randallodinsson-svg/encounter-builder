@@ -1,31 +1,37 @@
-<!-- APEXSIM CONTROL PANEL -->
-<div id="apexsim-controls" style="
-  margin-top:20px;
-  padding:14px;
-  border:1px solid #222;
-  background:#0d1117;
-  font-size:12px;
-  color:#ccc;
-  line-height:1.4;
-">
+// ------------------------------------------------------------
+// APEXSIM UI CONTROL PANEL — ONE AND DONE
+// ------------------------------------------------------------
 
-  <div style="font-size:13px; margin-bottom:10px; color:#7fffd4; font-weight:bold;">
-    APEXSIM Controls
-  </div>
+// Wait until APEXSIM exists
+function bindApexSimControls() {
+  if (!window.APEXSIM) {
+    requestAnimationFrame(bindApexSimControls);
+    return;
+  }
 
-  <label style="display:flex; align-items:center; margin-bottom:8px;">
-    <input type="checkbox" id="sim-toggle-glow" checked style="margin-right:6px;">
-    Glow
-  </label>
+  // Glow toggle
+  const glowToggle = document.getElementById("sim-toggle-glow");
+  if (glowToggle) {
+    glowToggle.addEventListener("change", (e) => {
+      APEXSIM.showGlow = e.target.checked;
+    });
+  }
 
-  <label style="display:flex; align-items:center; margin-bottom:8px;">
-    <input type="checkbox" id="sim-toggle-trails" checked style="margin-right:6px;">
-    Trails
-  </label>
+  // Trails toggle
+  const trailsToggle = document.getElementById("sim-toggle-trails");
+  if (trailsToggle) {
+    trailsToggle.addEventListener("change", (e) => {
+      APEXSIM.showTrails = e.target.checked;
+    });
+  }
 
-  <label style="display:flex; align-items:center; margin-bottom:8px;">
-    <input type="checkbox" id="sim-toggle-debug" checked style="margin-right:6px;">
-    Debug Vectors
-  </label>
+  // Debug vectors toggle
+  const debugToggle = document.getElementById("sim-toggle-debug");
+  if (debugToggle) {
+    debugToggle.addEventListener("change", (e) => {
+      APEXSIM.showDebugVectors = e.target.checked;
+    });
+  }
+}
 
-</div>
+bindApexSimControls();
