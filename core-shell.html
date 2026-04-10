@@ -79,7 +79,7 @@
 
   let activeEngineId = "APEXCORE";
 
-  // AI state (for APEXAI panel)
+  // APEXAI state
   const aiState = {
     scenarios: [],
     difficulty: "all"
@@ -128,7 +128,7 @@
      APEXAI HELPERS
   ------------------------------------------------------------ */
   function generateAIScenarios() {
-    const base = [
+    aiState.scenarios = [
       {
         id: "ai-1",
         title: "Highway Pursuit — Wet Conditions",
@@ -160,8 +160,6 @@
         summary: "Response through suburban streets with intersections, driveways, and moderate traffic."
       }
     ];
-
-    aiState.scenarios = base;
     log("[AI] Generated scenario set via APEXAI panel.");
   }
 
@@ -211,18 +209,16 @@
       listEl.appendChild(card);
     });
 
-    // Wire run buttons
     Array.from(listEl.querySelectorAll(".ai-run-btn")).forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
         const scenario = aiState.scenarios.find(s => s.id === id);
         if (!scenario) return;
 
-        // Store selection for OPS to read
+        // Hand off to OPS via shared state + log
         window.__APEX_AI_SELECTED_SCENARIO = scenario;
         log(`[AI] Requested run of scenario "${scenario.title}" in APEXOPS.`);
 
-        // Switch to OPS
         activeEngineId = "APEXOPS";
         renderEngineList();
         renderWorkspace();
@@ -249,7 +245,6 @@
       });
     }
 
-    // Initial render
     renderAIScenariosList();
   }
 
@@ -273,7 +268,6 @@
         </div>
       `;
 
-      // Dynamically load APEXOPS + dependencies
       Promise.all([
         import('./apexops.js'),
         import('./apexsim.js'),
@@ -295,7 +289,6 @@
         const result = core.startSimulation(s => new ApexSim(s));
         ops.loadSimulationResult(result);
 
-        // If APEXAI handed off a scenario, log it
         if (window.__APEX_AI_SELECTED_SCENARIO) {
           const sc = window.__APEX_AI_SELECTED_SCENARIO;
           log(`[AI→OPS] Scenario "${sc.title}" (difficulty: ${sc.difficulty}) handed off from APEXAI.`);
