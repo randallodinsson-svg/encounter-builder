@@ -147,6 +147,27 @@
         }
 
         // ============================
+        // STEP 11 — OPS INTERNAL STATE PANEL
+        // ============================
+        function getOpsInternalState() {
+            return {
+                metrics: OPS_METRICS,
+                events: OPS_EVENTS,
+                coreLogs: APEXOPS.getCoreLogs(),
+                coreErrors: APEXOPS.getCoreErrors(),
+                lifecycle: APEXOPS.getLifecycleHistory()
+            };
+        }
+
+        function updateOpsInternalStatePanel() {
+            const el = document.getElementById("ops-internal");
+
+            const state = getOpsInternalState();
+
+            el.textContent = JSON.stringify(state, null, 2);
+        }
+
+        // ============================
         // Existing panel update functions
         // ============================
 
@@ -251,6 +272,7 @@
             updateEventNames();
             updateMetricsPanel();
             updateOpsEventStream();
+            updateOpsInternalStatePanel(); // STEP 11
         };
 
         document.getElementById("btnOpsClear").onclick = () => {
@@ -303,10 +325,15 @@
                 <pre id="ops-metrics">(no metrics)</pre>
             </div>
 
-            <!-- STEP 10 — OPS Event Stream Panel -->
             <div class="ops-panel">
                 <h3>OPS Event Stream</h3>
                 <pre id="ops-events-stream">(no ops events)</pre>
+            </div>
+
+            <!-- STEP 11 — OPS Internal State Panel -->
+            <div class="ops-panel">
+                <h3>OPS Internal State</h3>
+                <pre id="ops-internal">(no internal state)</pre>
             </div>
 
         </div>
