@@ -1,29 +1,100 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>APEXSIM Sanity Check</title>
-  <style>
-    body { margin: 0; background: #05070a; color: #eee; font-family: system-ui; }
-    #simCanvas { background: #111822; display: block; margin: 20px auto; }
-    #startBtn { display: block; margin: 20px auto; padding: 10px 20px; }
-  </style>
+    <meta charset="UTF-8" />
+    <title>APEXCORE v3 — Engine Hub</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #0b0e13;
+            color: #e6eef7;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 20px;
+            background: #11161d;
+            border-bottom: 1px solid #1f2732;
+            font-size: 22px;
+            letter-spacing: 1px;
+        }
+
+        #content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .panel {
+            background: #11161d;
+            padding: 30px;
+            border: 1px solid #1f2732;
+            border-radius: 8px;
+            width: 420px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #1e90ff;
+            border: none;
+            color: white;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: #3aa0ff;
+        }
+
+        footer {
+            padding: 10px;
+            background: #11161d;
+            border-top: 1px solid #1f2732;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.6;
+        }
+    </style>
 </head>
+
 <body>
-  <button id="startBtn">START SANITY CHECK</button>
-  <canvas id="simCanvas" width="900" height="600"></canvas>
 
-  <script>
-    console.log("HTML is alive.");
+    <header>APEXCORE v3 — Engine Hub</header>
 
-    const canvas = document.getElementById("simCanvas");
-    const ctx = canvas.getContext("2d");
+    <div id="content">
+        <div class="panel">
+            <h2>Choose an Engine</h2>
 
-    document.getElementById("startBtn").addEventListener("click", () => {
-      console.log("Button works.");
-      ctx.fillStyle = "lime";
-      ctx.fillRect(100, 100, 200, 150);
-    });
-  </script>
+            <a class="btn" href="apexai.html">APEXAI — Scenario Engine</a>
+            <a class="btn" href="apexsim.html">APEXSIM — Simulation Engine</a>
+            <a class="btn" href="apexops.html">APEXOPS — Operations Engine</a>
+            <a class="btn" href="core-shell.html">APEXCORE — System Shell</a>
+
+            <hr style="border-color:#1f2732; margin:20px 0;">
+
+            <a class="btn" href="https://randallodinsson-svg.github.io/encounter-builder/">Reload Hub</a>
+        </div>
+    </div>
+
+    <footer>VECTORCORE INTERACTIVE — APEX Engine Family v3</footer>
+
 </body>
 </html>
