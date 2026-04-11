@@ -47,7 +47,6 @@ class TerrainZone {
         return mag(sub(pos, vec(this.x, this.y))) <= this.radius;
     }
 }
-
 // ------------------------------------------------------------
 // Full Memory System
 // ------------------------------------------------------------
@@ -162,7 +161,7 @@ class Agent {
         // Predator state
         this.confusion = 0;
         this.hasLOS = true;
-        this.pursuitStyle = rand() < 0.5 ? "direct" : "flank"; // learned over time
+        this.pursuitStyle = rand() < 0.5 ? "direct" : "flank";
 
         // Terrain state
         this.terrainFactor = 1.0;
@@ -185,48 +184,24 @@ class Agent {
     }
 
     applyForce(f) { this.acc = add(this.acc, f); }
-
     // --------------------------------------------------------
-    // Steering primitives
+    // Steering primitives (continued)
     // --------------------------------------------------------
-    steerSeek(target) {
-        const desired = sub(target, this.pos);
-        const d = mag(desired);
-        if (d === 0) return vec(0, 0);
-        const desiredNorm = mul(norm(desired), this.maxSpeed);
-        return limit(sub(desiredNorm, this.vel), this.maxForce);
-    }
-
-    steerArrive(target, slowRadius = 80) {
-        const desired = sub(target, this.pos);
-        const d = mag(desired);
-        if (d === 0) return vec(0, 0);
-        let speed = this.maxSpeed;
-        if (d < slowRadius) speed = this.maxSpeed * (d / slowRadius);
-        const desiredNorm = mul(norm(desired), speed);
-        return limit(sub(desiredNorm, this.vel), this.maxForce);
-    }
-
-    steerFlee(target) {
-        const desired = sub(this.pos, target);
-        const d = mag(desired);
-        if (d === 0) return vec(0, 0);
-        const desiredNorm = mul(norm(desired), this.maxSpeed);
-        return limit(sub(desiredNorm, this.vel), this.maxForce);
-    }
-
     steerWander() {
         const wanderRadius = 12;
         const wanderDistance = 22;
         const change = 0.3;
         this.wanderAngle += (rand() * 2 - 1) * change;
+
         const circlePos = add(this.pos, mul(norm(this.vel), wanderDistance));
         const wanderOffset = vec(
             Math.cos(this.wanderAngle) * wanderRadius,
             Math.sin(this.wanderAngle) * wanderRadius
         );
+
         this.debugCirclePos = circlePos;
         this.debugTarget = add(circlePos, wanderOffset);
+
         const desired = sub(this.debugTarget, this.pos);
         return limit(sub(norm(desired), this.vel), this.maxForce);
     }
@@ -253,6 +228,7 @@ class Agent {
         const desiredSeparation = 26;
         let steer = vec(0, 0);
         let count = 0;
+
         for (const other of neighbors) {
             if (other === this || other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
@@ -262,11 +238,14 @@ class Agent {
                 count++;
             }
         }
+
         if (count > 0) steer = mul(steer, 1 / count);
+
         if (mag(steer) > 0) {
             steer = mul(norm(steer), this.maxSpeed);
             steer = limit(sub(steer, this.vel), this.maxForce);
         }
+
         return steer;
     }
 
@@ -274,6 +253,7 @@ class Agent {
         const neighborDist = 52;
         let sum = vec(0, 0);
         let count = 0;
+
         for (const other of neighbors) {
             if (other === this || other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
@@ -282,10 +262,12 @@ class Agent {
                 count++;
             }
         }
+
         if (count > 0) {
             sum = mul(norm(mul(sum, 1 / count)), this.maxSpeed);
             return limit(sub(sum, this.vel), this.maxForce);
         }
+
         return vec(0, 0);
     }
 
@@ -293,6 +275,7 @@ class Agent {
         const neighborDist = 52;
         let sum = vec(0, 0);
         let count = 0;
+
         for (const other of neighbors) {
             if (other === this || other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
@@ -301,9 +284,11 @@ class Agent {
                 count++;
             }
         }
+
         if (count > 0) {
             return this.steerSeek(mul(sum, 1 / count));
         }
+
         return vec(0, 0);
     }
 
@@ -317,12 +302,14 @@ class Agent {
         const forward = norm(this.vel);
         const ahead = add(this.pos, mul(forward, lookAhead));
         const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
+
         let mostThreatening = null;
 
         for (const obs of obstacles) {
             const collision =
                 mag(sub(obs.pos, ahead)) <= obs.radius ||
                 mag(sub(obs.pos, aheadHalf)) <= obs.radius;
+
             if (collision) {
                 if (!mostThreatening) mostThreatening = obs;
                 else {
@@ -337,16 +324,16 @@ class Agent {
             let avoid = norm(sub(ahead, mostThreatening.pos));
             return mul(avoid, this.maxForce * 2.6);
         }
+
         return vec(0, 0);
     }
 
     // --------------------------------------------------------
-    // Predator/Prey interactions with full memory
+    // Predator/Prey interactions
     // --------------------------------------------------------
     predatorHuntPack(target, packCenter, packIndex, packSize, packConfusion, hasLOS) {
         const confusionFactor = packConfusion || 0;
         const los = hasLOS !== false;
-
         const biasAngle = this.flankBias * 0.7;
 
         if (!target || !los) {
@@ -369,6 +356,7 @@ class Agent {
             target.pos,
             vec(Math.cos(flankAngle) * flankRadius, Math.sin(flankAngle) * flankRadius)
         );
+
         const flankForce = this.steerArrive(flankPos, 60);
 
         const huntWeight = this.pursuitStyle === "direct"
@@ -423,6 +411,7 @@ class Agent {
         this.panic = Math.min(1, this.panic + 0.06);
         const fleeForce = this.steerFlee(threat.pos);
         const scale = 1.0 + (1 - threatDist / fleeRadius) * 2.2;
+
         return mul(fleeForce, scale);
     }
 
@@ -486,7 +475,6 @@ class Agent {
         if (this.trail.length > this.maxTrail) this.trail.shift();
     }
 }
-
 // ------------------------------------------------------------
 // Leader (with patrol learning)
 // ------------------------------------------------------------
@@ -520,8 +508,10 @@ class Leader {
         const desired = sub(target, this.pos);
         const d = mag(desired);
         if (d === 0) return vec(0, 0);
+
         let speed = this.maxSpeed;
         if (d < slowRadius) speed = this.maxSpeed * (d / slowRadius);
+
         const desiredNorm = mul(norm(desired), speed);
         return limit(sub(desiredNorm, this.vel), this.maxForce);
     }
@@ -530,12 +520,15 @@ class Leader {
         const wanderRadius = 10;
         const wanderDistance = 25;
         const change = 0.2;
+
         this.wanderAngle += (rand() * 2 - 1) * change;
+
         const circlePos = add(this.pos, mul(norm(this.vel), wanderDistance));
         const wanderOffset = vec(
             Math.cos(this.wanderAngle) * wanderRadius,
             Math.sin(this.wanderAngle) * wanderRadius
         );
+
         const target = add(circlePos, wanderOffset);
         return limit(sub(norm(sub(target, this.pos)), this.vel), this.maxForce);
     }
@@ -547,12 +540,14 @@ class Leader {
         const forward = norm(this.vel);
         const ahead = add(this.pos, mul(forward, lookAhead));
         const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
+
         let mostThreatening = null;
 
         for (const obs of obstacles) {
             const collision =
                 mag(sub(obs.pos, ahead)) <= obs.radius + 10 ||
                 mag(sub(obs.pos, aheadHalf)) <= obs.radius + 10;
+
             if (collision) {
                 if (!mostThreatening) mostThreatening = obs;
                 else {
@@ -567,6 +562,7 @@ class Leader {
             let avoid = norm(sub(ahead, mostThreatening.pos));
             return mul(avoid, this.maxForce * 3);
         }
+
         return vec(0, 0);
     }
 
@@ -585,27 +581,41 @@ class Leader {
     updatePatrol(obstacles) {
         let steer = vec(0, 0);
 
+        // ----------------------------------------------------
+        // Evasive mode (zig-zag toward safe zone)
+        // ----------------------------------------------------
         if (this.evasive && this.evasiveTimer > 0 && this.evasiveTarget) {
             const base = this.steerArrive(this.evasiveTarget, 80);
+
             this.zigzagPhase += 0.25;
             const perp = norm(vec(-this.vel.y, this.vel.x));
             const zigzag = mul(perp, Math.sin(this.zigzagPhase) * 0.9);
+
             steer = add(steer, base);
             steer = add(steer, zigzag);
+
             this.evasiveTimer--;
             if (this.evasiveTimer <= 0) {
                 this.evasive = false;
                 this.evasiveTarget = null;
             }
-        } else {
+        }
+
+        // ----------------------------------------------------
+        // Normal patrol mode
+        // ----------------------------------------------------
+        else {
             if (!this.waypoints || this.waypoints.length === 0) return;
 
             let target = this.waypoints[this.currentWaypoint];
+
+            // Leader avoids danger clusters using memory
             const baseDanger = this.memory.dangerBias(target, 220);
             if (baseDanger > 0.6) {
                 const nextIndex = (this.currentWaypoint + 1) % this.waypoints.length;
                 const nextTarget = this.waypoints[nextIndex];
                 const nextDanger = this.memory.dangerBias(nextTarget, 220);
+
                 if (nextDanger < baseDanger) {
                     this.currentWaypoint = nextIndex;
                     target = nextTarget;
@@ -614,6 +624,7 @@ class Leader {
 
             const toTarget = sub(target, this.pos);
             const dist = mag(toTarget);
+
             steer = add(steer, this.steerArrive(target, this.arriveRadius));
 
             if (dist < this.arriveRadius * 0.6) {
@@ -621,11 +632,17 @@ class Leader {
             }
         }
 
+        // ----------------------------------------------------
+        // Add obstacle avoidance + wander
+        // ----------------------------------------------------
         steer = add(steer, this.avoidObstacles(obstacles));
         steer = add(steer, this.steerWander());
 
         this.applyForce(steer);
 
+        // ----------------------------------------------------
+        // Update motion
+        // ----------------------------------------------------
         this.vel = add(this.vel, this.acc);
         this.vel = limit(this.vel, this.maxSpeed);
         this.pos = add(this.pos, this.vel);
@@ -711,33 +728,39 @@ const APEXSIM = {
             this.leaders.push(leader);
         }
 
-        // Leader waypoints
+        // Leader waypoints (elliptical patrol loops)
         const steps = 8;
         const rX = Math.min(this.width, this.height) * 0.25;
         const rY = Math.min(this.width, this.height) * 0.18;
+
         for (let i = 0; i < this.leaders.length; i++) {
             const leader = this.leaders[i];
             const waypoints = [];
             const phase = (i / this.leaders.length) * Math.PI * 2;
+
             for (let s = 0; s < steps; s++) {
                 const a = (s / steps) * Math.PI * 2 + phase;
                 const x = this.width / 2 + Math.cos(a) * rX;
                 const y = this.height / 2 + Math.sin(a) * rY;
                 waypoints.push(vec(x, y));
             }
+
             leader.setWaypoints(waypoints);
         }
 
         // Prey squads
         let agentIndex = 0;
+
         for (let s = 0; s < squadCount; s++) {
             const squadAgentIndices = [];
+
             for (let j = 0; j < preyPerSquad; j++) {
                 const a = new Agent(rand() * this.width, rand() * this.height, "prey", s, -1);
                 this.agents.push(a);
                 squadAgentIndices.push(agentIndex);
                 agentIndex++;
             }
+
             this.squads.push({
                 leaderId: s,
                 agentIndices: squadAgentIndices,
@@ -745,7 +768,7 @@ const APEXSIM = {
             });
         }
 
-        // Leftover prey
+        // Leftover prey (if totalPrey % squadCount != 0)
         while (agentIndex < totalPrey) {
             const s = this.squads.length - 1;
             const a = new Agent(rand() * this.width, rand() * this.height, "prey", s, -1);
@@ -765,12 +788,14 @@ const APEXSIM = {
         // Build packs
         for (let packId = 0; packId < packCount; packId++) {
             const packPredators = [];
+
             for (let i = 0; i < this.agents.length; i++) {
                 const a = this.agents[i];
                 if (a.type === "predator" && a.packId === packId) {
                     packPredators.push(i);
                 }
             }
+
             this.predatorPacks.push({
                 packId,
                 predatorIndices: packPredators,
@@ -778,7 +803,7 @@ const APEXSIM = {
                 confusion: 0,
                 hasLOS: true,
                 lastTargetDist: null,
-                failureMemory: [] // NEW: pack-level failure memory
+                failureMemory: []
             });
         }
 
@@ -794,6 +819,7 @@ const APEXSIM = {
             squad.formationOffsets = [];
 
             const radius = 60;
+
             for (let i = 0; i < n; i++) {
                 const angle = (i / n) * Math.PI * 2;
                 const x = Math.cos(angle) * radius;
@@ -802,67 +828,8 @@ const APEXSIM = {
             }
         }
     },
-
     // --------------------------------------------------------
-    // Pack target selection
-    // --------------------------------------------------------
-    choosePackTargets() {
-        const prey = this.agents.filter(a => a.type === "prey");
-        if (prey.length === 0) {
-            for (const pack of this.predatorPacks) {
-                pack.targetPreyIndex = null;
-            }
-            return;
-        }
-
-        for (const pack of this.predatorPacks) {
-            let center = vec(0, 0);
-            let count = 0;
-            for (const idx of pack.predatorIndices) {
-                const a = this.agents[idx];
-                center = add(center, a.pos);
-                count++;
-            }
-            if (count > 0) center = mul(center, 1 / count);
-
-            let closestIndex = null;
-            let closestDist = Infinity;
-            for (let i = 0; i < this.agents.length; i++) {
-                const a = this.agents[i];
-                if (a.type !== "prey") continue;
-                const d = mag(sub(a.pos, center));
-                if (d < closestDist) {
-                    closestDist = d;
-                    closestIndex = i;
-                }
-            }
-
-            // Confusion → decoys
-            if (pack.confusion > 0.4) {
-                const decoys = [];
-                const normals = [];
-                for (let i = 0; i < this.agents.length; i++) {
-                    const a = this.agents[i];
-                    if (a.type !== "prey") continue;
-                    if (a.isDecoy) decoys.push(i);
-                    else normals.push(i);
-                }
-
-                if (decoys.length && rand() < 0.7) {
-                    pack.targetPreyIndex = decoys[Math.floor(rand() * decoys.length)];
-                } else if (normals.length && rand() < 0.4) {
-                    pack.targetPreyIndex = normals[Math.floor(rand() * normals.length)];
-                } else {
-                    pack.targetPreyIndex = closestIndex;
-                }
-            } else {
-                pack.targetPreyIndex = closestIndex;
-            }
-        }
-    },
-
-    // --------------------------------------------------------
-    // LOS check
+    // Pack LOS check
     // --------------------------------------------------------
     updatePackLOS() {
         for (const pack of this.predatorPacks) {
@@ -878,13 +845,10 @@ const APEXSIM = {
             }
 
             let center = vec(0, 0);
-            let count = 0;
             for (const idx of predatorIndices) {
-                const a = this.agents[idx];
-                center = add(center, a.pos);
-                count++;
+                center = add(center, this.agents[idx].pos);
             }
-            if (count > 0) center = mul(center, 1 / count);
+            center = mul(center, 1 / predatorIndices.length);
 
             const target = this.agents[pack.targetPreyIndex];
             if (!target) {
@@ -899,10 +863,10 @@ const APEXSIM = {
             for (const obs of this.obstacles) {
                 const steps = 8;
                 for (let i = 0; i < steps; i++) {
-                    const angle1 = (i / steps) * Math.PI * 2;
-                    const angle2 = ((i + 1) / steps) * Math.PI * 2;
-                    const q1 = add(obs.pos, vec(Math.cos(angle1) * obs.radius, Math.sin(angle1) * obs.radius));
-                    const q2 = add(obs.pos, vec(Math.cos(angle2) * obs.radius, Math.sin(angle2) * obs.radius));
+                    const a1 = (i / steps) * Math.PI * 2;
+                    const a2 = ((i + 1) / steps) * Math.PI * 2;
+                    const q1 = add(obs.pos, vec(Math.cos(a1) * obs.radius, Math.sin(a1) * obs.radius));
+                    const q2 = add(obs.pos, vec(Math.cos(a2) * obs.radius, Math.sin(a2) * obs.radius));
                     if (segmentsIntersect(p1, p2, q1, q2)) {
                         blocked = true;
                         break;
@@ -928,13 +892,8 @@ const APEXSIM = {
             if (!indices.length) continue;
 
             let center = vec(0, 0);
-            let count = 0;
-            for (const idx of indices) {
-                const a = this.agents[idx];
-                center = add(center, a.pos);
-                count++;
-            }
-            if (count > 0) center = mul(center, 1 / count);
+            for (const idx of indices) center = add(center, this.agents[idx].pos);
+            center = mul(center, 1 / indices.length);
 
             let nearestPredDist = Infinity;
             for (const ag of this.agents) {
@@ -944,10 +903,9 @@ const APEXSIM = {
             }
 
             const alarmRadius = 280;
-            let squadAlarm = 0;
-            if (nearestPredDist < alarmRadius) {
-                squadAlarm = 1 - nearestPredDist / alarmRadius;
-            }
+            let squadAlarm = nearestPredDist < alarmRadius
+                ? 1 - nearestPredDist / alarmRadius
+                : 0;
 
             for (const idx of indices) {
                 const a = this.agents[idx];
@@ -960,7 +918,6 @@ const APEXSIM = {
                 }
             }
 
-            // Decoys
             if (squadAlarm > 0.75) {
                 const decoyCount = Math.max(1, Math.floor(indices.length * 0.18));
                 for (let i = 0; i < decoyCount; i++) {
@@ -976,9 +933,7 @@ const APEXSIM = {
             const leader = this.leaders[squad.leaderId];
             if (squadAlarm > 0.6) {
                 const safeZone = this.findNearestSafeZone(center);
-                if (safeZone && !leader.evasive) {
-                    leader.triggerEvasive(safeZone);
-                }
+                if (safeZone && !leader.evasive) leader.triggerEvasive(safeZone);
             }
 
             if (squadAlarm > 0.4) {
@@ -988,7 +943,6 @@ const APEXSIM = {
     },
 
     findNearestSafeZone(pos) {
-        if (!this.safeZones.length) return null;
         let best = null;
         let bestDist = Infinity;
         for (const sz of this.safeZones) {
@@ -1006,51 +960,39 @@ const APEXSIM = {
     // --------------------------------------------------------
     updatePredatorConfusion() {
         for (const pack of this.predatorPacks) {
-            const predatorIndices = pack.predatorIndices;
-            if (!predatorIndices.length) continue;
+            const preds = pack.predatorIndices;
+            if (!preds.length) continue;
+
+            let center = vec(0, 0);
+            for (const idx of preds) center = add(center, this.agents[idx].pos);
+            center = mul(center, 1 / preds.length);
 
             let chaos = 0;
             let sampleCount = 0;
-
-            let center = vec(0, 0);
-            for (const idx of predatorIndices) {
-                const a = this.agents[idx];
-                center = add(center, a.pos);
-            }
-            center = mul(center, 1 / predatorIndices.length);
 
             for (const ag of this.agents) {
                 if (ag.type !== "prey") continue;
                 const d = mag(sub(ag.pos, center));
                 if (d < 220) {
                     sampleCount++;
-                    if (ag.scatterTimer > 0 || ag.isDecoy || ag.alarm > 0.7) {
-                        chaos += 1;
-                    }
+                    if (ag.scatterTimer > 0 || ag.isDecoy || ag.alarm > 0.7) chaos++;
                 }
             }
 
-            let localConfusion = 0;
-            if (sampleCount > 0) {
-                localConfusion = chaos / sampleCount;
-            }
-
-            if (!pack.hasLOS) {
-                localConfusion = Math.min(1, localConfusion + 0.35);
-            }
+            let localConfusion = sampleCount > 0 ? chaos / sampleCount : 0;
+            if (!pack.hasLOS) localConfusion = Math.min(1, localConfusion + 0.35);
 
             pack.confusion = pack.confusion * 0.9 + localConfusion * 0.6;
-            pack.confusion = Math.min(1, Math.max(0, pack.confusion));
+            pack.confusion = Math.max(0, Math.min(1, pack.confusion));
 
-            for (const idx of predatorIndices) {
-                const pr = this.agents[idx];
-                pr.confusion = pack.confusion;
+            for (const idx of preds) {
+                this.agents[idx].confusion = pack.confusion;
             }
         }
     },
 
     // --------------------------------------------------------
-    // Predator learning (pack-level + individual)
+    // Predator learning
     // --------------------------------------------------------
     updatePredatorLearning() {
         for (const pack of this.predatorPacks) {
@@ -1058,6 +1000,7 @@ const APEXSIM = {
                 pack.lastTargetDist = null;
                 continue;
             }
+
             const target = this.agents[pack.targetPreyIndex];
             if (!target) {
                 pack.lastTargetDist = null;
@@ -1065,20 +1008,14 @@ const APEXSIM = {
             }
 
             let center = vec(0, 0);
-            let count = 0;
-            for (const idx of pack.predatorIndices) {
-                const a = this.agents[idx];
-                center = add(center, a.pos);
-                count++;
-            }
-            if (count > 0) center = mul(center, 1 / count);
+            for (const idx of pack.predatorIndices) center = add(center, this.agents[idx].pos);
+            center = mul(center, 1 / pack.predatorIndices.length);
 
             const dist = mag(sub(target.pos, center));
 
             if (pack.lastTargetDist != null) {
                 const delta = dist - pack.lastTargetDist;
 
-                // If distance is increasing → failure
                 if (delta > 2 && pack.hasLOS) {
                     pack.failureMemory.push({ x: target.pos.x, y: target.pos.y });
                     if (pack.failureMemory.length > 12) pack.failureMemory.shift();
@@ -1119,11 +1056,8 @@ const APEXSIM = {
             for (const a of this.agents) {
                 const d = mag(sub(a.pos, vec(n.x, n.y)));
                 if (d < n.radius) {
-                    if (a.type === "prey") {
-                        a.panic = Math.min(1, a.panic + 0.03 * n.strength);
-                    } else {
-                        a.confusion = Math.min(1, a.confusion + 0.02 * n.strength);
-                    }
+                    if (a.type === "prey") a.panic = Math.min(1, a.panic + 0.03 * n.strength);
+                    else a.confusion = Math.min(1, a.confusion + 0.02 * n.strength);
                 }
             }
             n.strength *= n.decay;
@@ -1132,8 +1066,182 @@ const APEXSIM = {
         this.triggers.noiseBursts = newNoise;
 
         const newLight = [];
-        for (const
-          // Light pulses
+        for (const l of this.triggers.lightPulses) {
+            l.strength *= l.decay;
+            if (l.strength > 0.1) newLight.push(l);
+        }
+        this.triggers.lightPulses = newLight;
+    },
+
+    // --------------------------------------------------------
+    // STEP
+    // --------------------------------------------------------
+    step() {
+        if (!this.ctx) return;
+
+        this.choosePackTargets();
+        this.updatePackLOS();
+        this.updatePreyAlarmAndGroupBehavior();
+        this.updatePredatorConfusion();
+        this.updatePredatorLearning();
+        this.updateTriggers();
+
+        for (const a of this.agents) {
+            a.applyTerrainEffect(this.terrainZones);
+        }
+
+        for (const leader of this.leaders) {
+            leader.updatePatrol(this.obstacles);
+        }
+
+        // Prey squads
+        for (const squad of this.squads) {
+            const leader = this.leaders[squad.leaderId];
+            const indices = squad.agentIndices;
+
+            for (let i = 0; i < indices.length; i++) {
+                const idx = indices[i];
+                const agent = this.agents[idx];
+                if (agent.type !== "prey") continue;
+
+                const offset = squad.formationOffsets[i] || vec(0, 0);
+                const targetPos = add(leader.pos, offset);
+
+                const neighbors = indices.map(id => this.agents[id]);
+                agent.flock(neighbors);
+
+                const fleeForce = agent.preyFlee(this.agents.filter(a => a.type === "predator"));
+                agent.applyForce(fleeForce);
+
+                const arriveForce = agent.steerArrive(targetPos, 90);
+                agent.applyForce(arriveForce);
+
+                const avoid = agent.avoidObstacles(this.obstacles);
+                agent.applyForce(avoid);
+
+                agent.update();
+            }
+        }
+
+        // Predator packs
+        for (const pack of this.predatorPacks) {
+            const preds = pack.predatorIndices;
+            if (!preds.length) continue;
+
+            let center = vec(0, 0);
+            for (const idx of preds) center = add(center, this.agents[idx].pos);
+            center = mul(center, 1 / preds.length);
+
+            const target = pack.targetPreyIndex != null ? this.agents[pack.targetPreyIndex] : null;
+
+            for (let i = 0; i < preds.length; i++) {
+                const idx = preds[i];
+                const pr = this.agents[idx];
+
+                const huntForce = pr.predatorHuntPack(
+                    target,
+                    center,
+                    i,
+                    preds.length,
+                    pack.confusion,
+                    pack.hasLOS
+                );
+                pr.applyForce(huntForce);
+
+                const avoid = pr.avoidObstacles(this.obstacles);
+                pr.applyForce(avoid);
+
+                pr.update();
+            }
+        }
+
+        // Lone prey (not in squads)
+        for (const a of this.agents) {
+            if (a.type === "predator") continue;
+            if (a.squadId < 0) {
+                const neighbors = this.agents.filter(o => o.type === "prey");
+                a.flock(neighbors);
+                const fleeForce = a.preyFlee(this.agents.filter(o => o.type === "predator"));
+                a.applyForce(fleeForce);
+                const avoid = a.avoidObstacles(this.obstacles);
+                a.applyForce(avoid);
+                a.update();
+            }
+        }
+    },
+
+    // --------------------------------------------------------
+    // DRAW HELPERS
+    // --------------------------------------------------------
+    drawTrails() {
+        const c = this.ctx;
+        for (const a of this.agents) {
+            if (!a.trail.length) continue;
+            c.beginPath();
+            for (let i = 0; i < a.trail.length; i++) {
+                const p = a.trail[i];
+                const t = i / a.trail.length;
+                const alpha = t * 0.4;
+                c.strokeStyle = a.type === "predator"
+                    ? `rgba(255,120,80,${alpha})`
+                    : `rgba(120,220,255,${alpha})`;
+                if (i === 0) c.moveTo(p.x, p.y);
+                else c.lineTo(p.x, p.y);
+            }
+            c.stroke();
+        }
+    },
+
+    drawDebugVectors() {
+        const c = this.ctx;
+        c.strokeStyle = "rgba(255,255,255,0.25)";
+        for (const a of this.agents) {
+            if (!a.debugCirclePos || !a.debugTarget) continue;
+            c.beginPath();
+            c.moveTo(a.pos.x, a.pos.y);
+            c.lineTo(a.debugTarget.x, a.debugTarget.y);
+            c.stroke();
+        }
+    },
+
+    drawGlow() {
+        const c = this.ctx;
+
+        for (const a of this.agents) {
+            if (a.type === "predator") {
+                const conf = a.confusion || 0;
+                const radius = 18 + conf * 10;
+                const g = c.createRadialGradient(
+                    a.pos.x, a.pos.y, 0,
+                    a.pos.x, a.pos.y, radius
+                );
+                g.addColorStop(0, `rgba(255,80,40,0.35)`);
+                g.addColorStop(1, "rgba(255,80,40,0)");
+                c.fillStyle = g;
+                c.beginPath();
+                c.arc(a.pos.x, a.pos.y, radius, 0, Math.PI * 2);
+                c.fill();
+            } else {
+                const panic = a.panic || a.alarm || 0;
+                if (panic <= 0.05 && !a.isDecoy) continue;
+                const radius = 16 + panic * 18;
+                const g = c.createRadialGradient(
+                    a.pos.x, a.pos.y, 0,
+                    a.pos.x, a.pos.y, radius
+                );
+                if (a.isDecoy) {
+                    g.addColorStop(0, `rgba(255,255,120,0.35)`);
+                } else {
+                    g.addColorStop(0, `rgba(120,220,255,0.3)`);
+                }
+                g.addColorStop(1, "rgba(120,220,255,0)");
+                c.fillStyle = g;
+                c.beginPath();
+                c.arc(a.pos.x, a.pos.y, radius, 0, Math.PI * 2);
+                c.fill();
+            }
+        }
+
         for (const l of this.triggers.lightPulses) {
             const g = this.ctx.createRadialGradient(
                 l.x, l.y, 0,
@@ -1159,7 +1267,6 @@ const APEXSIM = {
         if (this.showGlow) this.drawGlow();
         if (this.showDebugVectors) this.drawDebugVectors();
 
-        // Obstacles
         c.fillStyle = "rgba(255,136,0,0.15)";
         for (const obs of this.obstacles) {
             c.beginPath();
@@ -1167,7 +1274,6 @@ const APEXSIM = {
             c.fill();
         }
 
-        // Safe zones
         c.fillStyle = "rgba(0,180,255,0.08)";
         for (const sz of this.safeZones) {
             c.beginPath();
@@ -1175,13 +1281,12 @@ const APEXSIM = {
             c.fill();
         }
 
-        // Terrain zones
         for (const z of this.terrainZones) {
             let color = "rgba(255,255,255,0.05)";
             if (z.type === "slow") color = "rgba(255,120,0,0.12)";
             else if (z.type === "fast") color = "rgba(0,255,120,0.12)";
             else if (z.type === "danger") color = "rgba(255,0,80,0.12)";
-            else if (z.type === "cover") color = "rgba(0,120,255,0.12)";
+            else if (z.type === "cover") color = "rgba(0,120,255,0.12)`;
 
             c.fillStyle = color;
             c.beginPath();
@@ -1189,7 +1294,6 @@ const APEXSIM = {
             c.fill();
         }
 
-        // Agents
         for (const a of this.agents) {
             if (a.type === "predator") {
                 const conf = a.confusion || 0;
@@ -1202,36 +1306,4 @@ const APEXSIM = {
                 const decoyTint = a.isDecoy ? 80 : 0;
                 const g = Math.max(0, 234 - alarmTint);
                 const b = 255 - decoyTint;
-                c.fillStyle = `rgb(0,${g},${b})`;
-            }
-            c.beginPath();
-            c.arc(a.pos.x, a.pos.y, a.type === "predator" ? 5 : 4, 0, Math.PI * 2);
-            c.fill();
-        }
-    },
-
-    // --------------------------------------------------------
-    // MAIN LOOP
-    // --------------------------------------------------------
-    run() {
-        if (!this.running) return;
-        this.step();
-        this.draw();
-        requestAnimationFrame(() => this.run());
-    },
-
-    start() {
-        this.running = true;
-        this.run();
-    },
-
-    stop() {
-        this.running = false;
-    }
-};
-
-// ------------------------------------------------------------
-// EXPORT ENGINE
-// ------------------------------------------------------------
-window.APEXSIM = APEXSIM;
-           
+                c.fillStyle = `rgb(0,${g
