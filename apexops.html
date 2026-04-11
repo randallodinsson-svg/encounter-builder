@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXOPS v2 — Runtime Inspector</title>
+    <title>APEXOPS — Runtime Inspector</title>
 
     <style>
         body {
@@ -16,24 +16,12 @@
         }
 
         #sidebar {
-            width: 320px;
+            width: 260px;
             background: #11161d;
             border-right: 1px solid #1f2732;
             padding: 20px;
             box-sizing: border-box;
             overflow-y: auto;
-        }
-
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        h2 {
-            margin-top: 0;
-            font-size: 20px;
-            letter-spacing: 0.5px;
         }
 
         button {
@@ -52,31 +40,22 @@
             background: #3aa0ff;
         }
 
-        .section {
-            margin-bottom: 25px;
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        #output {
+        #opsOutput {
             flex: 1;
-            background: #0f141a;
-            border-top: 1px solid #1f2732;
-            padding: 15px;
+            background: #05070a;
+            padding: 12px;
+            box-sizing: border-box;
             font-family: Consolas, monospace;
-            font-size: 14px;
+            font-size: 13px;
             overflow-y: auto;
             white-space: pre-wrap;
-        }
-
-        .panel {
-            background: #1a212c;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .panel h3 {
-            margin: 0 0 6px 0;
-            font-size: 15px;
+            border-top: 1px solid #1f2732;
         }
     </style>
 </head>
@@ -86,110 +65,46 @@
     <div id="sidebar">
         <h2>APEXOPS — Runtime Inspector</h2>
 
-        <div class="section">
-            <button id="btnStart">Start OPS Loop</button>
-            <button id="btnStop">Stop OPS Loop</button>
-            <button id="btnStep">Step Once</button>
-        </div>
-
-        <div class="section">
-            <h3>Panels</h3>
-            <button id="btnToggleActors">Toggle Actor Panel</button>
-            <button id="btnToggleTimeline">Toggle Timeline Panel</button>
-        </div>
-
-        <div class="section">
-            <button id="btnCopy">Copy Output</button>
-            <button id="btnExport">Export JSON</button>
-        </div>
+        <button id="btnPing">Ping Core</button>
+        <button id="btnSimTick">Run Simulation Tick</button>
+        <button id="btnOpsClear">Clear Output</button>
     </div>
 
     <div id="main">
-        <div id="output">APEXOPS v2 ready.</div>
+        <div id="opsOutput">APEXOPS v2 ready.</div>
     </div>
 
     <script type="module">
         import { APEXCORE } from "./apexcore.js";
         import { APEXSIM } from "./apexsim.js";
         import { APEXOPS } from "./apexops.js";
-        import { APEXAI } from "./apexai.js";
 
-        const out = document.getElementById("output");
+        const out = document.getElementById("opsOutput");
 
-        function log(msg) {
-            out.textContent += "\\n" + msg;
+        function log(x) {
+            out.textContent += "\n" + x;
             out.scrollTop = out.scrollHeight;
         }
 
-        /* ------------------------------------------------------------
-           REGISTER MODULES
-        ------------------------------------------------------------ */
-        APEXCORE.registerModule("APEXSIM", APEXSIM);
-        APEXCORE.registerModule("APEXOPS", APEXOPS);
-        APEXCORE.registerModule("APEXAI", APEXAI);
-
-        APEXCORE.init();
-        log("APEXCORE initialized.");
-
-        /* ------------------------------------------------------------
-           OPS LOOP CONTROL
-        ------------------------------------------------------------ */
-        let loop = null;
-
-        document.getElementById("btnStart").onclick = () => {
-            if (loop) return;
-            loop = setInterval(() => {
-                const result = APEXCORE.runOpsStep();
-                log("OPS Update:");
-                log(JSON.stringify(result, null, 2));
-            }, 500);
-            log("OPS Loop started.");
-        };
-
-        document.getElementById("btnStop").onclick = () => {
-            if (!loop) return;
-            clearInterval(loop);
-            loop = null;
-            log("OPS Loop stopped.");
-        };
-
-        document.getElementById("btnStep").onclick = () => {
-            const result = APEXCORE.runOpsStep();
-            log("OPS Step:");
+        document.getElementById("btnPing").onclick = () => {
+            const result = APEXCORE.ping();
+            log("CORE PING:");
             log(JSON.stringify(result, null, 2));
         };
 
-        /* ------------------------------------------------------------
-           PANELS (PLACEHOLDERS)
-        ------------------------------------------------------------ */
-        document.getElementById("btnToggleActors").onclick = () => {
-            log("Actor Panel toggled (placeholder).");
+        document.getElementById("btnSimTick").onclick = () => {
+            const tick = APEXSIM.tick();
+            const ops = APEXOPS.inspect(tick);
+
+            log("SIMULATION TICK:");
+            log(JSON.stringify(tick, null, 2));
+
+            log("OPS INSPECTION:");
+            log(JSON.stringify(ops, null, 2));
         };
 
-        document.getElementById("btnToggleTimeline").onclick = () => {
-            log("Timeline Panel toggled (placeholder).");
-        };
-
-        /* ------------------------------------------------------------
-           COPY / EXPORT
-        ------------------------------------------------------------ */
-        document.getElementById("btnCopy").onclick = () => {
-            navigator.clipboard.writeText(out.textContent);
-            log("Output copied to clipboard.");
-        };
-
-        document.getElementById("btnExport").onclick = () => {
-            const data = out.textContent;
-            const blob = new Blob([data], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "apexops_output.json";
-            a.click();
-
-            URL.revokeObjectURL(url);
-            log("Exported JSON file.");
+        document.getElementById("btnOpsClear").onclick = () => {
+            out.textContent = "APEXOPS v2 ready.";
         };
     </script>
 
