@@ -1,7 +1,8 @@
 // ------------------------------------------------------------
-// APEXSIM v4.0 — Predator/Prey Ecosystem
-// + Multi‑Leader Squads + Predators + Prey
-// + Flocking + Avoidance + Panic + Trails + Glow + Debug
+// APEXSIM v4.1 — Predator Pack Behavior & Coordinated Hunting
+// + Multi‑Leader Prey Squads
+// + Predator Packs (shared targets, flanking, herding)
+// + Flocking, Avoidance, Panic, Trails, Glow, Debug
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -19,22 +20,22 @@ function limit(v, max) { const m = mag(v); return m > max ? mul(norm(v), max) : 
 
 // ------------------------------------------------------------
 // Agent Types
-// ------------------------------------------------------------
 // type: "prey" | "predator"
+// packId: for predators (which pack they belong to)
 // squadId: for prey (which leader/squad they belong to)
 // ------------------------------------------------------------
-
 class Agent {
-    constructor(x, y, type = "prey", squadId = 0) {
+    constructor(x, y, type = "prey", squadId = 0, packId = -1) {
         this.pos = vec(x, y);
         this.vel = vec((rand() - 0.5) * 2, (rand() - 0.5) * 2);
         this.acc = vec(0, 0);
 
         this.type = type;
         this.squadId = squadId;
+        this.packId = packId;
 
-        this.maxSpeed = type === "predator" ? 2.6 : 2.1;
-        this.maxForce = type === "predator" ? 0.07 : 0.05;
+        this.maxSpeed = type === "predator" ? 2.7 : 2.1;
+        this.maxForce = type === "predator" ? 0.08 : 0.05;
 
         this.wanderAngle = 0;
 
@@ -273,29 +274,42 @@ class Agent {
     // --------------------------------------------------------
     // Predator/Prey interactions
     // --------------------------------------------------------
-    predatorHunt(preyList) {
-        if (preyList.length === 0) return vec(0, 0);
+    predatorHuntPack(target, packCenter, packIndex, packSize) {
+        if (!target) return vec(0, 0);
 
-        let closest = null;
-        let closestDist = Infinity;
+        // Base seek toward target
+        const toTarget = this.steerSeek(target.pos);
 
-        for (const p of preyList) {
-            const d = mag(sub(p.pos, this.pos));
-            if (d < closestDist) {
-                closestDist = d;
-                closest = p;
-            }
-        }
+        // Pack cohesion: stay near pack center
+        const toCenter = this.steerArrive(packCenter, 100);
 
-        if (!closest) return vec(0, 0);
+        // Flanking: offset angle around target based on pack index
+        const offsetAngle = (packIndex / Math.max(1, packSize)) * Math.PI * 2;
+        const flankRadius = 40;
+        const flankPos = add(
+            target.pos,
+            vec(Math.cos(offsetAngle) * flankRadius, Math.sin(offsetAngle) * flankRadius)
+        );
+        const flankForce = this.steerArrive(flankPos, 60);
 
-        // Seek closest prey
-        const huntForce = this.steerSeek(closest.pos);
-        return huntForce;
+        // Weights
+        const huntWeight = 1.4;
+        const centerWeight = 0.6;
+        const flankWeight = 1.0;
+
+        let steer = vec(0, 0);
+        steer = add(steer, mul(toTarget, huntWeight));
+        steer = add(steer, mul(toCenter, centerWeight));
+        steer = add(steer, mul(flankForce, flankWeight));
+
+        return steer;
     }
 
     preyFlee(predators) {
-        if (predators.length === 0) return vec(0, 0);
+        if (predators.length === 0) {
+            this.panic *= 0.96;
+            return vec(0, 0);
+        }
 
         let threat = null;
         let threatDist = Infinity;
@@ -308,21 +322,21 @@ class Agent {
             }
         }
 
-        if (!threat) return vec(0, 0);
-
-        const fleeRadius = 160;
-        if (threatDist > fleeRadius) {
-            // decay panic
+        if (!threat) {
             this.panic *= 0.96;
             return vec(0, 0);
         }
 
-        // increase panic
+        const fleeRadius = 180;
+        if (threatDist > fleeRadius) {
+            this.panic *= 0.96;
+            return vec(0, 0);
+        }
+
         this.panic = Math.min(1, this.panic + 0.05);
 
-        // flee stronger when closer
         const fleeForce = this.steerFlee(threat.pos);
-        const scale = 1.0 + (1 - threatDist / fleeRadius) * 2.0; // up to 3x
+        const scale = 1.0 + (1 - threatDist / fleeRadius) * 2.0;
         return mul(fleeForce, scale);
     }
 
@@ -475,13 +489,14 @@ const APEXSIM = {
     obstacles: [],
     leaders: [],
     squads: [],          // { leaderId, agentIndices, formationOffsets }
+    predatorPacks: [],   // { packId, predatorIndices, targetPreyIndex }
     formationMode: "circle",
     width: 800,
     height: 600,
     running: false,
     ctx: null,
 
-    // Debug toggles (wired to your UI)
+    // Debug toggles
     showTrails: true,
     showDebugVectors: true,
     showGlow: true,
@@ -494,11 +509,14 @@ const APEXSIM = {
         this.agents = [];
         this.leaders = [];
         this.squads = [];
+        this.predatorPacks = [];
 
         const totalPrey = 42;
-        const totalPredators = 8;
+        const totalPredators = 9;
         const squadCount = 3;
         const preyPerSquad = Math.floor(totalPrey / squadCount);
+        const packCount = 3;
+        const predatorsPerPack = Math.floor(totalPredators / packCount);
 
         // Obstacles
         this.obstacles = [
@@ -538,7 +556,7 @@ const APEXSIM = {
         for (let s = 0; s < squadCount; s++) {
             const squadAgentIndices = [];
             for (let j = 0; j < preyPerSquad; j++) {
-                const a = new Agent(rand() * this.width, rand() * this.height, "prey", s);
+                const a = new Agent(rand() * this.width, rand() * this.height, "prey", s, -1);
                 this.agents.push(a);
                 squadAgentIndices.push(agentIndex);
                 agentIndex++;
@@ -553,16 +571,36 @@ const APEXSIM = {
         // Leftover prey
         while (agentIndex < totalPrey) {
             const s = this.squads.length - 1;
-            const a = new Agent(rand() * this.width, rand() * this.height, "prey", s);
+            const a = new Agent(rand() * this.width, rand() * this.height, "prey", s, -1);
             this.agents.push(a);
             this.squads[s].agentIndices.push(agentIndex);
             agentIndex++;
         }
 
-        // Predators (free roaming, no squads)
-        for (let i = 0; i < totalPredators; i++) {
-            const a = new Agent(rand() * this.width, rand() * this.height, "predator", -1);
+        // Predator packs
+        const predatorIndices = [];
+        for (let p = 0; p < totalPredators; p++) {
+            const packId = Math.floor(p / predatorsPerPack);
+            const a = new Agent(rand() * this.width, rand() * this.height, "predator", -1, packId);
             this.agents.push(a);
+            predatorIndices.push(agentIndex);
+            agentIndex++;
+        }
+
+        // Build packs
+        for (let packId = 0; packId < packCount; packId++) {
+            const packPredators = [];
+            for (let i = 0; i < this.agents.length; i++) {
+                const a = this.agents[i];
+                if (a.type === "predator" && a.packId === packId) {
+                    packPredators.push(i);
+                }
+            }
+            this.predatorPacks.push({
+                packId,
+                predatorIndices: packPredators,
+                targetPreyIndex: null
+            });
         }
 
         this.buildAllSquadFormations();
@@ -601,6 +639,46 @@ const APEXSIM = {
         this.buildAllSquadFormations();
     },
 
+    // --------------------------------------------------------
+    // Pack target selection
+    // --------------------------------------------------------
+    choosePackTargets() {
+        const prey = this.agents.filter(a => a.type === "prey");
+        if (prey.length === 0) {
+            for (const pack of this.predatorPacks) {
+                pack.targetPreyIndex = null;
+            }
+            return;
+        }
+
+        for (const pack of this.predatorPacks) {
+            // Compute pack center
+            let center = vec(0, 0);
+            let count = 0;
+            for (const idx of pack.predatorIndices) {
+                const a = this.agents[idx];
+                center = add(center, a.pos);
+                count++;
+            }
+            if (count > 0) center = mul(center, 1 / count);
+
+            // Find closest prey to pack center
+            let closestIndex = null;
+            let closestDist = Infinity;
+            for (let i = 0; i < this.agents.length; i++) {
+                const a = this.agents[i];
+                if (a.type !== "prey") continue;
+                const d = mag(sub(a.pos, center));
+                if (d < closestDist) {
+                    closestDist = d;
+                    closestIndex = i;
+                }
+            }
+
+            pack.targetPreyIndex = closestIndex;
+        }
+    },
+
     step() {
         const predators = this.agents.filter(a => a.type === "predator");
         const prey = this.agents.filter(a => a.type === "prey");
@@ -615,6 +693,9 @@ const APEXSIM = {
             if (leader.pos.y > this.height) leader.pos.y = 0;
         }
 
+        // Pack target selection
+        this.choosePackTargets();
+
         // Prey squads follow leaders + flock + flee predators
         for (const squad of this.squads) {
             const leader = this.leaders[squad.leaderId];
@@ -624,7 +705,7 @@ const APEXSIM = {
             for (let i = 0; i < indices.length; i++) {
                 const idx = indices[i];
                 const a = this.agents[idx];
-                const neighbors = prey; // flock within prey
+                const neighbors = prey;
 
                 const offset = offsets[i] || null;
                 let slotWorld = null;
@@ -632,34 +713,51 @@ const APEXSIM = {
                     slotWorld = add(leader.pos, offset);
                 }
 
-                // Flocking
                 a.flock(neighbors);
 
-                // Formation follow
                 if (slotWorld) {
                     const formForce = a.steerArrive(slotWorld, 60);
                     a.applyForce(formForce);
                 }
 
-                // Flee predators
                 const fleeForce = a.preyFlee(predators);
                 a.applyForce(fleeForce);
 
-                // Avoid obstacles
                 const avoid = a.avoidObstacles(this.obstacles);
                 a.applyForce(avoid);
             }
         }
 
-        // Predators: hunt prey + avoid obstacles + slight wander
-        for (const pr of predators) {
-            const hunt = pr.predatorHunt(prey);
-            const avoid = pr.avoidObstacles(this.obstacles);
-            const wander = pr.steerWander();
+        // Predator packs: coordinated hunting
+        for (const pack of this.predatorPacks) {
+            const predatorIndices = pack.predatorIndices;
+            if (predatorIndices.length === 0) continue;
 
-            pr.applyForce(hunt);
-            pr.applyForce(avoid);
-            pr.applyForce(mul(wander, 0.3));
+            // Pack center
+            let center = vec(0, 0);
+            let count = 0;
+            for (const idx of predatorIndices) {
+                const a = this.agents[idx];
+                center = add(center, a.pos);
+                count++;
+            }
+            if (count > 0) center = mul(center, 1 / count);
+
+            const target = (pack.targetPreyIndex != null) ? this.agents[pack.targetPreyIndex] : null;
+
+            // Each predator in pack
+            for (let i = 0; i < predatorIndices.length; i++) {
+                const idx = predatorIndices[i];
+                const pr = this.agents[idx];
+
+                const hunt = pr.predatorHuntPack(target, center, i, predatorIndices.length);
+                const avoid = pr.avoidObstacles(this.obstacles);
+                const wander = pr.steerWander();
+
+                pr.applyForce(hunt);
+                pr.applyForce(avoid);
+                pr.applyForce(mul(wander, 0.2));
+            }
         }
 
         // Update all agents + wrap
@@ -688,7 +786,6 @@ const APEXSIM = {
 
                 const alpha = i * a.trailFade;
 
-                // Slight color shift for predators
                 if (a.type === "predator") {
                     c.strokeStyle = `rgba(255, 80, 80, ${alpha})`;
                 } else {
@@ -712,20 +809,17 @@ const APEXSIM = {
 
         // Agents
         for (const a of this.agents) {
-            // Velocity vector
             c.strokeStyle = a.type === "predator" ? "#ff5555" : "#0f0";
             c.beginPath();
             c.moveTo(a.pos.x, a.pos.y);
             c.lineTo(a.pos.x + a.vel.x * 10, a.pos.y + a.vel.y * 10);
             c.stroke();
 
-            // Wander circle
             c.strokeStyle = "#f00";
             c.beginPath();
             c.arc(a.debugCirclePos.x, a.debugCirclePos.y, 12, 0, Math.PI * 2);
             c.stroke();
 
-            // Wander target
             c.strokeStyle = "#ff0";
             c.beginPath();
             c.moveTo(a.debugCirclePos.x, a.debugCirclePos.y);
@@ -801,6 +895,24 @@ const APEXSIM = {
                 }
             }
         }
+
+        // Pack centers (optional subtle debug)
+        for (const pack of this.predatorPacks) {
+            if (!pack.predatorIndices.length) continue;
+            let center = vec(0, 0);
+            let count = 0;
+            for (const idx of pack.predatorIndices) {
+                const a = this.agents[idx];
+                center = add(center, a.pos);
+                count++;
+            }
+            if (count > 0) center = mul(center, 1 / count);
+
+            c.strokeStyle = "rgba(255,80,80,0.4)";
+            c.beginPath();
+            c.arc(center.x, center.y, 10, 0, Math.PI * 2);
+            c.stroke();
+        }
     },
 
     // --------------------------------------------------------
@@ -858,8 +970,6 @@ const APEXSIM = {
             if (a.type === "predator") {
                 c.fillStyle = "#ff5050";
             } else {
-                // Prey glow a bit brighter when panicked
-                const base = 0x00eaff;
                 c.fillStyle = "#00eaff";
             }
             c.beginPath();
