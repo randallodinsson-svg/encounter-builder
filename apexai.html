@@ -214,7 +214,7 @@
                 return;
             }
 
-            history.slice().reverse().forEach((scenario) => {
+            history.slice().reverse().forEach((scenario, index) => {
                 const item = document.createElement("div");
                 item.className = "scenario-item";
 
@@ -225,7 +225,9 @@
                 const meta = document.createElement("div");
                 meta.className = "scenario-item-meta";
                 meta.textContent =
-                    `ID: ${scenario.id} • Diff: ${scenario.difficulty} • Enemies: ${scenario.enemyCount} ${scenario.enemyType}`;
+                    `ID: ${scenario.id} • ` +
+                    `Diff: ${scenario.difficulty} • ` +
+                    `Enemies: ${scenario.enemyCount} ${scenario.enemyType}`;
 
                 item.appendChild(title);
                 item.appendChild(meta);
