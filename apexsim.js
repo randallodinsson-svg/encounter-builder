@@ -94,7 +94,7 @@ function lineIntersectsCircle(p1, p2, center, radius) {
 }
 
 // --------------------------------------------------------
-// Agent (prey + predator)
+// Agent (prey + predator) — Part 1
 // --------------------------------------------------------
 class Agent {
     constructor(type, x, y) {
@@ -161,7 +161,6 @@ class Agent {
         const steer = sub(nd, this.vel);
         return mul(steer, this.maxForce * scale);
     }
-
     steerWander(scale = 1) {
         const jitter = vec(randRange(-1, 1), randRange(-1, 1));
         return mul(norm(jitter), this.maxForce * 0.6 * scale);
@@ -326,7 +325,6 @@ class HaloLeader {
         return mul(steer, this.maxForce * scale);
     }
 }
-
 // --------------------------------------------------------
 // APEXSIM v4.4 — Engine Shell
 // --------------------------------------------------------
@@ -512,11 +510,11 @@ const APEXSIM = {
             }
         }
     },
-
     _updateLeaders() {
         for (const leader of this.leaders) {
             leader.update();
 
+            // Wrap around screen edges
             if (leader.pos.x < 0) leader.pos.x += this.width;
             if (leader.pos.x > this.width) leader.pos.x -= this.width;
             if (leader.pos.y < 0) leader.pos.y += this.height;
@@ -530,6 +528,7 @@ const APEXSIM = {
         for (let i = 0; i < this.agents.length; i++) {
             const a = this.agents[i];
 
+            // Reset speed to base each frame
             a.maxSpeed = a.baseMaxSpeed;
 
             if (a.type === "prey") {
@@ -550,6 +549,7 @@ const APEXSIM = {
 
             a.update();
 
+            // Wrap around edges
             if (a.pos.x < 0) a.pos.x += this.width;
             if (a.pos.x > this.width) a.pos.x -= this.width;
             if (a.pos.y < 0) a.pos.y += this.height;
@@ -559,6 +559,7 @@ const APEXSIM = {
 
     _applyPreySquadAlarm(agent) {
         let nearestPred = Infinity;
+
         for (const other of this.agents) {
             if (other.type !== "predator") continue;
             const d = dist(agent.pos, other.pos);
@@ -569,6 +570,7 @@ const APEXSIM = {
         const alarm =
             nearestPred < alarmRadius ? 1 - nearestPred / alarmRadius : 0;
 
+        // Trigger scatter
         if (alarm > 0.7 && agent.scatterTimer <= 0) {
             agent.scatterTimer = 200 + Math.floor(rand() * 60);
         }
@@ -588,7 +590,6 @@ const APEXSIM = {
         this._updateLeaders();
         this._updateAgents();
     },
-
     render() {
         if (!this.ctx) return;
         const ctx = this.ctx;
