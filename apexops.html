@@ -84,7 +84,8 @@
             border-radius: 4px;
         }
 
-        #ops-current-tps {
+        #ops-current-tps,
+        #ops-minmax-tps {
             font-size: 14px;
             color: #0af;
             margin-bottom: 6px;
@@ -107,7 +108,7 @@
         <button id="btnModuleReload">Reload Example Module</button>
     </div>
 
-    <!-- STEP 16 — AUTO-TICK ENGINE CONTROLS -->
+    <!-- AUTO-TICK CONTROLS -->
     <div style="margin-top:10px; margin-bottom:10px;">
         <button id="btnAutoStart">Start Auto-Tick</button>
         <button id="btnAutoStop">Stop Auto-Tick</button>
@@ -295,14 +296,18 @@
                 snapshot.eventNames.join("\n");
         }
 
-        // ============================
-        // STEP 17 — TPS GRAPH STATE
-        // ============================
+        /* ============================
+           STEP 17 — TPS GRAPH STATE
+        ============================ */
         const TPS_HISTORY = [];
         const TPS_HISTORY_MAX = 60;
         let lastTpsSampleTime = Date.now();
         let ticksThisSecond = 0;
         let currentTps = 0;
+
+        // ⭐ NEW
+        let minTps = Infinity;
+        let maxTps = 0;
 
         function recordTickForTps() {
             const now = Date.now();
@@ -311,6 +316,11 @@
             const elapsed = now - lastTpsSampleTime;
             if (elapsed >= 1000) {
                 currentTps = ticksThisSecond;
+
+                // ⭐ NEW — update min/max
+                if (currentTps < minTps) minTps = currentTps;
+                if (currentTps > maxTps) maxTps = currentTps;
+
                 TPS_HISTORY.push(currentTps);
 
                 if (TPS_HISTORY.length > TPS_HISTORY_MAX) {
@@ -321,6 +331,7 @@
                 lastTpsSampleTime = now;
 
                 updateCurrentTpsLabel();
+                updateMinMaxTpsLabel();
                 drawTpsGraph();
             }
         }
@@ -328,6 +339,11 @@
         function updateCurrentTpsLabel() {
             document.getElementById("ops-current-tps").textContent =
                 `Current TPS: ${currentTps}`;
+        }
+
+        function updateMinMaxTpsLabel() {
+            document.getElementById("ops-minmax-tps").textContent =
+                `Min TPS: ${minTps === Infinity ? 0 : minTps}   |   Max TPS: ${maxTps}`;
         }
 
         function drawTpsGraph() {
@@ -347,11 +363,11 @@
                 return;
             }
 
-            const maxTps = Math.max(...TPS_HISTORY, 1);
+            const maxTpsValue = Math.max(...TPS_HISTORY, 1);
             const barWidth = width / TPS_HISTORY.length;
 
             TPS_HISTORY.forEach((tps, index) => {
-                const normalized = tps / maxTps;
+                const normalized = tps / maxTpsValue;
                 const barHeight = normalized * (height - 10);
                 const x = index * barWidth;
                 const y = height - barHeight;
@@ -363,12 +379,12 @@
 
             ctx.fillStyle = "#aaa";
             ctx.font = "10px Segoe UI";
-            ctx.fillText(`Max TPS: ${maxTps}`, 8, 12);
+            ctx.fillText(`Max TPS: ${maxTpsValue}`, 8, 12);
         }
 
-        // ============================
-        // CORE TICK PIPELINE
-        // ============================
+        /* ============================
+           CORE TICK PIPELINE
+        ============================ */
         function runTick() {
             const tick = {
                 time: Date.now(),
@@ -402,9 +418,9 @@
             updateOpsInternalStatePanel();
         }
 
-        // ============================
-        // MANUAL TICK
-        // ============================
+        /* ============================
+           MANUAL TICK
+        ============================ */
         document.getElementById("btnOpsTick").onclick = () => {
             runTick();
         };
@@ -413,9 +429,9 @@
             out.textContent = "APEXOPS ready.";
         };
 
-        // ============================
-        // MODULE CONTROLS
-        // ============================
+        /* ============================
+           MODULE CONTROLS
+        ============================ */
         document.getElementById("btnModuleMount").onclick = () => {
             APEXCORE.mount("example");
             pushOpsEvent("OPS: Example module mounted via button");
@@ -452,9 +468,9 @@
             updateOpsInternalStatePanel();
         };
 
-        // ============================
-        // AUTO-TICK ENGINE
-        // ============================
+        /* ============================
+           AUTO-TICK ENGINE
+        ============================ */
         let autoTickTimer = null;
 
         const autoIntervalInput = document.getElementById("autoInterval");
@@ -508,7 +524,9 @@
 
         updateIntervalLabel();
 
-        // Initial panel refresh
+        /* ============================
+           INITIAL PANEL REFRESH
+        ============================ */
         updateCoreLogs();
         updateLifecycleHistory();
         updateModuleStatus();
@@ -520,6 +538,7 @@
         updateOpsEventStream();
         updateOpsInternalStatePanel();
         updateCurrentTpsLabel();
+        updateMinMaxTpsLabel();
         drawTpsGraph();
     </script>
 
@@ -583,15 +602,7 @@
                 <pre id="ops-internal">(no internal state)</pre>
             </div>
 
-            <!-- STEP 17.1 — CURRENT TPS + GRAPH -->
+            <!-- TPS PANEL -->
             <div class="ops-panel">
                 <h3>Tick Rate Graph (TPS)</h3>
-                <div id="ops-current-tps">Current TPS: 0</div>
-                <canvas id="ops-tps-graph" width="400" height="80"></canvas>
-            </div>
-
-        </div>
-    </div>
-
-</body>
-</html>
+                <div id="ops-current-t
