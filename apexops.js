@@ -1,6 +1,5 @@
 /* ============================================================
-   APEXOPS — Modern Diagnostics Engine (Option B)
-   Clean, modular, future‑proof, profiler‑ready
+   APEXOPS — Modern Diagnostics Engine (Option B, aligned to APEXCORE v3.5)
 ============================================================ */
 
 export const APEXOPS = (() => {
@@ -17,6 +16,56 @@ export const APEXOPS = (() => {
 
     const registryKeys = [];
     const registryValues = {};
+
+    /* ============================================================
+       HELPERS TO READ APEXCORE v3.5
+    ============================================================ */
+
+    function getMountedModulesList() {
+        if (!CORE || !CORE.state || !CORE.state.moduleStatus) return [];
+        return Object.keys(CORE.state.moduleStatus)
+            .filter(name => CORE.state.moduleStatus[name] === "mounted");
+    }
+
+    function getRegistrySource() {
+        if (!CORE || !CORE.state) return {};
+        return CORE.state.registry || {};
+    }
+
+    function getEventNamesSource() {
+        if (!CORE || !CORE.state) return [];
+        return Object.keys(CORE.state.events || {});
+    }
+
+    function getCoreLogsSource() {
+        if (CORE && typeof CORE.getLogs === "function") {
+            return CORE.getLogs();
+        }
+        if (CORE && CORE.state) {
+            return CORE.state.logs || [];
+        }
+        return [];
+    }
+
+    function getCoreErrorsSource() {
+        if (CORE && typeof CORE.getErrors === "function") {
+            return CORE.getErrors();
+        }
+        if (CORE && CORE.state && CORE.state.diagnostics) {
+            return CORE.state.diagnostics.errors || [];
+        }
+        return [];
+    }
+
+    function getLifecycleSource() {
+        if (CORE && typeof CORE.getLifecycleHistory === "function") {
+            return CORE.getLifecycleHistory();
+        }
+        if (CORE && CORE.state && CORE.state.diagnostics) {
+            return CORE.state.diagnostics.lifecycleHistory || [];
+        }
+        return [];
+    }
 
     /* ============================================================
        LOGGING + ERROR CAPTURE
@@ -42,7 +91,7 @@ export const APEXOPS = (() => {
     }
 
     /* ============================================================
-       LIFECYCLE TRACKING
+       LIFECYCLE TRACKING (OPS-SIDE)
     ============================================================ */
 
     function trackLifecycle(type, name) {
@@ -58,13 +107,13 @@ export const APEXOPS = (() => {
     ============================================================ */
 
     function captureRegistrySnapshot() {
-        if (!CORE || !CORE.registry) return;
+        const src = getRegistrySource();
 
         registryKeys.length = 0;
-        registryKeys.push(...Object.keys(CORE.registry));
+        registryKeys.push(...Object.keys(src));
 
         for (const key of registryKeys) {
-            registryValues[key] = CORE.registry[key];
+            registryValues[key] = src[key];
         }
     }
 
@@ -73,17 +122,16 @@ export const APEXOPS = (() => {
     ============================================================ */
 
     function getModuleStatus() {
-        if (!CORE) return {};
+        if (!CORE || !CORE.state) return {};
 
         const out = {};
-        const mounted = CORE.getMountedModules
-            ? CORE.getMountedModules()
-            : Object.keys(CORE.modules || {});
+        const statusMap = CORE.state.moduleStatus || {};
+        const modulesMap = CORE.state.modules || {};
 
-        for (const name of mounted) {
+        for (const name of Object.keys(statusMap)) {
             out[name] = {
-                mounted: true,
-                hasTick: typeof CORE.getModule(name)?.tick === "function"
+                mounted: statusMap[name] === "mounted",
+                hasTick: typeof modulesMap[name]?.tick === "function"
             };
         }
 
@@ -97,9 +145,7 @@ export const APEXOPS = (() => {
     function inspectRuntime(tick) {
         return {
             tick,
-            mountedModules: CORE.getMountedModules
-                ? CORE.getMountedModules()
-                : Object.keys(CORE.modules || {}),
+            mountedModules: getMountedModulesList(),
             registry: { ...registryValues }
         };
     }
@@ -123,47 +169,61 @@ export const APEXOPS = (() => {
 
         CORE.mount = (name) => {
             trackLifecycle("mount", name);
-            return originalMount.call(CORE, name);
+            const result = originalMount.call(CORE, name);
+            captureRegistrySnapshot();
+            return result;
         };
 
         CORE.unmount = (name) => {
             trackLifecycle("unmount", name);
-            return originalUnmount.call(CORE, name);
+            const result = originalUnmount.call(CORE, name);
+            captureRegistrySnapshot();
+            return result;
         };
 
         CORE.reload = (name) => {
             trackLifecycle("reload", name);
-            return originalReload.call(CORE, name);
+            const result = originalReload.call(CORE, name);
+            captureRegistrySnapshot();
+            return result;
         };
     }
 
     function getCoreLogs() {
-        return coreLogs;
+        return getCoreLogsSource();
     }
 
     function getCoreErrors() {
-        return coreErrors;
+        return getCoreErrorsSource();
     }
 
     function getLifecycleHistory() {
-        return lifecycleHistory;
+        // Merge OPS-side lifecycle with CORE-side lifecycle for richer view
+        return [
+            ...getLifecycleSource(),
+            ...lifecycleHistory
+        ];
     }
 
     function getRegistryKeys() {
+        captureRegistrySnapshot();
         return registryKeys;
     }
 
     function getRegistryValues() {
+        captureRegistrySnapshot();
         return registryValues;
     }
 
     function getCoreSnapshot() {
+        const mountedModules = getMountedModulesList();
+        const registry = getRegistrySource();
+        const eventNames = getEventNamesSource();
+
         return {
-            mountedModules: CORE.getMountedModules
-                ? CORE.getMountedModules()
-                : Object.keys(CORE.modules || {}),
-            registry: { ...registryValues },
-            eventNames: CORE.eventNames || []
+            mountedModules,
+            registry: { ...registry },
+            eventNames
         };
     }
 
