@@ -174,6 +174,19 @@
             el.textContent = JSON.stringify(snapshot, null, 2);
         }
 
+        // STEP 08 — Update Event Names Panel
+        function updateEventNames() {
+            const snapshot = APEXOPS.getCoreSnapshot();
+            const el = document.getElementById("ops-events");
+
+            if (!snapshot || !snapshot.eventNames) {
+                el.textContent = "(no event names)";
+                return;
+            }
+
+            el.textContent = snapshot.eventNames.join("\n");
+        }
+
         // Tick button
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
@@ -194,7 +207,8 @@
             updateLifecycleHistory();
             updateModuleStatus();
             updateRegistryKeys();
-            updateCoreSnapshot(); // STEP 07
+            updateCoreSnapshot();
+            updateEventNames(); // STEP 08
         };
 
         // Clear button
@@ -239,10 +253,16 @@
                 <pre id="ops-registry">(no registry keys)</pre>
             </div>
 
-            <!-- Core Snapshot Panel (STEP 07) -->
+            <!-- Core Snapshot Panel -->
             <div id="ops-panel-snapshot" class="ops-panel">
                 <h3>Core Snapshot</h3>
                 <pre id="ops-snapshot">(no snapshot)</pre>
+            </div>
+
+            <!-- Event Names Panel (STEP 08) -->
+            <div id="ops-panel-events" class="ops-panel">
+                <h3>Event Names</h3>
+                <pre id="ops-events">(no event names)</pre>
             </div>
 
         </div>
