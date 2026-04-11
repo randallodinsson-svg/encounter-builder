@@ -51,8 +51,8 @@
             margin-top: 10px;
         }
 
-        /* Core Logs Panel */
-        #ops-panel-logs {
+        /* Panel Base Style */
+        .ops-panel {
             background: #000;
             padding: 10px;
             border: 1px solid #333;
@@ -60,12 +60,12 @@
             margin-bottom: 15px;
         }
 
-        #ops-panel-logs h3 {
+        .ops-panel h3 {
             margin-top: 0;
             color: #0af;
         }
 
-        #ops-logs {
+        .ops-panel pre {
             white-space: pre-wrap;
             font-size: 12px;
             color: #ccc;
@@ -103,6 +103,21 @@
             el.textContent = logs.join("\n");
         }
 
+        // Update Core Errors Panel
+        function updateCoreErrors() {
+            const errors = APEXOPS.getCoreErrors();
+            const el = document.getElementById("ops-errors");
+
+            if (errors.length === 0) {
+                el.textContent = "(no errors)";
+                return;
+            }
+
+            el.textContent = errors
+                .map(err => `[${new Date(err.timestamp).toLocaleTimeString()}] ${err.context}: ${err.error}`)
+                .join("\n");
+        }
+
         // Tick button
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
@@ -119,6 +134,7 @@
             log(JSON.stringify(ops, null, 2));
 
             updateCoreLogs();
+            updateCoreErrors();
         };
 
         // Clear button
@@ -134,9 +150,15 @@
         <div id="ops-panels">
 
             <!-- Core Logs Panel -->
-            <div id="ops-panel-logs">
+            <div id="ops-panel-logs" class="ops-panel">
                 <h3>Core Logs</h3>
                 <pre id="ops-logs">(no logs yet)</pre>
+            </div>
+
+            <!-- Core Errors Panel -->
+            <div id="ops-panel-errors" class="ops-panel">
+                <h3>Core Errors</h3>
+                <pre id="ops-errors">(no errors)</pre>
             </div>
 
         </div>
