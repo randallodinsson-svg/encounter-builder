@@ -90,17 +90,12 @@
             out.textContent += "\n" + msg;
         }
 
-        // Initialize OPS
         APEXOPS.init(APEXCORE);
         APEXOPS.attachEventHooks();
 
-        // Register + auto-mount module
         APEXCORE.register("example", ExampleModule);
         APEXCORE.mount("example");
 
-        // ============================
-        // OPS METRICS ENGINE
-        // ============================
         const OPS_METRICS = {
             startTime: Date.now(),
             lastTick: null,
@@ -117,6 +112,7 @@
                     (OPS_METRICS.avgInterval * (OPS_METRICS.tickCount - 1) + interval) /
                     OPS_METRICS.tickCount;
             }
+
             OPS_METRICS.lastTick = tickTime;
         }
 
@@ -132,9 +128,6 @@
                 `Avg Interval: ${OPS_METRICS.avgInterval.toFixed(2)}ms`;
         }
 
-        // ============================
-        // OPS EVENT STREAM
-        // ============================
         const OPS_EVENTS = [];
 
         function pushOpsEvent(msg) {
@@ -159,9 +152,6 @@
                 .join("\n");
         }
 
-        // ============================
-        // OPS INTERNAL STATE PANEL
-        // ============================
         function getOpsInternalState() {
             return {
                 metrics: OPS_METRICS,
@@ -177,9 +167,6 @@
             el.textContent = JSON.stringify(getOpsInternalState(), null, 2);
         }
 
-        // ============================
-        // PANEL UPDATERS
-        // ============================
         function updateCoreLogs() {
             document.getElementById("ops-logs").textContent =
                 APEXOPS.getCoreLogs().join("\n");
@@ -222,6 +209,7 @@
                 el.textContent = "(no modules)";
                 return;
             }
+
             el.textContent = keys
                 .map(key => `${key}: ${JSON.stringify(status[key], null, 2)}`)
                 .join("\n\n");
@@ -239,6 +227,13 @@
             el.textContent = keys.join("\n");
         }
 
+        function updateRegistryValues() {
+            const values = APEXOPS.getRegistryValues();
+            const el = document.getElementById("ops-registry-values");
+
+            el.textContent = JSON.stringify(values, null, 2);
+        }
+
         function updateCoreSnapshot() {
             const snapshot = APEXOPS.getCoreSnapshot();
             document.getElementById("ops-snapshot").textContent =
@@ -251,19 +246,14 @@
                 snapshot.eventNames.join("\n");
         }
 
-        // ============================
-        // RUN TICK (FULLY WIRED)
-        // ============================
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
                 time: Date.now(),
                 random: Math.random()
             };
 
-            // Send tick to APEXCORE (Step 13)
             APEXCORE.tick(tick);
 
-            // OPS inspection
             const ops = APEXOPS.inspectRuntime(tick);
 
             log("SIMULATION TICK:");
@@ -280,6 +270,7 @@
             updateLifecycleHistory();
             updateModuleStatus();
             updateRegistryKeys();
+            updateRegistryValues();
             updateCoreSnapshot();
             updateEventNames();
             updateMetricsPanel();
@@ -287,16 +278,10 @@
             updateOpsInternalStatePanel();
         };
 
-        // ============================
-        // CLEAR OUTPUT
-        // ============================
         document.getElementById("btnOpsClear").onclick = () => {
             out.textContent = "APEXOPS ready.";
         };
 
-        // ============================
-        // MODULE CONTROLS
-        // ============================
         document.getElementById("btnModuleMount").onclick = () => {
             APEXCORE.mount("example");
             pushOpsEvent("OPS: Example module mounted via button");
@@ -304,9 +289,11 @@
             updateLifecycleHistory();
             updateModuleStatus();
             updateRegistryKeys();
+            updateRegistryValues();
             updateCoreSnapshot();
             updateOpsInternalStatePanel();
         };
+
         document.getElementById("btnModuleUnmount").onclick = () => {
             APEXCORE.unmount("example");
             pushOpsEvent("OPS: Example module unmounted via button");
@@ -314,6 +301,7 @@
             updateLifecycleHistory();
             updateModuleStatus();
             updateRegistryKeys();
+            updateRegistryValues();
             updateCoreSnapshot();
             updateOpsInternalStatePanel();
         };
@@ -325,15 +313,16 @@
             updateLifecycleHistory();
             updateModuleStatus();
             updateRegistryKeys();
+            updateRegistryValues();
             updateCoreSnapshot();
             updateOpsInternalStatePanel();
         };
 
-        // Initial panel refresh
         updateCoreLogs();
         updateLifecycleHistory();
         updateModuleStatus();
         updateRegistryKeys();
+        updateRegistryValues();
         updateCoreSnapshot();
         updateEventNames();
         updateMetricsPanel();
@@ -369,6 +358,11 @@
             <div class="ops-panel">
                 <h3>Registry Keys</h3>
                 <pre id="ops-registry">(no registry keys)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Registry Values</h3>
+                <pre id="ops-registry-values">(no registry values)</pre>
             </div>
 
             <div class="ops-panel">
