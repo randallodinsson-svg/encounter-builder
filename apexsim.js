@@ -161,6 +161,7 @@ class Agent {
         const steer = sub(nd, this.vel);
         return mul(steer, this.maxForce * scale);
     }
+
     steerWander(scale = 1) {
         const jitter = vec(randRange(-1, 1), randRange(-1, 1));
         return mul(norm(jitter), this.maxForce * 0.6 * scale);
@@ -326,7 +327,7 @@ class HaloLeader {
     }
 }
 // --------------------------------------------------------
-// APEXSIM v4.4 — Engine Shell
+// APEXSIM Engine v4.4 — Part 1
 // --------------------------------------------------------
 const APEXSIM = {
     width: 0,
@@ -340,9 +341,9 @@ const APEXSIM = {
     predatorPacks: [],
 
     config: {
-        preyCount: 70,
-        predatorCount: 8,
-        haloCount: 4,
+        preyCount: 60,
+        predatorCount: 6,
+        haloCount: 5,
         obstacleCount: 10
     },
 
@@ -360,48 +361,50 @@ const APEXSIM = {
         this.obstacles = [];
         this.predatorPacks = [];
 
-        if (options.seed != null) {
-            randSeed(options.seed);
-        }
+        if (options.seed != null) randSeed(options.seed);
 
-        this._setupWorld();
-    },
-
-    _setupWorld() {
         this._spawnObstacles();
-        this._spawnHaloLeaders();
+        this._spawnLeaders();
         this._spawnAgents();
         this._formPredatorPacks();
     },
 
+    // --------------------------------------------------------
+    // Spawn obstacles
+    // --------------------------------------------------------
     _spawnObstacles() {
-        this.obstacles = [];
         for (let i = 0; i < this.config.obstacleCount; i++) {
             this.obstacles.push({
                 pos: vec(
-                    randRange(this.width * 0.1, this.width * 0.9),
-                    randRange(this.height * 0.1, this.height * 0.9)
+                    randRange(60, this.width - 60),
+                    randRange(60, this.height - 60)
                 ),
-                radius: randRange(18, 40)
+                radius: randRange(20, 40)
             });
         }
     },
 
-    _spawnHaloLeaders() {
-        this.leaders = [];
-        const cx = this.width / 2;
-        const cy = this.height / 2;
-        const r = Math.min(this.width, this.height) * 0.25;
+    // --------------------------------------------------------
+    // Spawn HALO leaders
+    // --------------------------------------------------------
+    _spawnLeaders() {
+        const cx = this.width * 0.5;
+        const cy = this.height * 0.5;
+        const R = 180;
 
         for (let i = 0; i < this.config.haloCount; i++) {
-            const ang = (i / this.config.haloCount) * Math.PI * 2;
-            const x = cx + Math.cos(ang) * r;
-            const y = cy + Math.sin(ang) * r;
+            const angle = (i / this.config.haloCount) * Math.PI * 2;
+            const x = cx + Math.cos(angle) * R;
+            const y = cy + Math.sin(angle) * R;
+
             const leader = new HaloLeader(x, y, i, this.config.haloCount);
             this.leaders.push(leader);
         }
     },
 
+    // --------------------------------------------------------
+    // Spawn prey + predators
+    // --------------------------------------------------------
     _spawnAgents() {
         this.agents = [];
 
@@ -424,6 +427,9 @@ const APEXSIM = {
         }
     },
 
+    // --------------------------------------------------------
+    // Form predator packs (groups of 3)
+    // --------------------------------------------------------
     _formPredatorPacks() {
         const predators = this.agents.filter(a => a.type === "predator");
         const packSize = 3;
@@ -450,97 +456,35 @@ const APEXSIM = {
             packId++;
         }
     },
+    // --------------------------------------------------------
+    // Update loop
+    // --------------------------------------------------------
+    update() {
+        if (!this.running) return;
 
-    _updatePackLOS() {
-        for (const pack of this.predatorPacks) {
-            const indices = pack.predatorIndices;
-            if (!indices.length) {
-                pack.targetPreyIndex = null;
-                continue;
-            }
-
-            let center = vec(0, 0);
-            for (const idx of indices) {
-                center = add(center, this.agents[idx].pos);
-            }
-            center = mul(center, 1 / indices.length);
-
-            let bestPreyIndex = null;
-            let bestDist = Infinity;
-
-            for (let i = 0; i < this.agents.length; i++) {
-                const a = this.agents[i];
-                if (a.type !== "prey") continue;
-                const d = dist(center, a.pos);
-                if (d < bestDist) {
-                    bestDist = d;
-                    bestPreyIndex = i;
-                }
-            }
-
-            pack.targetPreyIndex = bestPreyIndex;
-
-            for (const idx of indices) {
-                const p = this.agents[idx];
-                p.hasLOS = false;
-            }
-
-            if (bestPreyIndex == null) continue;
-
-            const prey = this.agents[bestPreyIndex];
-            let blocked = false;
-
-            for (const o of this.obstacles) {
-                if (lineIntersectsCircle(center, prey.pos, o.pos, o.radius + 4)) {
-                    blocked = true;
-                    break;
-                }
-            }
-
-            const hasLOS = !blocked;
-            for (const idx of indices) {
-                const p = this.agents[idx];
-                p.hasLOS = hasLOS;
-            }
-
-            if (!hasLOS && bestDist > 260) {
-                pack.confusion = clamp(pack.confusion + 0.02, 0, 1);
-            } else {
-                pack.confusion *= 0.96;
-            }
-        }
-    },
-    _updateLeaders() {
+        // Update HALO leaders
         for (const leader of this.leaders) {
             leader.update();
-
-            // Wrap around screen edges
-            if (leader.pos.x < 0) leader.pos.x += this.width;
-            if (leader.pos.x > this.width) leader.pos.x -= this.width;
-            if (leader.pos.y < 0) leader.pos.y += this.height;
-            if (leader.pos.y > this.height) leader.pos.y -= this.height;
         }
-    },
 
-    _updateAgents() {
-        this._updatePackLOS();
+        // Update predator packs
+        for (const pack of this.predatorPacks) {
+            this._updatePredatorPack(pack);
+        }
 
-        for (let i = 0; i < this.agents.length; i++) {
-            const a = this.agents[i];
-
-            // Reset speed to base each frame
-            a.maxSpeed = a.baseMaxSpeed;
-
+        // Update all agents
+        for (const a of this.agents) {
             if (a.type === "prey") {
-                this._applyPreySquadAlarm(a);
                 a.preyBehavior(this.agents, this.obstacles);
             } else {
-                const pack = this._findPackForPredatorIndex(i);
+                const pack = this._findPackForPredator(a);
                 let target = null;
                 let confusion = 0;
 
-                if (pack && pack.targetPreyIndex != null) {
-                    target = this.agents[pack.targetPreyIndex];
+                if (pack) {
+                    if (pack.targetPreyIndex != null) {
+                        target = this.agents[pack.targetPreyIndex];
+                    }
                     confusion = pack.confusion;
                 }
 
@@ -557,48 +501,74 @@ const APEXSIM = {
         }
     },
 
-    _applyPreySquadAlarm(agent) {
-        let nearestPred = Infinity;
+    // --------------------------------------------------------
+    // Find pack for a predator
+    // --------------------------------------------------------
+    _findPackForPredator(predator) {
+        const idx = this.agents.indexOf(predator);
+        if (idx < 0) return null;
 
-        for (const other of this.agents) {
-            if (other.type !== "predator") continue;
-            const d = dist(agent.pos, other.pos);
-            if (d < nearestPred) nearestPred = d;
-        }
-
-        const alarmRadius = 260;
-        const alarm =
-            nearestPred < alarmRadius ? 1 - nearestPred / alarmRadius : 0;
-
-        // Trigger scatter
-        if (alarm > 0.7 && agent.scatterTimer <= 0) {
-            agent.scatterTimer = 200 + Math.floor(rand() * 60);
-        }
-
-        agent.panic = Math.max(agent.panic, alarm);
-    },
-
-    _findPackForPredatorIndex(idx) {
         for (const pack of this.predatorPacks) {
             if (pack.predatorIndices.includes(idx)) return pack;
         }
         return null;
     },
 
-    update() {
-        if (!this.running) return;
-        this._updateLeaders();
-        this._updateAgents();
-    },
-    render() {
-        if (!this.ctx) return;
-        const ctx = this.ctx;
+    // --------------------------------------------------------
+    // Update predator pack logic
+    // --------------------------------------------------------
+    _updatePredatorPack(pack) {
+        const predators = pack.predatorIndices
+            .map(i => this.agents[i])
+            .filter(a => a);
 
+        if (predators.length === 0) return;
+
+        // Find nearest prey to pack centroid
+        let centroid = vec(0, 0);
+        for (const p of predators) {
+            centroid = add(centroid, p.pos);
+        }
+        centroid = mul(centroid, 1 / predators.length);
+
+        let nearestPrey = null;
+        let nearestDist = Infinity;
+
+        for (const a of this.agents) {
+            if (a.type !== "prey") continue;
+            const d = dist(centroid, a.pos);
+            if (d < nearestDist) {
+                nearestDist = d;
+                nearestPrey = a;
+            }
+        }
+
+        if (nearestPrey) {
+            pack.targetPreyIndex = this.agents.indexOf(nearestPrey);
+        } else {
+            pack.targetPreyIndex = null;
+        }
+
+        // Confusion: if prey cluster is dense, predators get jittery
+        let preyNearby = 0;
+        for (const a of this.agents) {
+            if (a.type !== "prey") continue;
+            if (dist(centroid, a.pos) < 120) preyNearby++;
+        }
+
+        pack.confusion = clamp(preyNearby / 12, 0, 1);
+    },
+
+    // --------------------------------------------------------
+    // Render
+    // --------------------------------------------------------
+    render() {
+        const ctx = this.ctx;
         ctx.clearRect(0, 0, this.width, this.height);
 
         // Obstacles
+        ctx.fillStyle = "rgba(80,80,80,0.9)";
         for (const o of this.obstacles) {
-            ctx.fillStyle = "rgba(80,80,80,0.9)";
             ctx.beginPath();
             ctx.arc(o.pos.x, o.pos.y, o.radius, 0, Math.PI * 2);
             ctx.fill();
@@ -669,7 +639,9 @@ const APEXSIM = {
             ctx.restore();
         }
     },
-
+    // --------------------------------------------------------
+    // Control
+    // --------------------------------------------------------
     start() {
         this.running = true;
     },
@@ -680,7 +652,7 @@ const APEXSIM = {
 };
 
 // --------------------------------------------------------
-// Export
+// Export to window
 // --------------------------------------------------------
 if (typeof window !== "undefined") {
     window.APEXSIM = APEXSIM;
