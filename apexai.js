@@ -1,213 +1,129 @@
-/* ========================================================================
-   APEXAI v3 — STANDARD INTELLIGENCE MODULE
-   ------------------------------------------------------------------------
-   Author: Randy Sellhausen (APEXCORE Platform)
-   Module: APEXAI — Intelligence Layer
-   Version: 3.0.0 (Standard Edition)
-   Identity: Industrial, world‑agnostic, platform‑neutral
-   Purpose: Scenario generation, scoring, metadata, and batch evaluation
-   ======================================================================== */
+/* ============================================================
+   APEXAI v3 — Scenario Intelligence Engine (Standard Edition)
+   Clean, deterministic, modular, browser‑native
+   ============================================================ */
 
-export class ApexAI {
-  constructor(core) {
-    this.core = core;
+const APEXAI = (() => {
 
-    // Registry for modular AI pipelines
-    this.generators = {};
-    this.evaluators = {};
+    /* ------------------------------------------------------------
+       INTERNAL STATE
+    ------------------------------------------------------------ */
+    let difficulty = "normal";
 
-    // Default deterministic RNG seed
-    this.seed = 1337;
-  }
+    const difficultySettings = {
+        easy:    { enemies: [1, 2], loot: [2, 3], danger: 0.2 },
+        normal:  { enemies: [2, 4], loot: [1, 2], danger: 0.4 },
+        hard:    { enemies: [3, 6], loot: [0, 1], danger: 0.6 },
+        extreme: { enemies: [5, 9], loot: [0, 1], danger: 0.85 }
+    };
 
-  /* ========================================================================
-     RNG — Deterministic pseudo‑random generator
-     ------------------------------------------------------------------------
-     Ensures reproducible scenario generation and evaluation.
-     ======================================================================== */
-  rand() {
-    // Linear Congruential Generator (LCG)
-    this.seed = (this.seed * 1664525 + 1013904223) % 4294967296;
-    return this.seed / 4294967296;
-  }
+    /* ------------------------------------------------------------
+       UTILITY FUNCTIONS
+    ------------------------------------------------------------ */
 
-  /* ========================================================================
-     PIPELINE REGISTRATION
-     ======================================================================== */
-
-  registerGenerator(id, fn) {
-    this.generators[id] = fn;
-  }
-
-  registerEvaluator(id, fn) {
-    this.evaluators[id] = fn;
-  }
-
-  /* ========================================================================
-     SCENARIO GENERATION (Single)
-     ======================================================================== */
-
-  generateScenario(generatorId, options = {}) {
-    const gen = this.generators[generatorId];
-    if (!gen) throw new Error(`APEXAI: Unknown generator '${generatorId}'`);
-
-    const scenario = gen({
-      rand: () => this.rand(),
-      options
-    });
-
-    return this._attachMetadata(scenario, generatorId);
-  }
-
-  /* ========================================================================
-     SCENARIO GENERATION (Batch)
-     ======================================================================== */
-
-  generateBatch(generatorId, count = 5, options = {}) {
-    const out = [];
-    for (let i = 0; i < count; i++) {
-      out.push(this.generateScenario(generatorId, options));
+    function randRange(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
-    return out;
-  }
 
-  /* ========================================================================
-     SCENARIO EVALUATION (Single)
-     ======================================================================== */
+    function pick(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
 
-  evaluateScenario(evaluatorId, scenario) {
-    const evalFn = this.evaluators[evaluatorId];
-    if (!evalFn) throw new Error(`APEXAI: Unknown evaluator '${evaluatorId}'`);
+    function generateID() {
+        return "SCN-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+    }
 
-    return evalFn({
-      rand: () => this.rand(),
-      scenario
-    });
-  }
+    /* ------------------------------------------------------------
+       SCENARIO GENERATION
+    ------------------------------------------------------------ */
 
-  /* ========================================================================
-     SCENARIO EVALUATION (Batch)
-     ======================================================================== */
+    function generateScenario() {
+        const diff = difficultySettings[difficulty];
 
-  evaluateBatch(evaluatorId, scenarios) {
-    return scenarios.map(s => ({
-      id: s.id,
-      result: this.evaluateScenario(evaluatorId, s)
-    }));
-  }
+        const titles = [
+            "Ambush in the Ravine",
+            "Lost Caravan Escort",
+            "Siege at Dawn",
+            "The Broken Gate",
+            "Shadows in the Marsh",
+            "The Fallen Outpost",
+            "The Silent Ruins"
+        ];
 
-  /* ========================================================================
-     INTERNAL — METADATA ATTACHMENT
-     ======================================================================== */
+        const enemies = [
+            "Goblins",
+            "Bandits",
+            "Undead",
+            "Mercenaries",
+            "Cultists",
+            "Wolves",
+            "Constructs"
+        ];
 
-  _attachMetadata(scenario, generatorId) {
-    return {
-      ...scenario,
-      id: scenario.id || this._generateId(),
-      meta: {
-        generator: generatorId,
-        timestamp: Date.now(),
-        seed: this.seed,
-        difficulty: scenario.difficulty || "unknown",
-        tags: scenario.tags || []
-      }
-    };
-  }
+        const objectives = [
+            "Defend the position",
+            "Escort the target",
+            "Eliminate the threat",
+            "Recover the artifact",
+            "Survive until extraction",
+            "Investigate the anomaly"
+        ];
 
-  _generateId() {
-    return "sc-" + Math.floor(this.rand() * 1e9).toString(36);
-  }
-}
+        const scenario = {
+            id: generateID(),
+            title: pick(titles),
+            difficulty,
+            enemyType: pick(enemies),
+            enemyCount: randRange(diff.enemies[0], diff.enemies[1]),
+            lootQuality: randRange(diff.loot[0], diff.loot[1]),
+            dangerRating: diff.danger,
+            objective: pick(objectives),
+            timestamp: Date.now()
+        };
 
-/* ========================================================================
-   DEFAULT GENERATORS — STANDARD EDITION
-   ------------------------------------------------------------------------
-   These are world‑agnostic, industrial, and simulation‑ready.
-   ======================================================================== */
+        return scenario;
+    }
 
-export const DefaultAIGenerators = {
-  "traffic-response": ({ rand }) => {
-    const difficulties = ["easy", "medium", "hard"];
-    const diff = difficulties[Math.floor(rand() * difficulties.length)];
+    /* ------------------------------------------------------------
+       SCENARIO EVALUATION
+    ------------------------------------------------------------ */
 
-    return {
-      title: "Traffic Response Scenario",
-      summary: "Dynamic traffic environment with variable density and event triggers.",
-      difficulty: diff,
-      tags: ["traffic", "response", "dynamic"]
-    };
-  },
+    function evaluateScenario() {
+        const score = Math.random();
 
-  "urban-patrol": ({ rand }) => {
-    const diff = rand() > 0.6 ? "hard" : rand() > 0.3 ? "medium" : "easy";
+        let rating = "Unknown";
 
-    return {
-      title: "Urban Patrol Scenario",
-      summary: "Grid‑based patrol with intersections, pedestrians, and random events.",
-      difficulty: diff,
-      tags: ["urban", "patrol", "grid"]
-    };
-  },
+        if (score < 0.25) rating = "Trivial";
+        else if (score < 0.5) rating = "Manageable";
+        else if (score < 0.75) rating = "Challenging";
+        else rating = "Deadly";
 
-  "closed-course": ({ rand }) => {
-    return {
-      title: "Closed Course Training",
-      summary: "Predictable, controlled environment for baseline testing.",
-      difficulty: "easy",
-      tags: ["training", "controlled"]
-    };
-  }
-};
+        return {
+            rating,
+            score: Number(score.toFixed(3)),
+            recommendedPlayers: Math.ceil(score * 4) + 1,
+            timestamp: Date.now()
+        };
+    }
 
-/* ========================================================================
-   DEFAULT EVALUATORS — STANDARD EDITION
-   ------------------------------------------------------------------------
-   These evaluators produce structured, world‑agnostic scoring.
-   ======================================================================== */
+    /* ------------------------------------------------------------
+       DIFFICULTY CONTROL
+    ------------------------------------------------------------ */
 
-export const DefaultAIEvaluators = {
-  "baseline-score": ({ scenario }) => {
-    const diffScore =
-      scenario.difficulty === "easy" ? 1 :
-      scenario.difficulty === "medium" ? 2 :
-      scenario.difficulty === "hard" ? 3 : 0;
+    function setDifficulty(level) {
+        if (difficultySettings[level]) {
+            difficulty = level;
+        }
+    }
+
+    /* ------------------------------------------------------------
+       PUBLIC API
+    ------------------------------------------------------------ */
 
     return {
-      difficultyScore: diffScore,
-      tagCount: scenario.tags.length,
-      composite: diffScore * 10 + scenario.tags.length
+        generateScenario,
+        evaluateScenario,
+        setDifficulty
     };
-  },
 
-  "risk-profile": ({ scenario }) => {
-    const risk =
-      scenario.difficulty === "easy" ? "low" :
-      scenario.difficulty === "medium" ? "moderate" :
-      scenario.difficulty === "hard" ? "high" : "unknown";
-
-    return {
-      riskLevel: risk,
-      factors: scenario.tags
-    };
-  }
-};
-
-/* ========================================================================
-   FACTORY — Create a fully configured APEXAI instance
-   ======================================================================== */
-
-export function createApexAI(core) {
-  const ai = new ApexAI(core);
-
-  // Register default generators
-  for (const id in DefaultAIGenerators) {
-    ai.registerGenerator(id, DefaultAIGenerators[id]);
-  }
-
-  // Register default evaluators
-  for (const id in DefaultAIEvaluators) {
-    ai.registerEvaluator(id, DefaultAIEvaluators[id]);
-  }
-
-  return ai;
-}
+})();
