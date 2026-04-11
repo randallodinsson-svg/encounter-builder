@@ -148,7 +148,7 @@
                 .join("\n\n");
         }
 
-        // Update Registry Keys Panel (STEP 06)
+        // Update Registry Keys Panel
         function updateRegistryKeys() {
             const keys = APEXOPS.getRegistryKeys();
             const el = document.getElementById("ops-registry");
@@ -159,6 +159,19 @@
             }
 
             el.textContent = keys.join("\n");
+        }
+
+        // STEP 07 — Update Core Snapshot Panel
+        function updateCoreSnapshot() {
+            const snapshot = APEXOPS.getCoreSnapshot();
+            const el = document.getElementById("ops-snapshot");
+
+            if (!snapshot) {
+                el.textContent = "(no snapshot)";
+                return;
+            }
+
+            el.textContent = JSON.stringify(snapshot, null, 2);
         }
 
         // Tick button
@@ -180,7 +193,8 @@
             updateCoreErrors();
             updateLifecycleHistory();
             updateModuleStatus();
-            updateRegistryKeys(); // STEP 06
+            updateRegistryKeys();
+            updateCoreSnapshot(); // STEP 07
         };
 
         // Clear button
@@ -219,10 +233,16 @@
                 <pre id="ops-modules">(no modules)</pre>
             </div>
 
-            <!-- Registry Keys Panel (STEP 06) -->
+            <!-- Registry Keys Panel -->
             <div id="ops-panel-registry" class="ops-panel">
                 <h3>Registry Keys</h3>
                 <pre id="ops-registry">(no registry keys)</pre>
+            </div>
+
+            <!-- Core Snapshot Panel (STEP 07) -->
+            <div id="ops-panel-snapshot" class="ops-panel">
+                <h3>Core Snapshot</h3>
+                <pre id="ops-snapshot">(no snapshot)</pre>
             </div>
 
         </div>
