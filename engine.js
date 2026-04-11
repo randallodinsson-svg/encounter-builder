@@ -1,126 +1,67 @@
-/* ============================================================
-   APEX ENGINE FAMILY — MASTER ORCHESTRATOR (v3 Unified Edition)
-   Author: Randy Sellhausen — VECTORCORE INTERACTIVE
-   Purpose: Tie together APEXCORE, APEXAI, APEXSIM, APEXOPS
-   ============================================================ */
+// APEX ENGINE FAMILY — MASTER ORCHESTRATOR
+// Clean, stable, world‑agnostic, and dependency‑safe.
 
 import { APEXCORE } from "./apexcore.js";
-import { APEXAI }   from "./apexai.js";
-import { APEXSIM }  from "./apexsim.js";
-import { APEXOPS }  from "./apexops.js";
+import { APEXAI } from "./apexai.js";
+import { APEXSIM } from "./apexsim.js";
+import { APEXOPS } from "./apexops.js";
 
-/* ------------------------------------------------------------
-   ENGINE CLASS
------------------------------------------------------------- */
 export class ApexEngine {
 
     constructor() {
+        this.version = "3.0.0";
+
+        // Register modules into APEXCORE
+        APEXCORE.register("APEXAI", APEXAI);
+        APEXCORE.register("APEXSIM", APEXSIM);
+        APEXCORE.register("APEXOPS", APEXOPS);
+
         this.core = APEXCORE;
-        this.ai   = APEXAI;
-        this.sim  = APEXSIM;
-        this.ops  = APEXOPS;
+        this.ai = APEXAI;
+        this.sim = APEXSIM;
+        this.ops = APEXOPS;
 
-        this.initialized = false;
-        this.started     = false;
-
-        this._registerModules();
+        this.log("ApexEngine initialized.");
     }
 
-    /* ------------------------------------------------------------
-       MODULE REGISTRATION
-    ------------------------------------------------------------ */
-    _registerModules() {
-        this.core.registerModule("APEXAI",  this.ai);
-        this.core.registerModule("APEXSIM", this.sim);
-        this.core.registerModule("APEXOPS", this.ops);
+    // Core logging passthrough
+    log(msg) {
+        this.core.log(`[ENGINE] ${msg}`);
     }
 
-    /* ------------------------------------------------------------
-       LIFECYCLE
-    ------------------------------------------------------------ */
-    init(canvas = null) {
-        if (this.initialized) return;
-
-        this.core.init();
-
-        if (canvas) {
-            this.sim.init(canvas);
-        }
-
-        this.initialized = true;
-        console.log("[ENGINE] Initialized.");
-    }
-
-    start() {
-        if (!this.initialized) this.init();
-        if (this.started) return;
-
-        this.core.start();
-        this.started = true;
-
-        console.log("[ENGINE] Started.");
-    }
-
-    reset() {
-        this.core.reset();
-        this.initialized = false;
-        this.started = false;
-
-        console.log("[ENGINE] Reset.");
-    }
-
-    /* ------------------------------------------------------------
-       UNIFIED ENGINE API
-    ------------------------------------------------------------ */
-
-    // AI
+    // Generate a scenario via AI module
     generateScenario() {
-        return this.ai.generateScenario();
+        const scenario = this.ai.generateScenario();
+        this.log("Scenario generated.");
+        return scenario;
     }
 
+    // Evaluate a scenario via AI module
     evaluateScenario() {
-        return this.ai.evaluateScenario();
+        const result = this.ai.evaluateScenario();
+        this.log("Scenario evaluated.");
+        return result;
     }
 
-    setDifficulty(level) {
-        this.ai.setDifficulty(level);
+    // Run a simulation tick
+    tickSimulation() {
+        const tick = this.sim.tick();
+        this.log("Simulation tick executed.");
+        return tick;
     }
 
-    // SIM
-    simStep() {
-        return this.core.runSimulationStep();
+    // Inspect a simulation tick via OPS module
+    inspectTick(tickData) {
+        const report = this.ops.inspect(tickData);
+        this.log("OPS inspection completed.");
+        return report;
     }
 
-    loadDefaultScenario() {
-        return this.sim.loadDefaultScenario();
-    }
-
-    // OPS
-    opsStep() {
-        return this.core.runOpsStep();
-    }
-
-    // AI Step (evaluation)
-    aiStep() {
-        return this.core.runAIStep();
-    }
-
-    /* ------------------------------------------------------------
-       DEBUG / INTROSPECTION
-    ------------------------------------------------------------ */
-    getState() {
-        return {
-            core: "APEXCORE v3",
-            ai: this.ai.getState ? this.ai.getState() : "AI state unavailable",
-            sim: this.sim.getState(),
-            ops: this.ops.getState ? this.ops.getState() : "OPS state unavailable"
-        };
+    // System heartbeat
+    ping() {
+        return this.core.ping();
     }
 }
 
-/* ------------------------------------------------------------
-   DEFAULT ENGINE INSTANCE
------------------------------------------------------------- */
+// Default engine instance for convenience
 export const ENGINE = new ApexEngine();
-
-console.log("[ENGINE] APEX Engine Family v3 loaded.");
