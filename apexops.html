@@ -83,6 +83,12 @@
             border: 1px solid #333;
             border-radius: 4px;
         }
+
+        #ops-current-tps {
+            font-size: 14px;
+            color: #0af;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 
@@ -293,9 +299,10 @@
         // STEP 17 — TPS GRAPH STATE
         // ============================
         const TPS_HISTORY = [];
-        const TPS_HISTORY_MAX = 60; // last 60 seconds
+        const TPS_HISTORY_MAX = 60;
         let lastTpsSampleTime = Date.now();
         let ticksThisSecond = 0;
+        let currentTps = 0;
 
         function recordTickForTps() {
             const now = Date.now();
@@ -303,15 +310,24 @@
 
             const elapsed = now - lastTpsSampleTime;
             if (elapsed >= 1000) {
-                const tps = ticksThisSecond;
-                TPS_HISTORY.push(tps);
+                currentTps = ticksThisSecond;
+                TPS_HISTORY.push(currentTps);
+
                 if (TPS_HISTORY.length > TPS_HISTORY_MAX) {
                     TPS_HISTORY.shift();
                 }
+
                 ticksThisSecond = 0;
                 lastTpsSampleTime = now;
+
+                updateCurrentTpsLabel();
                 drawTpsGraph();
             }
+        }
+
+        function updateCurrentTpsLabel() {
+            document.getElementById("ops-current-tps").textContent =
+                `Current TPS: ${currentTps}`;
         }
 
         function drawTpsGraph() {
@@ -351,7 +367,7 @@
         }
 
         // ============================
-        // CORE TICK PIPELINE (SHARED)
+        // CORE TICK PIPELINE
         // ============================
         function runTick() {
             const tick = {
@@ -437,7 +453,7 @@
         };
 
         // ============================
-        // STEP 16 — AUTO-TICK ENGINE
+        // AUTO-TICK ENGINE
         // ============================
         let autoTickTimer = null;
 
@@ -503,6 +519,7 @@
         updateMetricsPanel();
         updateOpsEventStream();
         updateOpsInternalStatePanel();
+        updateCurrentTpsLabel();
         drawTpsGraph();
     </script>
 
@@ -566,9 +583,10 @@
                 <pre id="ops-internal">(no internal state)</pre>
             </div>
 
-            <!-- STEP 17 — TPS GRAPH PANEL -->
+            <!-- STEP 17.1 — CURRENT TPS + GRAPH -->
             <div class="ops-panel">
                 <h3>Tick Rate Graph (TPS)</h3>
+                <div id="ops-current-tps">Current TPS: 0</div>
                 <canvas id="ops-tps-graph" width="400" height="80"></canvas>
             </div>
 
