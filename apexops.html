@@ -32,26 +32,14 @@
             font-weight: 600;
         }
 
-        /* Diagnostics Shell */
         #apexops-diagnostics {
             padding: 20px;
             background: #111;
-            color: #eee;
             border: 1px solid #333;
             margin-top: 20px;
             border-radius: 6px;
         }
 
-        #apexops-diagnostics h2 {
-            margin: 0 0 10px 0;
-            color: #0af;
-        }
-
-        #ops-panels {
-            margin-top: 10px;
-        }
-
-        /* Panel Base Style */
         .ops-panel {
             background: #000;
             padding: 10px;
@@ -96,13 +84,50 @@
         APEXOPS.init(APEXCORE);
         APEXOPS.attachEventHooks();
 
-        // Update Core Logs Panel
-        function updateCoreLogs() {
-            const logs = APEXOPS.getCoreLogs();
-            document.getElementById("ops-logs").textContent = logs.join("\n");
+        // ============================
+        // STEP 09 — OPS METRICS ENGINE
+        // ============================
+        const OPS_METRICS = {
+            startTime: Date.now(),
+            lastTick: null,
+            tickCount: 0,
+            avgInterval: 0
+        };
+
+        function updateMetrics(tickTime) {
+            OPS_METRICS.tickCount++;
+
+            if (OPS_METRICS.lastTick) {
+                const interval = tickTime - OPS_METRICS.lastTick;
+                OPS_METRICS.avgInterval =
+                    (OPS_METRICS.avgInterval * (OPS_METRICS.tickCount - 1) + interval) /
+                    OPS_METRICS.tickCount;
+            }
+
+            OPS_METRICS.lastTick = tickTime;
         }
 
-        // Update Core Errors Panel
+        function updateMetricsPanel() {
+            const el = document.getElementById("ops-metrics");
+
+            const uptime = ((Date.now() - OPS_METRICS.startTime) / 1000).toFixed(2);
+
+            el.textContent =
+                `Ticks: ${OPS_METRICS.tickCount}\n` +
+                `Uptime: ${uptime}s\n` +
+                `Last Tick: ${OPS_METRICS.lastTick || "none"}\n` +
+                `Avg Interval: ${OPS_METRICS.avgInterval.toFixed(2)}ms`;
+        }
+
+        // ============================
+        // Existing panel update functions
+        // ============================
+
+        function updateCoreLogs() {
+            document.getElementById("ops-logs").textContent =
+                APEXOPS.getCoreLogs().join("\n");
+        }
+
         function updateCoreErrors() {
             const errors = APEXOPS.getCoreErrors();
             const el = document.getElementById("ops-errors");
@@ -117,7 +142,6 @@
                 .join("\n");
         }
 
-        // Update Lifecycle History Panel
         function updateLifecycleHistory() {
             const history = APEXOPS.getLifecycleHistory();
             const el = document.getElementById("ops-lifecycle");
@@ -132,7 +156,6 @@
                 .join("\n");
         }
 
-        // Update Module Status Panel
         function updateModuleStatus() {
             const status = APEXOPS.getModuleStatus();
             const el = document.getElementById("ops-modules");
@@ -148,7 +171,6 @@
                 .join("\n\n");
         }
 
-        // Update Registry Keys Panel
         function updateRegistryKeys() {
             const keys = APEXOPS.getRegistryKeys();
             const el = document.getElementById("ops-registry");
@@ -161,33 +183,21 @@
             el.textContent = keys.join("\n");
         }
 
-        // STEP 07 — Update Core Snapshot Panel
         function updateCoreSnapshot() {
             const snapshot = APEXOPS.getCoreSnapshot();
-            const el = document.getElementById("ops-snapshot");
-
-            if (!snapshot) {
-                el.textContent = "(no snapshot)";
-                return;
-            }
-
-            el.textContent = JSON.stringify(snapshot, null, 2);
+            document.getElementById("ops-snapshot").textContent =
+                JSON.stringify(snapshot, null, 2);
         }
 
-        // STEP 08 — Update Event Names Panel
         function updateEventNames() {
             const snapshot = APEXOPS.getCoreSnapshot();
-            const el = document.getElementById("ops-events");
-
-            if (!snapshot || !snapshot.eventNames) {
-                el.textContent = "(no event names)";
-                return;
-            }
-
-            el.textContent = snapshot.eventNames.join("\n");
+            document.getElementById("ops-events").textContent =
+                snapshot.eventNames.join("\n");
         }
 
+        // ============================
         // Tick button
+        // ============================
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
                 time: Date.now(),
@@ -202,67 +212,69 @@
             log("OPS INSPECTION:");
             log(JSON.stringify(ops, null, 2));
 
+            // Update metrics
+            updateMetrics(tick.time);
+
+            // Update all panels
             updateCoreLogs();
             updateCoreErrors();
             updateLifecycleHistory();
             updateModuleStatus();
             updateRegistryKeys();
             updateCoreSnapshot();
-            updateEventNames(); // STEP 08
+            updateEventNames();
+            updateMetricsPanel(); // STEP 09
         };
 
-        // Clear button
         document.getElementById("btnOpsClear").onclick = () => {
             out.textContent = "APEXOPS ready.";
         };
     </script>
 
-    <!-- APEXOPS Diagnostics Shell -->
     <div id="apexops-diagnostics">
         <h2>APEXOPS Diagnostics</h2>
 
         <div id="ops-panels">
 
-            <!-- Core Logs Panel -->
-            <div id="ops-panel-logs" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Core Logs</h3>
                 <pre id="ops-logs">(no logs yet)</pre>
             </div>
 
-            <!-- Core Errors Panel -->
-            <div id="ops-panel-errors" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Core Errors</h3>
                 <pre id="ops-errors">(no errors)</pre>
             </div>
 
-            <!-- Lifecycle History Panel -->
-            <div id="ops-panel-lifecycle" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Lifecycle History</h3>
                 <pre id="ops-lifecycle">(no lifecycle events)</pre>
             </div>
 
-            <!-- Module Status Panel -->
-            <div id="ops-panel-modules" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Module Status</h3>
                 <pre id="ops-modules">(no modules)</pre>
             </div>
 
-            <!-- Registry Keys Panel -->
-            <div id="ops-panel-registry" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Registry Keys</h3>
                 <pre id="ops-registry">(no registry keys)</pre>
             </div>
 
-            <!-- Core Snapshot Panel -->
-            <div id="ops-panel-snapshot" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Core Snapshot</h3>
                 <pre id="ops-snapshot">(no snapshot)</pre>
             </div>
 
-            <!-- Event Names Panel (STEP 08) -->
-            <div id="ops-panel-events" class="ops-panel">
+            <div class="ops-panel">
                 <h3>Event Names</h3>
                 <pre id="ops-events">(no event names)</pre>
+            </div>
+
+            <!-- STEP 09 — Core Metrics Panel -->
+            <div class="ops-panel">
+                <h3>Core Metrics</h3>
+                <pre id="ops-metrics">(no metrics)</pre>
             </div>
 
         </div>
