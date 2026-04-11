@@ -103,7 +103,7 @@
             avgInterval: 0
         };
 
-        function updateMetrics(tickTime) {
+function updateMetrics(tickTime) {
             OPS_METRICS.tickCount++;
 
             if (OPS_METRICS.lastTick) {
@@ -196,6 +196,21 @@
             }
 
             el.textContent = history
+                .map(ev => `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type.toUpperCase()} — ${ev.name}`)
+                .join("\n");
+        }
+
+        function updateModuleStatus() {
+            const status = APEXOPS.getModuleStatus();
+            const el = document.getElementById("ops-modules");
+
+            const keys = Object.keys(status);
+            if (keys.length === 0) {
+                el.textContent = "(no modules)";
+                return;
+            }
+
+el.textContent = history
                 .map(ev => `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type.toUpperCase()} — ${ev.name}`)
                 .join("\n");
         }
@@ -322,7 +337,7 @@
             updateOpsInternalStatePanel();
         };
 
-        // Initial panel refresh
+// Initial panel refresh
         updateCoreLogs();
         updateLifecycleHistory();
         updateModuleStatus();
