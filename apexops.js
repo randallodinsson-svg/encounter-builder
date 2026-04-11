@@ -20,7 +20,7 @@ export const APEXOPS = {
 
     getCoreErrors() {
         return this.core?.getErrors() || [];
-    }
+    }, // <-- THIS COMMA WAS MISSING
 
     getLifecycleHistory() {
         return this.core?.getLifecycleHistory() || [];
