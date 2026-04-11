@@ -85,10 +85,11 @@
         }
 
         #ops-current-tps,
-        #ops-minmax-tps {
+        #ops-minmax-tps,
+        #ops-avg-tps {
             font-size: 14px;
             color: #0af;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
     </style>
 </head>
@@ -301,13 +302,15 @@
         ============================ */
         const TPS_HISTORY = [];
         const TPS_HISTORY_MAX = 60;
+        const TPS_AVG_WINDOW = 5; // 5-second rolling window
+
         let lastTpsSampleTime = Date.now();
         let ticksThisSecond = 0;
         let currentTps = 0;
 
-        // ⭐ NEW
         let minTps = Infinity;
         let maxTps = 0;
+        let avgTps = 0;
 
         function recordTickForTps() {
             const now = Date.now();
@@ -317,14 +320,24 @@
             if (elapsed >= 1000) {
                 currentTps = ticksThisSecond;
 
-                // ⭐ NEW — update min/max
                 if (currentTps < minTps) minTps = currentTps;
                 if (currentTps > maxTps) maxTps = currentTps;
 
                 TPS_HISTORY.push(currentTps);
-
                 if (TPS_HISTORY.length > TPS_HISTORY_MAX) {
                     TPS_HISTORY.shift();
+                }
+
+                // rolling average over last TPS_AVG_WINDOW samples
+                const windowSize = Math.min(TPS_AVG_WINDOW, TPS_HISTORY.length);
+                if (windowSize > 0) {
+                    let sum = 0;
+                    for (let i = TPS_HISTORY.length - windowSize; i < TPS_HISTORY.length; i++) {
+                        sum += TPS_HISTORY[i];
+                    }
+                    avgTps = sum / windowSize;
+                } else {
+                    avgTps = 0;
                 }
 
                 ticksThisSecond = 0;
@@ -332,6 +345,7 @@
 
                 updateCurrentTpsLabel();
                 updateMinMaxTpsLabel();
+                updateAvgTpsLabel();
                 drawTpsGraph();
             }
         }
@@ -344,6 +358,11 @@
         function updateMinMaxTpsLabel() {
             document.getElementById("ops-minmax-tps").textContent =
                 `Min TPS: ${minTps === Infinity ? 0 : minTps}   |   Max TPS: ${maxTps}`;
+        }
+
+        function updateAvgTpsLabel() {
+            document.getElementById("ops-avg-tps").textContent =
+                `Avg TPS (${TPS_AVG_WINDOW}s): ${avgTps.toFixed(2)}`;
         }
 
         function drawTpsGraph() {
@@ -366,6 +385,7 @@
             const maxTpsValue = Math.max(...TPS_HISTORY, 1);
             const barWidth = width / TPS_HISTORY.length;
 
+            // Bars (actual TPS)
             TPS_HISTORY.forEach((tps, index) => {
                 const normalized = tps / maxTpsValue;
                 const barHeight = normalized * (height - 10);
@@ -376,6 +396,34 @@
                 ctx.fillStyle = `rgb(0, ${intensity}, 255)`;
                 ctx.fillRect(x, y, barWidth - 1, barHeight);
             });
+
+            // Rolling average line (faint cyan)
+            if (TPS_HISTORY.length > 1) {
+                ctx.strokeStyle = "rgba(0, 255, 255, 0.7)";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+
+                TPS_HISTORY.forEach((_, index) => {
+                    const windowSize = Math.min(TPS_AVG_WINDOW, index + 1);
+                    let sum = 0;
+                    for (let i = index - windowSize + 1; i <= index; i++) {
+                        sum += TPS_HISTORY[i];
+                    }
+                    const localAvg = sum / windowSize;
+
+                    const normalized = localAvg / maxTpsValue;
+                    const y = height - normalized * (height - 10);
+                    const x = index * barWidth + barWidth / 2;
+
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.stroke();
+            }
 
             ctx.fillStyle = "#aaa";
             ctx.font = "10px Segoe UI";
@@ -539,6 +587,7 @@
         updateOpsInternalStatePanel();
         updateCurrentTpsLabel();
         updateMinMaxTpsLabel();
+        updateAvgTpsLabel();
         drawTpsGraph();
     </script>
 
@@ -605,4 +654,14 @@
             <!-- TPS PANEL -->
             <div class="ops-panel">
                 <h3>Tick Rate Graph (TPS)</h3>
-                <div id="ops-current-t
+                <div id="ops-current-tps">Current TPS: 0</div>
+                <div id="ops-minmax-tps">Min TPS: 0   |   Max TPS: 0</div>
+                <div id="ops-avg-tps">Avg TPS (5s): 0.00</div>
+                <canvas id="ops-tps-graph" width="400" height="80"></canvas>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
