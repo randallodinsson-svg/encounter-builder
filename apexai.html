@@ -2,184 +2,66 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXAI v3 — Scenario Engine</title>
+    <title>APEXAI — Minimal Test</title>
 
     <style>
         body {
-            margin: 0;
             background: #0b0e13;
             color: #e6eef7;
             font-family: system-ui, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #sidebar {
-            width: 280px;
-            background: #11161d;
-            border-right: 1px solid #1f2732;
             padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
         }
-
         button {
-            width: 100%;
-            padding: 10px;
-            margin: 6px 0;
+            padding: 12px 20px;
+            margin: 10px 0;
             background: #1e90ff;
             border: none;
             color: white;
-            font-size: 15px;
+            font-size: 16px;
+            cursor: pointer;
             border-radius: 4px;
-            cursor: pointer;
         }
-
-        button:hover {
-            background: #3aa0ff;
-        }
-
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: row;
-        }
-
-        #leftPanel {
-            width: 320px;
-            border-right: 1px solid #1f2732;
-            background: #0f141a;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #scenarioList {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .scenario-item {
-            padding: 8px 12px;
-            border-bottom: 1px solid #1f2732;
-            cursor: pointer;
-        }
-
-        .scenario-item:hover {
-            background: #151b24;
-        }
-
-        #detailPanel {
-            height: 220px;
-            border-bottom: 1px solid #1f2732;
-            background: #0f141a;
-            padding: 12px;
-            box-sizing: border-box;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
         #output {
-            flex: 1;
-            background: #05070a;
-            padding: 12px;
-            box-sizing: border-box;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            overflow-y: auto;
+            margin-top: 20px;
+            padding: 15px;
+            background: #11161d;
+            border: 1px solid #1f2732;
             white-space: pre-wrap;
-            border-top: 1px solid #1f2732;
+            font-family: Consolas, monospace;
+            min-height: 200px;
         }
     </style>
 </head>
 
 <body>
 
-    <div id="sidebar">
-        <h2>APEXAI — Scenario Engine</h2>
+    <h1>APEXAI — Minimal Test Page</h1>
 
-        <button id="btnGenerate">Generate Scenario</button>
-        <button id="btnEvaluate">Evaluate Scenario</button>
-        <button id="btnClearLog">Clear Output</button>
-        <button id="btnClearHistory">Clear Scenario History</button>
-    </div>
+    <button id="btnGenerate">Generate Scenario</button>
+    <button id="btnEvaluate">Evaluate Scenario</button>
 
-    <div id="main">
-        <div id="leftPanel">
-            <div id="scenarioList"></div>
-        </div>
-
-        <div id="rightPanel">
-            <div id="detailPanel">Scenario detail will appear here.</div>
-            <div id="output">APEXAI v3 ready.</div>
-        </div>
-    </div>
+    <div id="output">Output will appear here…</div>
 
     <script type="module">
         import { APEXAI } from "./apexai.js";
 
-        const outputEl = document.getElementById("output");
-        const detailEl = document.getElementById("detailPanel");
-        const listEl = document.getElementById("scenarioList");
+        const out = document.getElementById("output");
 
-        const history = [];
-
-        function log(msg) {
-            outputEl.textContent += "\\n" + msg;
-            outputEl.scrollTop = outputEl.scrollHeight;
-        }
-
-        function renderScenarioList() {
-            listEl.innerHTML = "";
-            if (history.length === 0) {
-                const empty = document.createElement("div");
-                empty.className = "scenario-item";
-                empty.style.opacity = "0.6";
-                empty.textContent = "No scenarios generated yet.";
-                listEl.appendChild(empty);
-                return;
-            }
-
-            history.slice().reverse().forEach((scenario) => {
-                const item = document.createElement("div");
-                item.className = "scenario-item";
-                item.textContent = scenario.title;
-                item.onclick = () => {
-                    detailEl.textContent = JSON.stringify(scenario, null, 2);
-                };
-                listEl.appendChild(item);
-            });
+        function log(x) {
+            out.textContent += "\\n" + x;
         }
 
         document.getElementById("btnGenerate").onclick = () => {
-            const scenario = APEXAI.generateScenario();
-            history.push(scenario);
+            const s = APEXAI.generateScenario();
             log("Generated Scenario:");
-            log(JSON.stringify(scenario, null, 2));
-            renderScenarioList();
-            detailEl.textContent = JSON.stringify(scenario, null, 2);
+            log(JSON.stringify(s, null, 2));
         };
 
         document.getElementById("btnEvaluate").onclick = () => {
-            const result = APEXAI.evaluateScenario();
+            const r = APEXAI.evaluateScenario();
             log("Evaluation Result:");
-            log(JSON.stringify(result, null, 2));
+            log(JSON.stringify(r, null, 2));
         };
-
-        document.getElementById("btnClearLog").onclick = () => {
-            outputEl.textContent = "APEXAI v3 ready.";
-        };
-
-        document.getElementById("btnClearHistory").onclick = () => {
-            history.length = 0;
-            renderScenarioList();
-            detailEl.textContent = "Scenario detail will appear here.";
-            log("Scenario history cleared.");
-        };
-
-        renderScenarioList();
     </script>
 
 </body>
