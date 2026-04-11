@@ -1,141 +1,151 @@
-/* ========================================================================
-   APEXCORE v3 — SYSTEM SHELL & LIFECYCLE MANAGER
-   ------------------------------------------------------------------------
-   Author: Randy Sellhausen (APEXCORE Platform)
-   Module: APEXCORE — System Layer
-   Version: 3.0.0
-   Identity: Industrial, world‑agnostic, platform‑neutral
-   Purpose: Unified module registry, lifecycle manager, event bus,
-            deterministic simulation pipeline, and scenario loader.
-   ======================================================================== */
+/* ============================================================
+   APEXCORE v3 — Modular System Core
+   Central orchestrator for APEXAI, APEXSIM, APEXOPS, and engines
+   Clean, deterministic, browser-native
+   ============================================================ */
 
-export class ApexCore {
-  constructor() {
-    /* ------------------------------------------------------------
-       MODULE REGISTRY
-       ------------------------------------------------------------ */
-    this.modules = {};
+export const APEXCORE = (() => {
 
     /* ------------------------------------------------------------
-       ACTIVE SCENARIO
-       ------------------------------------------------------------ */
-    this.activeScenario = null;
-
-    /* ------------------------------------------------------------
-       EVENT BUS
-       ------------------------------------------------------------ */
-    this.listeners = {};
-
-    /* ------------------------------------------------------------
-       DETERMINISTIC RNG SEED
-       ------------------------------------------------------------ */
-    this.seed = 20240601;
-  }
-
-  /* ========================================================================
-     RNG — Deterministic pseudo‑random generator
-     ======================================================================== */
-  rand() {
-    this.seed = (this.seed * 1103515245 + 12345) % 2147483648;
-    return this.seed / 2147483648;
-  }
-
-  /* ========================================================================
-     MODULE REGISTRATION
-     ======================================================================== */
-  registerModule(id, instance) {
-    this.modules[id] = instance;
-    this.emit("module:registered", { id, instance });
-  }
-
-  getModule(id) {
-    return this.modules[id] || null;
-  }
-
-  /* ========================================================================
-     EVENT BUS
-     ======================================================================== */
-  on(event, handler) {
-    if (!this.listeners[event]) this.listeners[event] = [];
-    this.listeners[event].push(handler);
-  }
-
-  emit(event, payload) {
-    const handlers = this.listeners[event];
-    if (!handlers) return;
-    for (const fn of handlers) fn(payload);
-  }
-
-  /* ========================================================================
-     SCENARIO LOADING
-     ======================================================================== */
-  loadScenario(scenarioDef) {
-    if (!scenarioDef) throw new Error("APEXCORE: scenarioDef is null");
-
-    this.activeScenario = {
-      ...scenarioDef,
-      id: scenarioDef.id || this._generateScenarioId(),
-      loadedAt: Date.now()
+       INTERNAL STATE
+    ------------------------------------------------------------ */
+    let modules = {};
+    let lifecycle = {
+        initialized: false,
+        started: false
     };
 
-    this.emit("scenario:loaded", this.activeScenario);
-  }
+    let eventBus = {};
+    let seed = Date.now();
 
-  _generateScenarioId() {
-    return "scenario-" + Math.floor(this.rand() * 1e9).toString(36);
-  }
+    /* ------------------------------------------------------------
+       UTILITY FUNCTIONS
+    ------------------------------------------------------------ */
 
-  /* ========================================================================
-     SIMULATION PIPELINE
-     ------------------------------------------------------------------------
-     startSimulation(simFactory)
-     - simFactory: (scenario) => new ApexSim(scenario)
-     ======================================================================== */
-  startSimulation(simFactory) {
-    if (!this.activeScenario)
-      throw new Error("APEXCORE: No scenario loaded before simulation.");
+    function log(msg) {
+        console.log("[APEXCORE]", msg);
+    }
 
-    if (typeof simFactory !== "function")
-      throw new Error("APEXCORE: simFactory must be a function.");
+    function generateSeed() {
+        seed = Date.now();
+        return seed;
+    }
 
-    this.emit("simulation:start", { scenario: this.activeScenario });
+    function on(event, handler) {
+        if (!eventBus[event]) eventBus[event] = [];
+        eventBus[event].push(handler);
+    }
 
-    const sim = simFactory(this.activeScenario);
-    if (!sim || typeof sim.run !== "function")
-      throw new Error("APEXCORE: simFactory must return an object with run().");
+    function emit(event, data) {
+        if (eventBus[event]) {
+            for (const handler of eventBus[event]) {
+                handler(data);
+            }
+        }
+    }
 
-    const result = sim.run({
-      rand: () => this.rand(),
-      emit: (evt, data) => this.emit(evt, data)
-    });
+    /* ------------------------------------------------------------
+       MODULE REGISTRATION
+    ------------------------------------------------------------ */
 
-    const wrapped = {
-      scenarioId: this.activeScenario.id,
-      timestamp: Date.now(),
-      result
+    function registerModule(name, instance) {
+        modules[name] = instance;
+        log(`Module registered: ${name}`);
+    }
+
+    function getModule(name) {
+        return modules[name] || null;
+    }
+
+    /* ------------------------------------------------------------
+       LIFECYCLE MANAGEMENT
+    ------------------------------------------------------------ */
+
+    function init() {
+        if (lifecycle.initialized) return;
+        lifecycle.initialized = true;
+
+        generateSeed();
+        emit("core:init", { seed });
+
+        log("APEXCORE initialized.");
+    }
+
+    function start() {
+        if (!lifecycle.initialized) init();
+        if (lifecycle.started) return;
+
+        lifecycle.started = true;
+        emit("core:start");
+
+        log("APEXCORE started.");
+    }
+
+    function reset() {
+        lifecycle = { initialized: false, started: false };
+        modules = {};
+        eventBus = {};
+        seed = Date.now();
+
+        log("APEXCORE reset.");
+    }
+
+    /* ------------------------------------------------------------
+       STANDARDIZED SIMULATION PIPELINE
+    ------------------------------------------------------------ */
+
+    function runSimulationStep() {
+        const sim = modules["APEXSIM"];
+        if (!sim || !sim.step) return;
+
+        const result = sim.step();
+        emit("sim:step", result);
+        return result;
+    }
+
+    function runOpsStep() {
+        const ops = modules["APEXOPS"];
+        if (!ops || !ops.update) return;
+
+        const result = ops.update();
+        emit("ops:update", result);
+        return result;
+    }
+
+    function runAIStep() {
+        const ai = modules["APEXAI"];
+        if (!ai || !ai.evaluateScenario) return;
+
+        const result = ai.evaluateScenario();
+        emit("ai:evaluate", result);
+        return result;
+    }
+
+    /* ------------------------------------------------------------
+       PUBLIC API
+    ------------------------------------------------------------ */
+
+    return {
+        // lifecycle
+        init,
+        start,
+        reset,
+
+        // modules
+        registerModule,
+        getModule,
+
+        // events
+        on,
+        emit,
+
+        // seed
+        generateSeed,
+
+        // pipeline
+        runSimulationStep,
+        runOpsStep,
+        runAIStep
     };
 
-    this.emit("simulation:complete", wrapped);
-    return wrapped;
-  }
-
-  /* ========================================================================
-     LIFECYCLE HOOKS
-     ======================================================================== */
-  boot() {
-    this.emit("core:boot", { timestamp: Date.now() });
-  }
-
-  shutdown() {
-    this.emit("core:shutdown", { timestamp: Date.now() });
-  }
-}
-
-/* ========================================================================
-   FACTORY — Create a fully configured APEXCORE instance
-   ======================================================================== */
-export function createApexCore() {
-  const core = new ApexCore();
-  core.boot();
-  return core;
-}
+})();
