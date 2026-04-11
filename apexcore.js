@@ -1,16 +1,20 @@
-// APEXCORE v3.3 — Core Kernel + Event Bus + Data Registry + Lifecycle System
+// APEXCORE v3.4 — Core Kernel + Event Bus + Data Registry + Lifecycle + Diagnostics
 // Clean, stable, modular, and future‑proof.
 
 export const APEXCORE = {
 
-    version: "3.3.0",
+    version: "3.4.0",
 
     state: {
         modules: {},        // name -> moduleRef
         moduleStatus: {},   // name -> "mounted" | "unmounted"
         logs: [],
         events: {},         // Event Bus
-        registry: {}        // Data Registry
+        registry: {},       // Data Registry
+        diagnostics: {
+            errors: [],
+            lifecycleHistory: [] // { type, name, timestamp }
+        }
     },
 
     // =========================
@@ -26,7 +30,7 @@ export const APEXCORE = {
         this.log(`Module registered: ${name}`);
     },
 
-    // Explicit module getter (avoids conflict with registry.get)
+    // Explicit module getter
     getModule(name) {
         return this.state.modules[name] || null;
     },
@@ -41,13 +45,25 @@ export const APEXCORE = {
         console.log(entry);
     },
 
+    logError(context, err) {
+        const entry = {
+            context,
+            error: String(err),
+            timestamp: Date.now()
+        };
+        this.state.diagnostics.errors.push(entry);
+        const line = `[APEXCORE][ERROR] ${context}: ${err}`;
+        this.state.logs.push(line);
+        console.error(line);
+    },
+
     // =========================
     // HEARTBEAT
     // =========================
 
     ping() {
         return {
-            core: "APEXCORE v3.3",
+            core: "APEXCORE v3.4",
             status: "OK",
             modules: Object.keys(this.state.modules),
             mounted: Object.keys(this.state.moduleStatus)
@@ -87,7 +103,7 @@ export const APEXCORE = {
             try {
                 fn(payload);
             } catch (err) {
-                this.log(`Error in listener for event "${eventName}": ${err}`);
+                this.logError(`Listener for event "${eventName}"`, err);
             }
         }
     },
@@ -154,16 +170,20 @@ export const APEXCORE = {
             return;
         }
 
-        // Optional: call module.init if present
         if (typeof mod.init === "function") {
             try {
                 mod.init(this);
             } catch (err) {
-                this.log(`Error in ${name}.init(): ${err}`);
+                this.logError(`${name}.init()`, err);
             }
         }
 
         this.state.moduleStatus[name] = "mounted";
+        this.state.diagnostics.lifecycleHistory.push({
+            type: "mounted",
+            name,
+            timestamp: Date.now()
+        });
         this.emit("module:mounted", { name });
         this.log(`Module mounted: ${name}`);
     },
@@ -179,16 +199,20 @@ export const APEXCORE = {
             return;
         }
 
-        // Optional: call module.destroy if present
         if (typeof mod.destroy === "function") {
             try {
                 mod.destroy(this);
             } catch (err) {
-                this.log(`Error in ${name}.destroy(): ${err}`);
+                this.logError(`${name}.destroy()`, err);
             }
         }
 
         this.state.moduleStatus[name] = "unmounted";
+        this.state.diagnostics.lifecycleHistory.push({
+            type: "unmounted",
+            name,
+            timestamp: Date.now()
+        });
         this.emit("module:unmounted", { name });
         this.log(`Module unmounted: ${name}`);
     },
@@ -205,23 +229,66 @@ export const APEXCORE = {
             this.unmount(name);
         }
 
-        // Optional: call module.reload if present, otherwise remount
         if (typeof mod.reload === "function") {
             try {
                 mod.reload(this);
                 this.state.moduleStatus[name] = "mounted";
+                this.state.diagnostics.lifecycleHistory.push({
+                    type: "reloaded",
+                    name,
+                    timestamp: Date.now()
+                });
                 this.emit("module:reloaded", { name });
                 this.log(`Module reloaded: ${name}`);
                 return;
             } catch (err) {
-                this.log(`Error in ${name}.reload(): ${err}`);
+                this.logError(`${name}.reload()`, err);
             }
         }
 
         if (wasMounted) {
             this.mount(name);
+            this.state.diagnostics.lifecycleHistory.push({
+                type: "reloaded",
+                name,
+                timestamp: Date.now()
+            });
             this.emit("module:reloaded", { name });
             this.log(`Module reloaded via unmount/mount: ${name}`);
         }
+    },
+
+    // =========================
+    // DIAGNOSTICS
+    // =========================
+
+    getLogs() {
+        return [...this.state.logs];
+    },
+
+    getErrors() {
+        return [...this.state.diagnostics.errors];
+    },
+
+    getLifecycleHistory() {
+        return [...this.state.diagnostics.lifecycleHistory];
+    },
+
+    getModuleStatus() {
+        return { ...this.state.moduleStatus };
+    },
+
+    getDiagnosticsSnapshot() {
+        return {
+            version: this.version,
+            timestamp: Date.now(),
+            modules: Object.keys(this.state.modules),
+            moduleStatus: { ...this.state.moduleStatus },
+            registryKeys: Object.keys(this.state.registry),
+            eventNames: Object.keys(this.state.events),
+            logCount: this.state.logs.length,
+            errorCount: this.state.diagnostics.errors.length,
+            lifecycleEvents: this.state.diagnostics.lifecycleHistory.length
+        };
     }
 };
