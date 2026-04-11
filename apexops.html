@@ -99,8 +99,7 @@
         // Update Core Logs Panel
         function updateCoreLogs() {
             const logs = APEXOPS.getCoreLogs();
-            const el = document.getElementById("ops-logs");
-            el.textContent = logs.join("\n");
+            document.getElementById("ops-logs").textContent = logs.join("\n");
         }
 
         // Update Core Errors Panel
@@ -133,6 +132,22 @@
                 .join("\n");
         }
 
+        // Update Module Status Panel (STEP 05)
+        function updateModuleStatus() {
+            const status = APEXOPS.getModuleStatus();
+            const el = document.getElementById("ops-modules");
+
+            const keys = Object.keys(status);
+            if (keys.length === 0) {
+                el.textContent = "(no modules)";
+                return;
+            }
+
+            el.textContent = keys
+                .map(key => `${key}: ${JSON.stringify(status[key], null, 2)}`)
+                .join("\n\n");
+        }
+
         // Tick button
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
@@ -151,6 +166,7 @@
             updateCoreLogs();
             updateCoreErrors();
             updateLifecycleHistory();
+            updateModuleStatus(); // STEP 05
         };
 
         // Clear button
@@ -181,6 +197,12 @@
             <div id="ops-panel-lifecycle" class="ops-panel">
                 <h3>Lifecycle History</h3>
                 <pre id="ops-lifecycle">(no lifecycle events)</pre>
+            </div>
+
+            <!-- Module Status Panel (STEP 05) -->
+            <div id="ops-panel-modules" class="ops-panel">
+                <h3>Module Status</h3>
+                <pre id="ops-modules">(no modules)</pre>
             </div>
 
         </div>
