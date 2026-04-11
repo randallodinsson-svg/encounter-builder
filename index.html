@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXCORE v3 — Engine Hub</title>
+    <title>APEXCORE Platform — System Hub</title>
 
     <style>
         body {
@@ -13,88 +13,87 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden;
         }
 
         header {
-            padding: 20px;
             background: #11161d;
+            padding: 20px;
             border-bottom: 1px solid #1f2732;
             font-size: 22px;
-            letter-spacing: 1px;
+            font-weight: 600;
         }
 
-        #content {
+        #container {
             flex: 1;
             display: flex;
-            justify-content: center;
-            align-items: center;
+            overflow: hidden;
         }
 
-        .panel {
+        #sidebar {
+            width: 260px;
             background: #11161d;
-            padding: 30px;
-            border: 1px solid #1f2732;
-            border-radius: 8px;
-            width: 420px;
-            text-align: center;
+            border-right: 1px solid #1f2732;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
         }
 
-        h2 {
-            margin-top: 0;
-            font-size: 20px;
-            letter-spacing: 0.5px;
-        }
-
-        .btn {
-            display: block;
+        .nav-btn {
             width: 100%;
             padding: 12px;
-            margin: 10px 0;
+            margin: 6px 0;
             background: #1e90ff;
             border: none;
             color: white;
-            font-size: 16px;
+            font-size: 15px;
             border-radius: 4px;
             cursor: pointer;
-            text-decoration: none;
+            text-align: left;
         }
 
-        .btn:hover {
+        .nav-btn:hover {
             background: #3aa0ff;
         }
 
-        footer {
-            padding: 10px;
-            background: #11161d;
-            border-top: 1px solid #1f2732;
-            text-align: center;
-            font-size: 12px;
-            opacity: 0.6;
+        #main {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            box-sizing: border-box;
+            background: #05070a;
+            font-family: Consolas, monospace;
+            white-space: pre-wrap;
+            border-left: 1px solid #1f2732;
         }
     </style>
 </head>
 
 <body>
 
-    <header>APEXCORE v3 — Engine Hub</header>
+<header>APEXCORE Platform — System Hub</header>
 
-    <div id="content">
-        <div class="panel">
-            <h2>Choose an Engine</h2>
+<div id="container">
 
-            <a class="btn" href="apexai.html">APEXAI — Scenario Engine</a>
-            <a class="btn" href="apexsim.html">APEXSIM — Simulation Engine</a>
-            <a class="btn" href="apexops.html">APEXOPS — Operations Engine</a>
-            <a class="btn" href="core-shell.html">APEXCORE — System Shell</a>
-
-            <hr style="border-color:#1f2732; margin:20px 0;">
-
-            <a class="btn" href="https://randallodinsson-svg.github.io/encounter-builder/">Reload Hub</a>
-        </div>
+    <div id="sidebar">
+        <button class="nav-btn" onclick="go('core-shell.html')">APEXCORE — System Shell</button>
+        <button class="nav-btn" onclick="go('apexai.html')">APEXAI — Scenario Engine</button>
+        <button class="nav-btn" onclick="go('apexsim.html')">APEXSIM — Simulation Engine</button>
+        <button class="nav-btn" onclick="go('apexops.html')">APEXOPS — Runtime Inspector</button>
     </div>
 
-    <footer>VECTORCORE INTERACTIVE — APEX Engine Family v3</footer>
+    <div id="main">
+        APEXCORE Platform initialized.
+        <br><br>
+        Select a module from the left to begin.
+    </div>
+
+</div>
+
+<script>
+    function go(page) {
+        window.location.href = page;
+    }
+</script>
 
 </body>
 </html>
