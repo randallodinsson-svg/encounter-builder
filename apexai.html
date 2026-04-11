@@ -24,12 +24,6 @@
             overflow-y: auto;
         }
 
-        #sidebar h2 {
-            margin-top: 0;
-            font-size: 20px;
-            letter-spacing: 0.5px;
-        }
-
         button {
             width: 100%;
             padding: 10px;
@@ -46,22 +40,6 @@
             background: #3aa0ff;
         }
 
-        .section {
-            margin-bottom: 20px;
-        }
-
-        .difficulty-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-        }
-
-        .difficulty-btn {
-            width: 100%;
-            padding: 8px;
-            font-size: 13px;
-        }
-
         #main {
             flex: 1;
             display: flex;
@@ -74,15 +52,6 @@
             background: #0f141a;
             display: flex;
             flex-direction: column;
-        }
-
-        #scenarioListHeader {
-            padding: 10px 12px;
-            border-bottom: 1px solid #1f2732;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.8;
         }
 
         #scenarioList {
@@ -98,21 +67,6 @@
 
         .scenario-item:hover {
             background: #151b24;
-        }
-
-        .scenario-item-title {
-            font-size: 14px;
-        }
-
-        .scenario-item-meta {
-            font-size: 11px;
-            opacity: 0.7;
-        }
-
-        #rightPanel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
         }
 
         #detailPanel {
@@ -138,14 +92,6 @@
             white-space: pre-wrap;
             border-top: 1px solid #1f2732;
         }
-
-        .label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            opacity: 0.7;
-            margin-bottom: 4px;
-        }
     </style>
 </head>
 
@@ -154,32 +100,14 @@
     <div id="sidebar">
         <h2>APEXAI — Scenario Engine</h2>
 
-        <div class="section">
-            <div class="label">Scenario Actions</div>
-            <button id="btnGenerate">Generate Scenario</button>
-            <button id="btnEvaluate">Evaluate Scenario</button>
-            <button id="btnClearLog">Clear Output</button>
-        </div>
-
-        <div class="section">
-            <div class="label">Difficulty</div>
-            <div class="difficulty-row">
-                <button class="difficulty-btn" data-diff="easy">Easy</button>
-                <button class="difficulty-btn" data-diff="normal">Normal</button>
-                <button class="difficulty-btn" data-diff="hard">Hard</button>
-                <button class="difficulty-btn" data-diff="extreme">Extreme</button>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="label">History</div>
-            <button id="btnClearHistory">Clear Scenario History</button>
-        </div>
+        <button id="btnGenerate">Generate Scenario</button>
+        <button id="btnEvaluate">Evaluate Scenario</button>
+        <button id="btnClearLog">Clear Output</button>
+        <button id="btnClearHistory">Clear Scenario History</button>
     </div>
 
     <div id="main">
         <div id="leftPanel">
-            <div id="scenarioListHeader">Scenario History</div>
             <div id="scenarioList"></div>
         </div>
 
@@ -217,46 +145,21 @@
             history.slice().reverse().forEach((scenario) => {
                 const item = document.createElement("div");
                 item.className = "scenario-item";
-
-                const title = document.createElement("div");
-                title.className = "scenario-item-title";
-                title.textContent = scenario.title;
-
-                const meta = document.createElement("div");
-                meta.className = "scenario-item-meta";
-                meta.textContent =
-                    `ID: ${scenario.id} • Diff: ${scenario.difficulty} • Enemies: ${scenario.enemyCount} ${scenario.enemyType}`;
-
-                item.appendChild(title);
-                item.appendChild(meta);
-
+                item.textContent = scenario.title;
                 item.onclick = () => {
-                    showScenarioDetail(scenario);
+                    detailEl.textContent = JSON.stringify(scenario, null, 2);
                 };
-
                 listEl.appendChild(item);
             });
         }
 
-        function showScenarioDetail(scenario) {
-            detailEl.textContent =
-                "Scenario Detail:\\n" +
-                JSON.stringify(scenario, null, 2);
-        }
-
-        // Initial list render
-        renderScenarioList();
-
-        // Buttons
         document.getElementById("btnGenerate").onclick = () => {
             const scenario = APEXAI.generateScenario();
             history.push(scenario);
-
             log("Generated Scenario:");
             log(JSON.stringify(scenario, null, 2));
-
             renderScenarioList();
-            showScenarioDetail(scenario);
+            detailEl.textContent = JSON.stringify(scenario, null, 2);
         };
 
         document.getElementById("btnEvaluate").onclick = () => {
@@ -276,14 +179,7 @@
             log("Scenario history cleared.");
         };
 
-        // Difficulty buttons
-        document.querySelectorAll(".difficulty-btn").forEach(btn => {
-            btn.onclick = () => {
-                const level = btn.getAttribute("data-diff");
-                APEXAI.setDifficulty(level);
-                log(`Difficulty set to: ${level}`);
-            };
-        });
+        renderScenarioList();
     </script>
 
 </body>
