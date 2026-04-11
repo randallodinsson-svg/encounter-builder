@@ -1,9 +1,10 @@
 // ------------------------------------------------------------
-// APEXSIM v4.3 — Predator Confusion, Prey Decoys & Counter‑Tactics
+// APEXSIM v4.4 — Environmental Influence & Dynamic Terrain Intelligence
 // + Multi‑Leader Prey Squads
 // + Predator Packs (Coordinated Hunting)
 // + Prey Alarm, Scatter, Safe Zones, Evasive Leaders
-// + NEW: Decoys, Predator Confusion, False Targets, Counter‑Tactics
+// + Decoys, Predator Confusion, Counter‑Tactics
+// + NEW: Terrain Zones, LOS Occlusion, Terrain‑Aware Pathing, Environmental Triggers
 // + Flocking, Avoidance, Panic, Trails, Glow, Debug
 // ------------------------------------------------------------
 
@@ -19,6 +20,36 @@ function mul(v, s) { return { x: v.x * s, y: v.y * s }; }
 function mag(v) { return Math.sqrt(v.x * v.x + v.y * v.y); }
 function norm(v) { const m = mag(v); return m === 0 ? { x: 0, y: 0 } : { x: v.x / m, y: v.y / m }; }
 function limit(v, max) { const m = mag(v); return m > max ? mul(norm(v), max) : v; }
+
+// Line segment intersection (for LOS vs obstacles)
+function segmentsIntersect(p1, p2, q1, q2) {
+    function cross(a, b) { return a.x * b.y - a.y * b.x; }
+    const r = sub(p2, p1);
+    const s = sub(q2, q1);
+    const denom = cross(r, s);
+    if (denom === 0) return false;
+    const u = cross(sub(q1, p1), r) / denom;
+    const t = cross(sub(q1, p1), s) / denom;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+// ------------------------------------------------------------
+// Terrain zones
+// type: "slow" | "fast" | "danger" | "cover"
+// shape: circle for now { x, y, radius }
+// ------------------------------------------------------------
+class TerrainZone {
+    constructor(x, y, radius, type) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.type = type;
+    }
+
+    contains(pos) {
+        return mag(sub(pos, vec(this.x, this.y))) <= this.radius;
+    }
+}
 
 // ------------------------------------------------------------
 // Agent Types
@@ -36,7 +67,8 @@ class Agent {
         this.squadId = squadId;
         this.packId = packId;
 
-        this.maxSpeed = type === "predator" ? 2.7 : 2.1;
+        this.baseMaxSpeed = type === "predator" ? 2.7 : 2.1;
+        this.maxSpeed = this.baseMaxSpeed;
         this.maxForce = type === "predator" ? 0.08 : 0.05;
 
         this.wanderAngle = 0;
@@ -50,6 +82,11 @@ class Agent {
 
         // Predator‑only state
         this.confusion = 0;    // 0..1 (how confused this predator is)
+        this.hasLOS = true;    // line‑of‑sight to current target (pack‑level)
+
+        // Environmental influence
+        this.terrainFactor = 1.0; // speed modifier from terrain
+        this.inCover = false;     // in cover zone (harder to see)
 
         // Trail buffer
         this.trail = [];
@@ -111,7 +148,7 @@ class Agent {
 
     // --------------------------------------------------------
     // Wander steering (noise source)
-    // --------------------------------------------------------
+// --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
         const wanderDistance = 20;
@@ -283,12 +320,12 @@ class Agent {
     // --------------------------------------------------------
     // Predator/Prey interactions
     // --------------------------------------------------------
-    predatorHuntPack(target, packCenter, packIndex, packSize, packConfusion) {
-        // If pack is highly confused, hunting becomes noisy and less effective
+    predatorHuntPack(target, packCenter, packIndex, packSize, packConfusion, hasLOS) {
         const confusionFactor = packConfusion || 0;
+        const los = hasLOS !== false;
 
-        if (!target) {
-            // No clear target: wander + mild cohesion
+        if (!target || !los) {
+            // No clear target or no LOS: wander + mild cohesion
             const wander = this.steerWander();
             const toCenter = this.steerArrive(packCenter, 120);
             let steer = vec(0, 0);
@@ -312,7 +349,6 @@ class Agent {
         );
         const flankForce = this.steerArrive(flankPos, 60);
 
-        // Weights (weaken direct hunt when confused)
         const huntWeight = 1.4 * (1 - confusionFactor * 0.7);
         const centerWeight = 0.6 + confusionFactor * 0.4;
         const flankWeight = 1.0;
@@ -360,13 +396,38 @@ class Agent {
         return mul(fleeForce, scale);
     }
 
+    // --------------------------------------------------------
+    // Terrain influence
+    // --------------------------------------------------------
+    applyTerrainEffect(zones) {
+        this.terrainFactor = 1.0;
+        this.inCover = false;
+
+        for (const z of zones) {
+            if (!z.contains(this.pos)) continue;
+
+            if (z.type === "slow") {
+                this.terrainFactor *= 0.7;
+            } else if (z.type === "fast") {
+                this.terrainFactor *= 1.3;
+            } else if (z.type === "danger") {
+                if (this.type === "prey") {
+                    this.panic = Math.min(1, this.panic + 0.02);
+                }
+            } else if (z.type === "cover") {
+                this.inCover = true;
+            }
+        }
+
+        this.maxSpeed = this.baseMaxSpeed * this.terrainFactor;
+    }
+
     update() {
         this.vel = add(this.vel, this.acc);
         this.vel = limit(this.vel, this.maxSpeed * (1 + this.panic * 0.5));
         this.pos = add(this.pos, this.vel);
         this.acc = vec(0, 0);
 
-        // Decoy timer decay
         if (this.decoyTimer > 0) {
             this.decoyTimer--;
             if (this.decoyTimer <= 0) {
@@ -374,7 +435,6 @@ class Agent {
             }
         }
 
-        // Predator confusion decay
         if (this.type === "predator") {
             this.confusion *= 0.97;
         }
@@ -403,7 +463,6 @@ class Leader {
         this.currentWaypoint = 0;
         this.arriveRadius = 60;
 
-        // Evasive mode
         this.evasive = false;
         this.evasiveTimer = 0;
         this.evasiveTarget = null;
@@ -434,9 +493,10 @@ class Leader {
     steerWander() {
         const wanderRadius = 10;
         const wanderDistance = 25;
-        const change = 0.2;
-
-        this.wanderAngle += (rand() * 2 - 1) * change;
+        theChange: {
+            const change = 0.2;
+            this.wanderAngle += (rand() * 2 - 1) * change;
+        }
 
         const circlePos = add(this.pos, mul(norm(this.vel), wanderDistance));
         const wanderOffset = vec(
@@ -496,16 +556,15 @@ class Leader {
 
     triggerEvasive(safeZone) {
         this.evasive = true;
-        this.evasiveTimer = 300; // frames
+        this.evasiveTimer = 300;
         this.evasiveTarget = safeZone ? vec(safeZone.x, safeZone.y) : null;
         this.zigzagPhase = 0;
     }
 
-    updatePatrol(obstacles, safeZones) {
+    updatePatrol(obstacles) {
         let steer = vec(0, 0);
 
         if (this.evasive && this.evasiveTimer > 0 && this.evasiveTarget) {
-            // Evasive: move toward safe zone with zig‑zag pattern
             const base = this.steerArrive(this.evasiveTarget, 80);
 
             this.zigzagPhase += 0.25;
@@ -554,13 +613,20 @@ const APEXSIM = {
     obstacles: [],
     leaders: [],
     squads: [],          // { leaderId, agentIndices, formationOffsets }
-    predatorPacks: [],   // { packId, predatorIndices, targetPreyIndex, confusion }
+    predatorPacks: [],   // { packId, predatorIndices, targetPreyIndex, confusion, hasLOS }
     safeZones: [],       // { x, y, radius }
+    terrainZones: [],    // TerrainZone[]
     formationMode: "circle",
     width: 800,
     height: 600,
     running: false,
     ctx: null,
+
+    // Environmental triggers
+    triggers: {
+        noiseBursts: [], // { x, y, radius, strength, decay }
+        lightPulses: []  // { x, y, radius, strength, decay }
+    },
 
     // Debug toggles
     showTrails: true,
@@ -577,6 +643,9 @@ const APEXSIM = {
         this.squads = [];
         this.predatorPacks = [];
         this.safeZones = [];
+        this.terrainZones = [];
+        this.triggers.noiseBursts = [];
+        this.triggers.lightPulses = [];
 
         const totalPrey = 42;
         const totalPredators = 9;
@@ -596,6 +665,14 @@ const APEXSIM = {
         this.safeZones = [
             { x: this.width * 0.15, y: this.height * 0.2, radius: 60 },
             { x: this.width * 0.85, y: this.height * 0.8, radius: 60 }
+        ];
+
+        // Terrain zones
+        this.terrainZones = [
+            new TerrainZone(this.width * 0.25, this.height * 0.3, 70, "slow"),
+            new TerrainZone(this.width * 0.75, this.height * 0.6, 70, "fast"),
+            new TerrainZone(this.width * 0.5, this.height * 0.25, 60, "danger"),
+            new TerrainZone(this.width * 0.5, this.height * 0.55, 80, "cover")
         ];
 
         // Leaders for prey squads
@@ -671,7 +748,8 @@ const APEXSIM = {
                 packId,
                 predatorIndices: packPredators,
                 targetPreyIndex: null,
-                confusion: 0
+                confusion: 0,
+                hasLOS: true
             });
         }
 
@@ -724,7 +802,6 @@ const APEXSIM = {
         }
 
         for (const pack of this.predatorPacks) {
-            // Compute pack center
             let center = vec(0, 0);
             let count = 0;
             for (const idx of pack.predatorIndices) {
@@ -734,7 +811,6 @@ const APEXSIM = {
             }
             if (count > 0) center = mul(center, 1 / count);
 
-            // Find closest prey to pack center
             let closestIndex = null;
             let closestDist = Infinity;
             for (let i = 0; i < this.agents.length; i++) {
@@ -747,7 +823,6 @@ const APEXSIM = {
                 }
             }
 
-            // If pack is confused, bias toward decoys or random prey
             if (pack.confusion > 0.4) {
                 const decoyCandidates = [];
                 const normalCandidates = [];
@@ -772,6 +847,62 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
+    // LOS check between pack center and target prey
+    // --------------------------------------------------------
+    updatePackLOS() {
+        for (const pack of this.predatorPacks) {
+            if (pack.targetPreyIndex == null) {
+                pack.hasLOS = false;
+                continue;
+            }
+
+            const predatorIndices = pack.predatorIndices;
+            if (!predatorIndices.length) {
+                pack.hasLOS = false;
+                continue;
+            }
+
+            let center = vec(0, 0);
+            for (const idx of predatorIndices) {
+                const a = this.agents[idx];
+                center = add(center, a.pos);
+            }
+            center = mul(center, 1 / predatorIndices.length);
+
+            const target = this.agents[pack.targetPreyIndex];
+            if (!target) {
+                pack.hasLOS = false;
+                continue;
+            }
+
+            let blocked = false;
+            const p1 = center;
+            const p2 = target.pos;
+
+            for (const obs of this.obstacles) {
+                const steps = 8;
+                for (let i = 0; i < steps; i++) {
+                    const angle1 = (i / steps) * Math.PI * 2;
+                    const angle2 = ((i + 1) / steps) * Math.PI * 2;
+                    const q1 = add(obs.pos, vec(Math.cos(angle1) * obs.radius, Math.sin(angle1) * obs.radius));
+                    const q2 = add(obs.pos, vec(Math.cos(angle2) * obs.radius, Math.sin(angle2) * obs.radius));
+                    if (segmentsIntersect(p1, p2, q1, q2)) {
+                        blocked = true;
+                        break;
+                    }
+                }
+                if (blocked) break;
+            }
+
+            if (target.inCover && mag(sub(target.pos, center)) > 80) {
+                blocked = true;
+            }
+
+            pack.hasLOS = !blocked;
+        }
+    },
+
+    // --------------------------------------------------------
     // Prey alarm propagation, decoys, and group dynamics
     // --------------------------------------------------------
     updatePreyAlarmAndGroupBehavior() {
@@ -779,7 +910,6 @@ const APEXSIM = {
             const indices = squad.agentIndices;
             if (!indices.length) continue;
 
-            // Compute squad center
             let center = vec(0, 0);
             let count = 0;
             for (const idx of indices) {
@@ -789,7 +919,6 @@ const APEXSIM = {
             }
             if (count > 0) center = mul(center, 1 / count);
 
-            // Find nearest predator to squad center
             let nearestPredDist = Infinity;
             for (const ag of this.agents) {
                 if (ag.type !== "predator") continue;
@@ -797,19 +926,16 @@ const APEXSIM = {
                 if (d < nearestPredDist) nearestPredDist = d;
             }
 
-            // Squad alarm level
             const alarmRadius = 260;
             let squadAlarm = 0;
             if (nearestPredDist < alarmRadius) {
                 squadAlarm = 1 - nearestPredDist / alarmRadius;
             }
 
-            // Spread alarm to members, decay if low
             for (const idx of indices) {
                 const a = this.agents[idx];
                 a.alarm = Math.max(a.alarm * 0.9, squadAlarm);
 
-                // Trigger scatter if alarm high
                 if (a.alarm > 0.7 && a.scatterTimer <= 0) {
                     a.scatterTimer = 180 + Math.floor(rand() * 60);
                 } else if (a.scatterTimer > 0) {
@@ -817,7 +943,6 @@ const APEXSIM = {
                 }
             }
 
-            // Assign decoys: a few outer prey become deliberate lures when alarm is high
             if (squadAlarm > 0.75) {
                 const decoyCount = Math.max(1, Math.floor(indices.length * 0.15));
                 for (let i = 0; i < decoyCount; i++) {
@@ -830,7 +955,6 @@ const APEXSIM = {
                 }
             }
 
-            // Leader evasive if squad alarm high
             const leader = this.leaders[squad.leaderId];
             if (squadAlarm > 0.6) {
                 const safeZone = this.findNearestSafeZone(center);
@@ -863,11 +987,9 @@ const APEXSIM = {
             const predatorIndices = pack.predatorIndices;
             if (!predatorIndices.length) continue;
 
-            // Measure local chaos: how many prey are scattering / decoys nearby
             let chaos = 0;
             let sampleCount = 0;
 
-            // Pack center
             let center = vec(0, 0);
             for (const idx of predatorIndices) {
                 const a = this.agents[idx];
@@ -891,11 +1013,13 @@ const APEXSIM = {
                 localConfusion = chaos / sampleCount;
             }
 
-            // Smooth confusion
+            if (!pack.hasLOS) {
+                localConfusion = Math.min(1, localConfusion + 0.3);
+            }
+
             pack.confusion = pack.confusion * 0.9 + localConfusion * 0.6;
             pack.confusion = Math.min(1, Math.max(0, pack.confusion));
 
-            // Apply confusion to individual predators
             for (const idx of predatorIndices) {
                 const pr = this.agents[idx];
                 pr.confusion = pack.confusion;
@@ -903,13 +1027,71 @@ const APEXSIM = {
         }
     },
 
+    // --------------------------------------------------------
+    // Environmental triggers: noise & light
+    // --------------------------------------------------------
+    spawnNoiseBurst(x, y, radius = 160, strength = 1.0) {
+        this.triggers.noiseBursts.push({ x, y, radius, strength, decay: 0.97 });
+    },
+
+    spawnLightPulse(x, y, radius = 200, strength = 1.0) {
+        this.triggers.lightPulses.push({ x, y, radius, strength, decay: 0.96 });
+    },
+
+    updateTriggers() {
+        const newNoise = [];
+        for (const n of this.triggers.noiseBursts) {
+            for (const a of this.agents) {
+                const d = mag(sub(a.pos, vec(n.x, n.y)));
+                if (d < n.radius) {
+                    if (a.type === "prey") {
+                        a.panic = Math.min(1, a.panic + 0.03 * n.strength);
+                        a.alarm = Math.min(1, a.alarm + 0.02 * n.strength);
+                    } else {
+                        a.confusion = Math.min(1, a.confusion + 0.02 * n.strength);
+                    }
+                }
+            }
+            n.strength *= n.decay;
+            if (n.strength > 0.1) newNoise.push(n);
+        }
+        this.triggers.noiseBursts = newNoise;
+
+        const newLight = [];
+        for (const l of this.triggers.lightPulses) {
+            for (const a of this.agents) {
+                const d = mag(sub(a.pos, vec(l.x, l.y)));
+                if (d < l.radius) {
+                    if (a.type === "prey") {
+                        a.panic = Math.min(1, a.panic + 0.02 * l.strength);
+                    } else {
+                        a.confusion = Math.min(1, a.confusion + 0.03 * l.strength);
+                    }
+                }
+            }
+            l.strength *= l.decay;
+            if (l.strength > 0.1) newLight.push(l);
+        }
+        this.triggers.lightPulses = newLight;
+    },
+
     step() {
         const predators = this.agents.filter(a => a.type === "predator");
         const prey = this.agents.filter(a => a.type === "prey");
 
-        // Update leaders (for prey squads) with evasive behavior
+        // Random environmental events
+        if (rand() < 0.003) {
+            this.spawnNoiseBurst(rand() * this.width, rand() * this.height, 160, 1.0);
+        }
+        if (rand() < 0.002) {
+            this.spawnLightPulse(rand() * this.width, rand() * this.height, 200, 1.0);
+        }
+
+        this.updateTriggers();
+
+        // Leaders
         for (const leader of this.leaders) {
-            leader.updatePatrol(this.obstacles, this.safeZones);
+            leader.updatePatrol(this.obstacles);
 
             if (leader.pos.x < 0) leader.pos.x = this.width;
             if (leader.pos.x > this.width) leader.pos.x = 0;
@@ -917,22 +1099,22 @@ const APEXSIM = {
             if (leader.pos.y > this.height) leader.pos.y = 0;
         }
 
-        // Prey alarm propagation, decoys, and group dynamics
+        // Prey alarm, decoys, group behavior
         this.updatePreyAlarmAndGroupBehavior();
 
-        // Predator confusion update
+        // LOS and confusion
+        this.updatePackLOS();
         this.updatePredatorConfusion();
 
-        // Pack target selection (with confusion & decoys)
+        // Pack target selection
         this.choosePackTargets();
 
-        // Prey squads: formation, scatter, safe zones, decoys, shielding
+        // Prey squads
         for (const squad of this.squads) {
             const leader = this.leaders[squad.leaderId];
             const indices = squad.agentIndices;
             const offsets = squad.formationOffsets;
 
-            // Squad center for safe zone direction
             let squadCenter = vec(0, 0);
             let count = 0;
             for (const idx of indices) {
@@ -943,7 +1125,6 @@ const APEXSIM = {
             if (count > 0) squadCenter = mul(squadCenter, 1 / count);
             const squadSafeZone = this.findNearestSafeZone(squadCenter);
 
-            // Compute average alarm for shielding behavior
             let avgAlarm = 0;
             for (const idx of indices) {
                 avgAlarm += this.agents[idx].alarm;
@@ -961,18 +1142,11 @@ const APEXSIM = {
                     slotWorld = add(leader.pos, offset);
                 }
 
-                // Base flocking
+                a.applyTerrainEffect(this.terrainZones);
+
                 a.flock(neighbors);
 
-                // Behavior modes:
-                // 1) Decoy mode: intentionally move away from squad & toward predators
-                // 2) Scatter mode: break formation, move away from squad center
-                // 3) High alarm: move toward safe zone
-                // 4) Shielding: inner prey stay closer to leader, outer prey give space
-                // 5) Normal: follow formation
-
                 if (a.isDecoy && a.decoyTimer > 0) {
-                    // Move away from squad center, but also slightly toward nearest predator
                     let away = sub(a.pos, squadCenter);
                     if (mag(away) === 0) away = vec(rand() - 0.5, rand() - 0.5);
                     away = norm(away);
@@ -990,7 +1164,6 @@ const APEXSIM = {
                     let lureDir = away;
                     if (nearestPred) {
                         const toPred = norm(sub(nearestPred.pos, a.pos));
-                        // Blend away from squad and toward predator to create a lure arc
                         lureDir = norm(add(mul(away, 0.6), mul(toPred, 0.4)));
                     }
 
@@ -998,7 +1171,6 @@ const APEXSIM = {
                     const decoyForce = limit(sub(desired, a.vel), a.maxForce * 2.0);
                     a.applyForce(decoyForce);
                 } else if (a.scatterTimer > 0 && a.alarm > 0.5) {
-                    // Scatter away from squad center
                     let away = sub(a.pos, squadCenter);
                     if (mag(away) === 0) away = vec(rand() - 0.5, rand() - 0.5);
                     away = norm(away);
@@ -1006,47 +1178,39 @@ const APEXSIM = {
                     const scatterForce = limit(sub(away, a.vel), a.maxForce * 1.8);
                     a.applyForce(scatterForce);
                 } else if (a.alarm > 0.5 && squadSafeZone) {
-                    // Move toward safe zone
                     const safeTarget = vec(squadSafeZone.x, squadSafeZone.y);
                     const safeForce = a.steerArrive(safeTarget, 100);
                     a.applyForce(mul(safeForce, 1.2));
                 } else if (avgAlarm > 0.4 && slotWorld) {
-                    // Shielding behavior: inner prey stay tighter, outer prey loosen
                     const distFromLeader = mag(sub(a.pos, leader.pos));
                     const shieldRadius = 70;
                     if (distFromLeader < shieldRadius) {
-                        // Inner ring: stronger pull to leader slot
                         const formForce = a.steerArrive(slotWorld, 40);
                         a.applyForce(mul(formForce, 1.3));
                     } else {
-                        // Outer ring: looser formation
                         const formForce = a.steerArrive(slotWorld, 80);
                         a.applyForce(formForce);
                     }
                 } else {
-                    // Normal formation follow
                     if (slotWorld) {
                         const formForce = a.steerArrive(slotWorld, 60);
                         a.applyForce(formForce);
                     }
                 }
 
-                // Flee predators
                 const fleeForce = a.preyFlee(predators);
                 a.applyForce(fleeForce);
 
-                // Avoid obstacles
                 const avoid = a.avoidObstacles(this.obstacles);
                 a.applyForce(avoid);
             }
         }
 
-        // Predator packs: coordinated hunting with confusion
+        // Predator packs
         for (const pack of this.predatorPacks) {
             const predatorIndices = pack.predatorIndices;
             if (predatorIndices.length === 0) continue;
 
-            // Pack center
             let center = vec(0, 0);
             let count = 0;
             for (const idx of predatorIndices) {
@@ -1058,17 +1222,18 @@ const APEXSIM = {
 
             const target = (pack.targetPreyIndex != null) ? this.agents[pack.targetPreyIndex] : null;
             const packConfusion = pack.confusion || 0;
+            const hasLOS = pack.hasLOS;
 
-            // Each predator in pack
             for (let i = 0; i < predatorIndices.length; i++) {
                 const idx = predatorIndices[i];
                 const pr = this.agents[idx];
 
-                const hunt = pr.predatorHuntPack(target, center, i, predatorIndices.length, packConfusion);
+                pr.applyTerrainEffect(this.terrainZones);
+
+                const hunt = pr.predatorHuntPack(target, center, i, predatorIndices.length, packConfusion, hasLOS);
                 const avoid = pr.avoidObstacles(this.obstacles);
                 const wander = pr.steerWander();
 
-                // When confused, wander has more influence
                 const wanderWeight = 0.2 + packConfusion * 0.6;
 
                 pr.applyForce(hunt);
@@ -1119,12 +1284,11 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Debug vectors + obstacles + leaders + formations + safe zones
+    // Debug vectors + obstacles + leaders + formations + safe zones + terrain
     // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
 
-        // Agents
         for (const a of this.agents) {
             c.strokeStyle = a.type === "predator" ? "#ff5555" : "#0f0";
             c.beginPath();
@@ -1143,7 +1307,6 @@ const APEXSIM = {
             c.lineTo(a.debugTarget.x, a.debugTarget.y);
             c.stroke();
 
-            // Decoy highlight
             if (a.type === "prey" && a.isDecoy) {
                 c.strokeStyle = "rgba(255,255,0,0.7)";
                 c.beginPath();
@@ -1152,7 +1315,6 @@ const APEXSIM = {
             }
         }
 
-        // Formation slots for prey squads
         for (const squad of this.squads) {
             const leader = this.leaders[squad.leaderId];
             const indices = squad.agentIndices;
@@ -1179,7 +1341,6 @@ const APEXSIM = {
             }
         }
 
-        // Obstacles
         c.strokeStyle = "#ff8800";
         for (const obs of this.obstacles) {
             c.beginPath();
@@ -1187,7 +1348,6 @@ const APEXSIM = {
             c.stroke();
         }
 
-        // Leaders + waypoints
         for (const leader of this.leaders) {
             c.strokeStyle = leader.evasive ? "#ff00ff" : "#ffffff";
             c.beginPath();
@@ -1221,7 +1381,6 @@ const APEXSIM = {
             }
         }
 
-        // Pack centers + confusion
         for (const pack of this.predatorPacks) {
             if (!pack.predatorIndices.length) continue;
             let center = vec(0, 0);
@@ -1239,13 +1398,35 @@ const APEXSIM = {
             c.beginPath();
             c.arc(center.x, center.y, 10 + conf * 10, 0, Math.PI * 2);
             c.stroke();
+
+            if (!pack.hasLOS) {
+                c.strokeStyle = "rgba(255,255,255,0.5)";
+                c.beginPath();
+                c.moveTo(center.x - 6, center.y - 6);
+                c.lineTo(center.x + 6, center.y + 6);
+                c.moveTo(center.x + 6, center.y - 6);
+                c.lineTo(center.x - 6, center.y + 6);
+                c.stroke();
+            }
         }
 
-        // Safe zones
         c.strokeStyle = "rgba(0,200,255,0.5)";
         for (const sz of this.safeZones) {
             c.beginPath();
             c.arc(sz.x, sz.y, sz.radius, 0, Math.PI * 2);
+            c.stroke();
+        }
+
+        for (const z of this.terrainZones) {
+            let color = "rgba(255,255,255,0.2)";
+            if (z.type === "slow") color = "rgba(255,120,0,0.25)";
+            else if (z.type === "fast") color = "rgba(0,255,120,0.25)";
+            else if (z.type === "danger") color = "rgba(255,0,80,0.25)";
+            else if (z.type === "cover") color = "rgba(0,120,255,0.25)";
+
+            c.strokeStyle = color;
+            c.beginPath();
+            c.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
             c.stroke();
         }
     },
@@ -1281,6 +1462,34 @@ const APEXSIM = {
             c.arc(a.pos.x, a.pos.y, glowSize, 0, Math.PI * 2);
             c.fill();
         }
+
+        // Noise bursts
+        for (const n of this.triggers.noiseBursts) {
+            const g = c.createRadialGradient(
+                n.x, n.y, 0,
+                n.x, n.y, n.radius
+            );
+            g.addColorStop(0, `rgba(255,255,0,${0.25 * n.strength})`);
+            g.addColorStop(1, "rgba(255,255,0,0)");
+            c.fillStyle = g;
+            c.beginPath();
+            c.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+            c.fill();
+        }
+
+        // Light pulses
+        for (const l of this.triggers.lightPulses) {
+            const g = c.createRadialGradient(
+                l.x, l.y, 0,
+                l.x, l.y, l.radius
+            );
+            g.addColorStop(0, `rgba(0,200,255,${0.3 * l.strength})`);
+            g.addColorStop(1, "rgba(0,200,255,0)");
+            c.fillStyle = g;
+            c.beginPath();
+            c.arc(l.x, l.y, l.radius, 0, Math.PI * 2);
+            c.fill();
+        }
     },
 
     // --------------------------------------------------------
@@ -1294,7 +1503,6 @@ const APEXSIM = {
         if (this.showGlow) this.drawGlow();
         if (this.showDebugVectors) this.drawDebugVectors();
 
-        // Obstacles fill
         c.fillStyle = "rgba(255, 136, 0, 0.15)";
         for (const obs of this.obstacles) {
             c.beginPath();
@@ -1302,7 +1510,6 @@ const APEXSIM = {
             c.fill();
         }
 
-        // Safe zones fill
         c.fillStyle = "rgba(0, 180, 255, 0.08)";
         for (const sz of this.safeZones) {
             c.beginPath();
@@ -1310,7 +1517,19 @@ const APEXSIM = {
             c.fill();
         }
 
-        // Agents
+        for (const z of this.terrainZones) {
+            let color = "rgba(255,255,255,0.05)";
+            if (z.type === "slow") color = "rgba(255,120,0,0.12)";
+            else if (z.type === "fast") color = "rgba(0,255,120,0.12)";
+            else if (z.type === "danger") color = "rgba(255,0,80,0.12)";
+            else if (z.type === "cover") color = "rgba(0,120,255,0.12)";
+
+            c.fillStyle = color;
+            c.beginPath();
+            c.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
+            c.fill();
+        }
+
         for (const a of this.agents) {
             if (a.type === "predator") {
                 const conf = a.confusion || 0;
@@ -1319,7 +1538,6 @@ const APEXSIM = {
                 const b = Math.floor(80 + conf * 40);
                 c.fillStyle = `rgb(${r},${g},${b})`;
             } else {
-                // Slight color shift when alarmed / decoy
                 const alarmTint = Math.floor(a.alarm * 120);
                 const decoyTint = a.isDecoy ? 80 : 0;
                 const g = Math.max(0, 234 - alarmTint);
