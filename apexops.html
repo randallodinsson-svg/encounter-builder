@@ -118,6 +118,21 @@
                 .join("\n");
         }
 
+        // Update Lifecycle History Panel
+        function updateLifecycleHistory() {
+            const history = APEXOPS.getLifecycleHistory();
+            const el = document.getElementById("ops-lifecycle");
+
+            if (history.length === 0) {
+                el.textContent = "(no lifecycle events)";
+                return;
+            }
+
+            el.textContent = history
+                .map(ev => `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type.toUpperCase()} — ${ev.name}`)
+                .join("\n");
+        }
+
         // Tick button
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
@@ -135,6 +150,7 @@
 
             updateCoreLogs();
             updateCoreErrors();
+            updateLifecycleHistory();
         };
 
         // Clear button
@@ -159,6 +175,12 @@
             <div id="ops-panel-errors" class="ops-panel">
                 <h3>Core Errors</h3>
                 <pre id="ops-errors">(no errors)</pre>
+            </div>
+
+            <!-- Lifecycle History Panel -->
+            <div id="ops-panel-lifecycle" class="ops-panel">
+                <h3>Lifecycle History</h3>
+                <pre id="ops-lifecycle">(no lifecycle events)</pre>
             </div>
 
         </div>
