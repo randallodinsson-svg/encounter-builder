@@ -2,99 +2,88 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXOPS — Runtime Inspector</title>
+    <title>APEXOPS Runtime Inspector</title>
 
     <style>
         body {
-            margin: 0;
-            background: #0b0e13;
-            color: #e6eef7;
-            font-family: system-ui, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            background: #000;
+            color: #eee;
+            font-family: "Segoe UI", sans-serif;
+            padding: 20px;
         }
 
-        #sidebar {
-            width: 260px;
-            background: #11161d;
-            border-right: 1px solid #1f2732;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
+        #out {
+            white-space: pre-wrap;
+            background: #111;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            margin-top: 20px;
         }
 
         button {
-            width: 100%;
-            padding: 10px;
-            margin: 6px 0;
-            background: #1e90ff;
+            padding: 8px 14px;
+            margin-right: 10px;
+            background: #0af;
             border: none;
-            color: white;
-            font-size: 15px;
             border-radius: 4px;
             cursor: pointer;
+            color: #000;
+            font-weight: 600;
         }
 
-        button:hover {
-            background: #3aa0ff;
+        /* Diagnostics Shell */
+        #apexops-diagnostics {
+            padding: 20px;
+            background: #111;
+            color: #eee;
+            border: 1px solid #333;
+            margin-top: 20px;
+            border-radius: 6px;
         }
 
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
+        #apexops-diagnostics h2 {
+            margin: 0 0 10px 0;
+            color: #0af;
         }
 
-        #opsOutput {
-            flex: 1;
-            background: #05070a;
-            padding: 12px;
-            box-sizing: border-box;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            border-top: 1px solid #1f2732;
+        #ops-panels {
+            margin-top: 10px;
         }
     </style>
 </head>
 
 <body>
 
-    <div id="sidebar">
-        <h2>APEXOPS — Runtime Inspector</h2>
+    <h1>APEXOPS Runtime Inspector</h1>
 
-        <button id="btnPing">Ping Core</button>
-        <button id="btnSimTick">Run Simulation Tick</button>
-        <button id="btnOpsClear">Clear Output</button>
-    </div>
+    <button id="btnOpsTick">Run Tick</button>
+    <button id="btnOpsClear">Clear Output</button>
 
-    <div id="main">
-        <div id="opsOutput">APEXOPS v2 ready.</div>
-    </div>
+    <div id="out">APEXOPS ready.</div>
 
     <script type="module">
         import { APEXCORE } from "./apexcore.js";
-        import { APEXSIM } from "./apexsim.js";
         import { APEXOPS } from "./apexops.js";
 
-        const out = document.getElementById("opsOutput");
+        const out = document.getElementById("out");
 
-        function log(x) {
-            out.textContent += "\n" + x;
-            out.scrollTop = out.scrollHeight;
+        function log(msg) {
+            out.textContent += "\n" + msg;
         }
 
-        document.getElementById("btnPing").onclick = () => {
-            const result = APEXCORE.ping();
-            log("CORE PING:");
-            log(JSON.stringify(result, null, 2));
-        };
+        // Initialize OPS
+        APEXOPS.init(APEXCORE);
+        APEXOPS.attachEventHooks();
 
-        document.getElementById("btnSimTick").onclick = () => {
-            const tick = APEXSIM.tick();
-            const ops = APEXOPS.inspect(tick);
+        // Tick button
+        document.getElementById("btnOpsTick").onclick = () => {
+            const tick = {
+                time: Date.now(),
+                random: Math.random()
+            };
+
+            const ops = APEXOPS.inspectRuntime(tick);
 
             log("SIMULATION TICK:");
             log(JSON.stringify(tick, null, 2));
@@ -103,10 +92,17 @@
             log(JSON.stringify(ops, null, 2));
         };
 
+        // Clear button
         document.getElementById("btnOpsClear").onclick = () => {
-            out.textContent = "APEXOPS v2 ready.";
+            out.textContent = "APEXOPS ready.";
         };
     </script>
+
+    <!-- APEXOPS Diagnostics Shell -->
+    <div id="apexops-diagnostics">
+        <h2>APEXOPS Diagnostics</h2>
+        <div id="ops-panels"></div>
+    </div>
 
 </body>
 </html>
