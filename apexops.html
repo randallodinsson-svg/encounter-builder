@@ -50,6 +50,26 @@
         #ops-panels {
             margin-top: 10px;
         }
+
+        /* Core Logs Panel */
+        #ops-panel-logs {
+            background: #000;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        #ops-panel-logs h3 {
+            margin-top: 0;
+            color: #0af;
+        }
+
+        #ops-logs {
+            white-space: pre-wrap;
+            font-size: 12px;
+            color: #ccc;
+        }
     </style>
 </head>
 
@@ -76,6 +96,13 @@
         APEXOPS.init(APEXCORE);
         APEXOPS.attachEventHooks();
 
+        // Update Core Logs Panel
+        function updateCoreLogs() {
+            const logs = APEXOPS.getCoreLogs();
+            const el = document.getElementById("ops-logs");
+            el.textContent = logs.join("\n");
+        }
+
         // Tick button
         document.getElementById("btnOpsTick").onclick = () => {
             const tick = {
@@ -90,6 +117,8 @@
 
             log("OPS INSPECTION:");
             log(JSON.stringify(ops, null, 2));
+
+            updateCoreLogs();
         };
 
         // Clear button
@@ -101,7 +130,16 @@
     <!-- APEXOPS Diagnostics Shell -->
     <div id="apexops-diagnostics">
         <h2>APEXOPS Diagnostics</h2>
-        <div id="ops-panels"></div>
+
+        <div id="ops-panels">
+
+            <!-- Core Logs Panel -->
+            <div id="ops-panel-logs">
+                <h3>Core Logs</h3>
+                <pre id="ops-logs">(no logs yet)</pre>
+            </div>
+
+        </div>
     </div>
 
 </body>
