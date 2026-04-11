@@ -1,73 +1,183 @@
 /* ============================================================
-   STEP 17.4 — TICK‑TIME PROFILER (OPS‑SIDE, OPTION A)
-   Complete, drop‑in module
+   APEXOPS — Modern Diagnostics Engine (Option B)
+   Clean, modular, future‑proof, profiler‑ready
 ============================================================ */
 
-export const TickTimeProfiler = (() => {
+export const APEXOPS = (() => {
 
-    // name -> { totalMs, count, avgMs, lastMs }
-    const moduleStats = new Map();
+    /* ============================================================
+       INTERNAL STATE
+    ============================================================ */
 
-    // total tick time for last tick
-    let lastTickTotalMs = 0;
+    let CORE = null;
 
-    // internal temp store
-    const activeTimers = new Map();
+    const coreLogs = [];
+    const coreErrors = [];
+    const lifecycleHistory = [];
 
-    function beginModuleTick(name) {
-        activeTimers.set(name, performance.now());
+    const registryKeys = [];
+    const registryValues = {};
+
+    /* ============================================================
+       LOGGING + ERROR CAPTURE
+    ============================================================ */
+
+    function hookConsole() {
+        const originalLog = console.log;
+        const originalError = console.error;
+
+        console.log = (...args) => {
+            coreLogs.push(args.join(" "));
+            originalLog(...args);
+        };
+
+        console.error = (...args) => {
+            coreErrors.push({
+                timestamp: Date.now(),
+                context: "console.error",
+                error: args.join(" ")
+            });
+            originalError(...args);
+        };
     }
 
-    function endModuleTick(name) {
-        const start = activeTimers.get(name);
-        if (start == null) return;
+    /* ============================================================
+       LIFECYCLE TRACKING
+    ============================================================ */
 
-        const duration = performance.now() - start;
-        activeTimers.delete(name);
+    function trackLifecycle(type, name) {
+        lifecycleHistory.push({
+            timestamp: Date.now(),
+            type,
+            name
+        });
+    }
 
-        let entry = moduleStats.get(name);
-        if (!entry) {
-            entry = { totalMs: 0, count: 0, avgMs: 0, lastMs: 0 };
-            moduleStats.set(name, entry);
+    /* ============================================================
+       REGISTRY TRACKING
+    ============================================================ */
+
+    function captureRegistrySnapshot() {
+        if (!CORE || !CORE.registry) return;
+
+        registryKeys.length = 0;
+        registryKeys.push(...Object.keys(CORE.registry));
+
+        for (const key of registryKeys) {
+            registryValues[key] = CORE.registry[key];
         }
-
-        entry.totalMs += duration;
-        entry.count++;
-        entry.lastMs = duration;
-        entry.avgMs = entry.totalMs / entry.count;
-
-        return duration;
     }
 
-    function beginTick() {
-        lastTickTotalMs = performance.now();
-    }
+    /* ============================================================
+       MODULE STATUS
+    ============================================================ */
 
-    function endTick() {
-        lastTickTotalMs = performance.now() - lastTickTotalMs;
-    }
+    function getModuleStatus() {
+        if (!CORE) return {};
 
-    function getSnapshot() {
         const out = {};
-        for (const [name, data] of moduleStats.entries()) {
+        const mounted = CORE.getMountedModules
+            ? CORE.getMountedModules()
+            : Object.keys(CORE.modules || {});
+
+        for (const name of mounted) {
             out[name] = {
-                lastMs: Number(data.lastMs.toFixed(3)),
-                avgMs: Number(data.avgMs.toFixed(3)),
-                count: data.count
+                mounted: true,
+                hasTick: typeof CORE.getModule(name)?.tick === "function"
             };
         }
+
+        return out;
+    }
+
+    /* ============================================================
+       RUNTIME INSPECTION
+    ============================================================ */
+
+    function inspectRuntime(tick) {
         return {
-            modules: out,
-            totalTickMs: Number(lastTickTotalMs.toFixed(3))
+            tick,
+            mountedModules: CORE.getMountedModules
+                ? CORE.getMountedModules()
+                : Object.keys(CORE.modules || {}),
+            registry: { ...registryValues }
+        };
+    }
+
+    /* ============================================================
+       PUBLIC API
+    ============================================================ */
+
+    function init(core) {
+        CORE = core;
+        hookConsole();
+        captureRegistrySnapshot();
+    }
+
+    function attachEventHooks() {
+        if (!CORE) return;
+
+        const originalMount = CORE.mount;
+        const originalUnmount = CORE.unmount;
+        const originalReload = CORE.reload;
+
+        CORE.mount = (name) => {
+            trackLifecycle("mount", name);
+            return originalMount.call(CORE, name);
+        };
+
+        CORE.unmount = (name) => {
+            trackLifecycle("unmount", name);
+            return originalUnmount.call(CORE, name);
+        };
+
+        CORE.reload = (name) => {
+            trackLifecycle("reload", name);
+            return originalReload.call(CORE, name);
+        };
+    }
+
+    function getCoreLogs() {
+        return coreLogs;
+    }
+
+    function getCoreErrors() {
+        return coreErrors;
+    }
+
+    function getLifecycleHistory() {
+        return lifecycleHistory;
+    }
+
+    function getRegistryKeys() {
+        return registryKeys;
+    }
+
+    function getRegistryValues() {
+        return registryValues;
+    }
+
+    function getCoreSnapshot() {
+        return {
+            mountedModules: CORE.getMountedModules
+                ? CORE.getMountedModules()
+                : Object.keys(CORE.modules || {}),
+            registry: { ...registryValues },
+            eventNames: CORE.eventNames || []
         };
     }
 
     return {
-        beginModuleTick,
-        endModuleTick,
-        beginTick,
-        endTick,
-        getSnapshot
+        init,
+        attachEventHooks,
+        inspectRuntime,
+        getCoreLogs,
+        getCoreErrors,
+        getLifecycleHistory,
+        getModuleStatus,
+        getRegistryKeys,
+        getRegistryValues,
+        getCoreSnapshot
     };
 
 })();
