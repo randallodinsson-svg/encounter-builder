@@ -59,6 +59,22 @@
             font-size: 12px;
             color: #ccc;
         }
+
+        .ops-inline-control {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .ops-inline-control label {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 180px;
+        }
     </style>
 </head>
 
@@ -75,6 +91,25 @@
         <button id="btnModuleMount">Mount Example Module</button>
         <button id="btnModuleUnmount">Unmount Example Module</button>
         <button id="btnModuleReload">Reload Example Module</button>
+    </div>
+
+    <!-- ⭐ STEP 16 — AUTO-TICK ENGINE CONTROLS -->
+    <div style="margin-top:10px; margin-bottom:10px;">
+        <button id="btnAutoStart">Start Auto-Tick</button>
+        <button id="btnAutoStop">Stop Auto-Tick</button>
+
+        <div class="ops-inline-control">
+            <label for="autoInterval">Interval:</label>
+            <input
+                type="range"
+                id="autoInterval"
+                min="100"
+                max="2000"
+                step="100"
+                value="1000"
+            />
+            <span id="autoIntervalLabel">1000 ms</span>
+        </div>
     </div>
 
     <div id="out">APEXOPS ready.</div>
@@ -246,7 +281,10 @@
                 snapshot.eventNames.join("\n");
         }
 
-        document.getElementById("btnOpsTick").onclick = () => {
+        // ============================
+        // CORE TICK PIPELINE (SHARED)
+        // ============================
+        function runTick() {
             const tick = {
                 time: Date.now(),
                 random: Math.random()
@@ -276,12 +314,22 @@
             updateMetricsPanel();
             updateOpsEventStream();
             updateOpsInternalStatePanel();
+        }
+
+        // ============================
+        // MANUAL TICK
+        // ============================
+        document.getElementById("btnOpsTick").onclick = () => {
+            runTick();
         };
 
         document.getElementById("btnOpsClear").onclick = () => {
             out.textContent = "APEXOPS ready.";
         };
 
+        // ============================
+        // MODULE CONTROLS
+        // ============================
         document.getElementById("btnModuleMount").onclick = () => {
             APEXCORE.mount("example");
             pushOpsEvent("OPS: Example module mounted via button");
@@ -318,6 +366,65 @@
             updateOpsInternalStatePanel();
         };
 
+        // ============================
+        // STEP 16 — AUTO-TICK ENGINE
+        // ============================
+        let autoTickTimer = null;
+
+        const autoIntervalInput = document.getElementById("autoInterval");
+        const autoIntervalLabel = document.getElementById("autoIntervalLabel");
+        const btnAutoStart = document.getElementById("btnAutoStart");
+        const btnAutoStop = document.getElementById("btnAutoStop");
+
+        function updateIntervalLabel() {
+            autoIntervalLabel.textContent = `${autoIntervalInput.value} ms`;
+        }
+
+        function startAutoTick() {
+            const interval = Number(autoIntervalInput.value);
+
+            if (autoTickTimer) {
+                clearInterval(autoTickTimer);
+            }
+
+            autoTickTimer = setInterval(() => {
+                runTick();
+            }, interval);
+
+            pushOpsEvent(`OPS: Auto-tick started (${interval} ms)`);
+            updateOpsEventStream();
+        }
+
+        function stopAutoTick() {
+            if (autoTickTimer) {
+                clearInterval(autoTickTimer);
+                autoTickTimer = null;
+                pushOpsEvent("OPS: Auto-tick stopped");
+                updateOpsEventStream();
+            }
+        }
+
+        autoIntervalInput.addEventListener("input", () => {
+            updateIntervalLabel();
+
+            // If auto-tick is running, apply new interval immediately
+            if (autoTickTimer) {
+                startAutoTick();
+            }
+        });
+
+        btnAutoStart.onclick = () => {
+            startAutoTick();
+        };
+
+        btnAutoStop.onclick = () => {
+            stopAutoTick();
+        };
+
+        // Initial label sync
+        updateIntervalLabel();
+
+        // Initial panel refresh
         updateCoreLogs();
         updateLifecycleHistory();
         updateModuleStatus();
