@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXCORE v3 — System Shell</title>
+    <title>APEXCORE — System Shell</title>
 
     <style>
         body {
@@ -15,8 +15,7 @@
             overflow: hidden;
         }
 
-        /* LEFT PANEL — ENGINE LIST */
-        #left-panel {
+        #sidebar {
             width: 260px;
             background: #11161d;
             border-right: 1px solid #1f2732;
@@ -25,13 +24,7 @@
             overflow-y: auto;
         }
 
-        #left-panel h2 {
-            margin-top: 0;
-            font-size: 18px;
-            letter-spacing: 0.5px;
-        }
-
-        .engine-btn {
+        button {
             width: 100%;
             padding: 10px;
             margin: 6px 0;
@@ -43,137 +36,76 @@
             cursor: pointer;
         }
 
-        .engine-btn:hover {
+        button:hover {
             background: #3aa0ff;
         }
 
-        /* MAIN AREA */
         #main {
             flex: 1;
             display: flex;
             flex-direction: column;
         }
 
-        #simCanvas {
-            width: 100%;
-            height: 300px;
-            background: #000;
-            border-bottom: 1px solid #1f2732;
-        }
-
-        /* RIGHT PANEL — LOG + CONTEXT */
-        #right-panel {
-            width: 360px;
-            background: #11161d;
-            border-left: 1px solid #1f2732;
-            display: flex;
-            flex-direction: column;
-        }
-
         #systemLog {
             flex: 1;
-            padding: 15px;
-            overflow-y: auto;
+            background: #05070a;
+            padding: 12px;
+            box-sizing: border-box;
             font-family: Consolas, monospace;
             font-size: 13px;
-            background: #0f141a;
-            border-bottom: 1px solid #1f2732;
+            overflow-y: auto;
             white-space: pre-wrap;
-        }
-
-        #contextPanel {
-            height: 200px;
-            padding: 15px;
-            overflow-y: auto;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            background: #0f141a;
+            border-top: 1px solid #1f2732;
         }
     </style>
 </head>
 
 <body>
 
-    <!-- LEFT ENGINE PANEL -->
-    <div id="left-panel">
-        <h2>APEXCORE Engines</h2>
+    <div id="sidebar">
+        <h2>APEXCORE — System Shell</h2>
 
-        <button class="engine-btn" id="btnInit">Init Core</button>
-        <button class="engine-btn" id="btnStart">Start Core</button>
-        <button class="engine-btn" id="btnReset">Reset Core</button>
-
-        <hr style="border-color:#1f2732; margin:20px 0;">
-
-        <button class="engine-btn" id="btnSimStep">Run SIM Step</button>
-        <button class="engine-btn" id="btnOpsStep">Run OPS Step</button>
-        <button class="engine-btn" id="btnAIStep">Run AI Step</button>
+        <button id="btnPing">Ping Core</button>
+        <button id="btnModules">List Modules</button>
+        <button id="btnClear">Clear Log</button>
     </div>
 
-    <!-- MAIN CANVAS + NOTHING ELSE -->
     <div id="main">
-        <canvas id="simCanvas"></canvas>
+        <div id="systemLog">APEXCORE Shell ready.</div>
     </div>
 
-    <!-- RIGHT PANEL -->
-    <div id="right-panel">
-        <div id="systemLog">APEXCORE v3 Shell Ready.</div>
-        <div id="contextPanel">Context Panel</div>
-    </div>
-
-    <!-- SCRIPT WIRING -->
     <script type="module">
         import { APEXCORE } from "./apexcore.js";
         import { APEXSIM } from "./apexsim.js";
-        import { APEXOPS } from "./apexops.js";
         import { APEXAI } from "./apexai.js";
+        import { APEXOPS } from "./apexops.js";
 
-        const logBox = document.getElementById("systemLog");
-        const ctxBox = document.getElementById("contextPanel");
-        const canvas = document.getElementById("simCanvas");
+        // Register modules into the core
+        APEXCORE.register("APEXSIM", APEXSIM);
+        APEXCORE.register("APEXAI", APEXAI);
+        APEXCORE.register("APEXOPS", APEXOPS);
+
+        const logEl = document.getElementById("systemLog");
 
         function log(msg) {
-            logBox.textContent += "\\n" + msg;
-            logBox.scrollTop = logBox.scrollHeight;
+            logEl.textContent += "\n" + msg;
+            logEl.scrollTop = logEl.scrollHeight;
         }
 
-        /* REGISTER MODULES */
-        APEXCORE.registerModule("APEXSIM", APEXSIM);
-        APEXCORE.registerModule("APEXOPS", APEXOPS);
-        APEXCORE.registerModule("APEXAI", APEXAI);
-
-        /* BUTTON HOOKS */
-        document.getElementById("btnInit").onclick = () => {
-            APEXCORE.init();
-            APEXSIM.init(canvas);
-            log("Core initialized.");
-        };
-
-        document.getElementById("btnStart").onclick = () => {
-            APEXCORE.start();
-            log("Core started.");
-        };
-
-        document.getElementById("btnReset").onclick = () => {
-            APEXCORE.reset();
-            log("Core reset.");
-        };
-
-        document.getElementById("btnSimStep").onclick = () => {
-            const result = APEXCORE.runSimulationStep();
-            log("SIM Step:");
+        document.getElementById("btnPing").onclick = () => {
+            const result = APEXCORE.ping();
+            log("CORE PING:");
             log(JSON.stringify(result, null, 2));
         };
 
-        document.getElementById("btnOpsStep").onclick = () => {
-            const result = APEXCORE.runOpsStep();
-            log("OPS Step:");
-            log(JSON.stringify(result, null, 2));
+        document.getElementById("btnModules").onclick = () => {
+            const mods = Object.keys(APEXCORE.state.modules);
+            log("REGISTERED MODULES:");
+            log(JSON.stringify(mods, null, 2));
         };
 
-        document.getElementById("btnAIStep").onclick = () => {
-            const result = APEXCORE.runAIStep();
-            log("AI Step:");
-            log(JSON.stringify(result, null, 2));
+        document.getElementById("btnClear").onclick = () => {
+            logEl.textContent = "APEXCORE Shell ready.";
         };
     </script>
 
