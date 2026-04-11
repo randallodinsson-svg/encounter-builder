@@ -124,7 +124,7 @@ class Agent {
 
         // Predator state
         this.confusion = 0;
-        this.hasLOS = true;
+               this.hasLOS = true;
 
         // Terrain state
         this.terrainFactor = 1.0;
@@ -586,7 +586,6 @@ class Leader {
         this.acc = vec(0, 0);
     }
 }
-
 // ------------------------------------------------------------
 // Simulation Engine
 // ------------------------------------------------------------
@@ -846,11 +845,13 @@ const APEXSIM = {
             }
 
             let center = vec(0, 0);
+            let count = 0;
             for (const idx of predatorIndices) {
                 const a = this.agents[idx];
                 center = add(center, a.pos);
+                count++;
             }
-            center = mul(center, 1 / predatorIndices.length);
+            if (count > 0) center = mul(center, 1 / count);
 
             const target = this.agents[pack.targetPreyIndex];
             if (!target) {
@@ -1077,24 +1078,7 @@ const APEXSIM = {
             for (const a of this.agents) {
                 const d = mag(sub(a.pos, vec(n.x, n.y)));
                 if (d < n.radius) {
-                    if (a.type === "prey") {
-                        a.panic = Math.min(1, a.panic + 0.03 * n.strength);
-                        a.alarm = Math.min(1, a.alarm + 0.02 * n.strength);
-                        a.memory.recordDanger(a.pos);
-                    } else {
-                        a.confusion = Math.min(1, a.confusion + 0.02 * n.strength);
-                    }
-                }
-            }
-            n.strength *= n.decay;
-            if (n.strength > 0.1) newNoise.push(n);
-        }
-        this.triggers.noiseBursts = newNoise;
-
-        const newLight = [];
-        for (const l of this.triggers.lightPulses) {
-            for (const a of this.agents) {
-                const d = mag(sub(a.pos, vec(l.x, l.y)));
+                    if (a.type
                 if (d < l.radius) {
                     if (a.type === "prey") {
                         a.panic = Math.min(1, a.panic + 0.02 * l.strength);
@@ -1110,7 +1094,7 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Step
+    // STEP LOOP
     // --------------------------------------------------------
     step() {
         const predators = this.agents.filter(a => a.type === "predator");
@@ -1184,10 +1168,9 @@ const APEXSIM = {
 
                 a.applyTerrainEffect(this.terrainZones);
 
-                // Memory-based danger avoidance: bias away from danger clusters
+                // Memory-based danger avoidance
                 const dangerBias = a.memory.dangerBias(a.pos);
                 if (dangerBias > 0.2) {
-                    // steer slightly away from local danger centroid
                     let dangerCenter = vec(0, 0);
                     let dCount = 0;
                     for (const d of a.memory.danger) {
@@ -1316,7 +1299,7 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
-    // Trails
+    // DRAWING LAYERS
     // --------------------------------------------------------
     drawTrails() {
         const c = this.ctx;
@@ -1345,9 +1328,6 @@ const APEXSIM = {
         }
     },
 
-    // --------------------------------------------------------
-    // Debug vectors + obstacles + leaders + formations + safe zones + terrain
-    // --------------------------------------------------------
     drawDebugVectors() {
         const c = this.ctx;
 
@@ -1493,9 +1473,6 @@ const APEXSIM = {
         }
     },
 
-    // --------------------------------------------------------
-    // Glow
-    // --------------------------------------------------------
     drawGlow() {
         const c = this.ctx;
 
@@ -1549,84 +1526,4 @@ const APEXSIM = {
             g.addColorStop(1, "rgba(0,200,255,0)");
             c.fillStyle = g;
             c.beginPath();
-            c.arc(l.x, l.y, l.radius, 0, Math.PI * 2);
-            c.fill();
-        }
-    },
-
-    // --------------------------------------------------------
-    // Draw
-    // --------------------------------------------------------
-    draw() {
-        const c = this.ctx;
-        c.clearRect(0, 0, this.width, this.height);
-
-        if (this.showTrails) this.drawTrails();
-        if (this.showGlow) this.drawGlow();
-        if (this.showDebugVectors) this.drawDebugVectors();
-
-        c.fillStyle = "rgba(255, 136, 0, 0.15)";
-        for (const obs of this.obstacles) {
-            c.beginPath();
-            c.arc(obs.pos.x, obs.pos.y, obs.radius, 0, Math.PI * 2);
-            c.fill();
-        }
-
-        c.fillStyle = "rgba(0, 180, 255, 0.08)";
-        for (const sz of this.safeZones) {
-            c.beginPath();
-            c.arc(sz.x, sz.y, sz.radius, 0, Math.PI * 2);
-            c.fill();
-        }
-
-        for (const z of this.terrainZones) {
-            let color = "rgba(255,255,255,0.05)";
-            if (z.type === "slow") color = "rgba(255,120,0,0.12)";
-            else if (z.type === "fast") color = "rgba(0,255,120,0.12)";
-            else if (z.type === "danger") color = "rgba(255,0,80,0.12)";
-            else if (z.type === "cover") color = "rgba(0,120,255,0.12)";
-
-            c.fillStyle = color;
-            c.beginPath();
-            c.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
-            c.fill();
-        }
-
-        for (const a of this.agents) {
-            if (a.type === "predator") {
-                const conf = a.confusion || 0;
-                const r = 255;
-                const g = Math.floor(80 + conf * 80);
-                const b = Math.floor(80 + conf * 40);
-                c.fillStyle = `rgb(${r},${g},${b})`;
-            } else {
-                const alarmTint = Math.floor(a.alarm * 120);
-                const decoyTint = a.isDecoy ? 80 : 0;
-                const g = Math.max(0, 234 - alarmTint);
-                const b = 255 - decoyTint;
-                c.fillStyle = `rgb(0,${g},${b})`;
-            }
-            c.beginPath();
-            c.arc(a.pos.x, a.pos.y, a.type === "predator" ? 5 : 4, 0, Math.PI * 2);
-            c.fill();
-        }
-    },
-
-    run() {
-        if (!this.running) return;
-        this.step();
-        this.draw();
-        requestAnimationFrame(() => this.run());
-    },
-
-    start() {
-        this.running = true;
-        this.run();
-    },
-
-    stop() {
-        this.running = false;
-    }
-};
-
-window.APEXSIM = APEXSIM;
+            c.arc(l.x, l.y, l                        
