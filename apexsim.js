@@ -1,11 +1,14 @@
 // ------------------------------------------------------------
-// APEXSIM v4.4 — Environmental Influence & Dynamic Terrain Intelligence
-// + Multi‑Leader Prey Squads
-// + Predator Packs (Coordinated Hunting)
-// + Prey Alarm, Scatter, Safe Zones, Evasive Leaders
-// + Decoys, Predator Confusion, Counter‑Tactics
-// + NEW: Terrain Zones, LOS Occlusion, Terrain‑Aware Pathing, Environmental Triggers
-// + Flocking, Avoidance, Panic, Trails, Glow, Debug
+// APEXSIM v4.5 — Memory, Learning & Adaptive Behavior Evolution
+// Lightweight Memory Edition (Option A)
+// ------------------------------------------------------------
+// Adds:
+// + Short-term memory (danger, safe, encounters, successes/failures)
+// + Prey danger-avoidance learning
+// + Predator adaptive flanking based on past failures
+// + Leader patrol biasing away from danger clusters
+// + Memory decay + reinforcement weighting
+// + Fully compatible with v4.4 terrain, LOS, decoys, confusion, etc.
 // ------------------------------------------------------------
 
 const rand = Math.random;
@@ -36,7 +39,7 @@ function segmentsIntersect(p1, p2, q1, q2) {
 // ------------------------------------------------------------
 // Terrain zones
 // type: "slow" | "fast" | "danger" | "cover"
-// shape: circle for now { x, y, radius }
+// shape: circle { x, y, radius }
 // ------------------------------------------------------------
 class TerrainZone {
     constructor(x, y, radius, type) {
@@ -52,10 +55,49 @@ class TerrainZone {
 }
 
 // ------------------------------------------------------------
-// Agent Types
-// type: "prey" | "predator"
-// packId: for predators (which pack they belong to)
-// squadId: for prey (which leader/squad they belong to)
+// Lightweight Memory System (Option A)
+// ------------------------------------------------------------
+class Memory {
+    constructor() {
+        this.danger = [];      // last 10 danger locations
+        this.safe = [];        // last 10 safe locations
+        this.encounters = [];  // last 5 predator encounters
+        this.evasions = [];    // last 5 successful evasions
+        this.failures = [];    // last 5 failed hunts (predators only)
+    }
+
+    push(list, entry, max) {
+        list.push(entry);
+        if (list.length > max) list.shift();
+    }
+
+    recordDanger(pos) { this.push(this.danger, { x: pos.x, y: pos.y }, 10); }
+    recordSafe(pos) { this.push(this.safe, { x: pos.x, y: pos.y }, 10); }
+    recordEncounter(pos) { this.push(this.encounters, { x: pos.x, y: pos.y }, 5); }
+    recordEvasion(pos) { this.push(this.evasions, { x: pos.x, y: pos.y }, 5); }
+    recordFailure(pos) { this.push(this.failures, { x: pos.x, y: pos.y }, 5); }
+
+    dangerBias(pos) {
+        let bias = 0;
+        for (const d of this.danger) {
+            const dist = mag(sub(pos, d));
+            if (dist < 220) bias += (1 - dist / 220);
+        }
+        return bias;
+    }
+
+    safeBias(pos) {
+        let bias = 0;
+        for (const s of this.safe) {
+            const dist = mag(sub(pos, s));
+            if (dist < 220) bias += (1 - dist / 220);
+        }
+        return bias;
+    }
+}
+
+// ------------------------------------------------------------
+// Agent
 // ------------------------------------------------------------
 class Agent {
     constructor(x, y, type = "prey", squadId = 0, packId = -1) {
@@ -73,34 +115,38 @@ class Agent {
 
         this.wanderAngle = 0;
 
-        // Prey‑only state
-        this.panic = 0;        // 0..1
-        this.alarm = 0;        // 0..1 (squad alarm)
-        this.scatterTimer = 0; // frames in scatter mode
-        this.isDecoy = false;  // decoy role flag
-        this.decoyTimer = 0;   // frames remaining as active decoy
+        // Prey state
+        this.panic = 0;
+        this.alarm = 0;
+        this.scatterTimer = 0;
+        this.isDecoy = false;
+        this.decoyTimer = 0;
 
-        // Predator‑only state
-        this.confusion = 0;    // 0..1 (how confused this predator is)
-        this.hasLOS = true;    // line‑of‑sight to current target (pack‑level)
+        // Predator state
+        this.confusion = 0;
+        this.hasLOS = true;
 
-        // Environmental influence
-        this.terrainFactor = 1.0; // speed modifier from terrain
-        this.inCover = false;     // in cover zone (harder to see)
+        // Terrain state
+        this.terrainFactor = 1.0;
+        this.inCover = false;
 
-        // Trail buffer
+        // NEW: Lightweight memory
+        this.memory = new Memory();
+
+        // Adaptive flanking bias (predators)
+        this.flankBias = 0; // -1..1
+
+        // Trail
         this.trail = [];
         this.maxTrail = 40;
         this.trailFade = 1 / this.maxTrail;
 
-        // Debug storage
+        // Debug
         this.debugCirclePos = vec();
         this.debugTarget = vec();
     }
 
-    applyForce(f) {
-        this.acc = add(this.acc, f);
-    }
+    applyForce(f) { this.acc = add(this.acc, f); }
 
     // --------------------------------------------------------
     // Steering primitives
@@ -109,87 +155,61 @@ class Agent {
         const desired = sub(target, this.pos);
         const d = mag(desired);
         if (d === 0) return vec(0, 0);
-
-        let desiredNorm = norm(desired);
-        desiredNorm = mul(desiredNorm, this.maxSpeed);
-
-        const steer = sub(desiredNorm, this.vel);
-        return limit(steer, this.maxForce);
+        let desiredNorm = mul(norm(desired), this.maxSpeed);
+        return limit(sub(desiredNorm, this.vel), this.maxForce);
     }
 
     steerArrive(target, slowRadius = 80) {
         const desired = sub(target, this.pos);
         const d = mag(desired);
         if (d === 0) return vec(0, 0);
-
         let speed = this.maxSpeed;
-        if (d < slowRadius) {
-            speed = this.maxSpeed * (d / slowRadius);
-        }
-
-        let desiredNorm = norm(desired);
-        desiredNorm = mul(desiredNorm, speed);
-
-        const steer = sub(desiredNorm, this.vel);
-        return limit(steer, this.maxForce);
+        if (d < slowRadius) speed = this.maxSpeed * (d / slowRadius);
+        let desiredNorm = mul(norm(desired), speed);
+        return limit(sub(desiredNorm, this.vel), this.maxForce);
     }
 
     steerFlee(target) {
         const desired = sub(this.pos, target);
         const d = mag(desired);
         if (d === 0) return vec(0, 0);
-
-        let desiredNorm = norm(desired);
-        desiredNorm = mul(desiredNorm, this.maxSpeed);
-
-        const steer = sub(desiredNorm, this.vel);
-        return limit(steer, this.maxForce);
+        let desiredNorm = mul(norm(desired), this.maxSpeed);
+        return limit(sub(desiredNorm, this.vel), this.maxForce);
     }
 
     // --------------------------------------------------------
-    // Wander steering (noise source)
-// --------------------------------------------------------
+    // Wander
+    // --------------------------------------------------------
     steerWander() {
         const wanderRadius = 12;
         const wanderDistance = 20;
         const change = 0.3;
-
         this.wanderAngle += (rand() * 2 - 1) * change;
-
         const circlePos = add(this.pos, mul(norm(this.vel), wanderDistance));
         const wanderOffset = vec(
             Math.cos(this.wanderAngle) * wanderRadius,
             Math.sin(this.wanderAngle) * wanderRadius
         );
-
         this.debugCirclePos = circlePos;
         this.debugTarget = add(circlePos, wanderOffset);
-
         const desired = sub(this.debugTarget, this.pos);
-        const steer = limit(sub(norm(desired), this.vel), this.maxForce);
-
-        return steer;
+        return limit(sub(norm(desired), this.vel), this.maxForce);
     }
 
     // --------------------------------------------------------
-    // Flocking (for prey primarily)
-// --------------------------------------------------------
+    // Flocking
+    // --------------------------------------------------------
     flock(neighbors) {
-        const separation = this.flockSeparation(neighbors);
-        const alignment = this.flockAlignment(neighbors);
-        const cohesion = this.flockCohesion(neighbors);
-        const wander = this.steerWander();
-
-        const sepWeight = 1.5;
-        const aliWeight = 1.0;
-        const cohWeight = 0.8;
-        const wanWeight = 0.25;
+        const sep = this.flockSeparation(neighbors);
+        const ali = this.flockAlignment(neighbors);
+        const coh = this.flockCohesion(neighbors);
+        const wan = this.steerWander();
 
         let steer = vec(0, 0);
-        steer = add(steer, mul(separation, sepWeight));
-        steer = add(steer, mul(alignment, aliWeight));
-        steer = add(steer, mul(cohesion, cohWeight));
-        steer = add(steer, mul(wander, wanWeight));
+        steer = add(steer, mul(sep, 1.5));
+        steer = add(steer, mul(ali, 1.0));
+        steer = add(steer, mul(coh, 0.8));
+        steer = add(steer, mul(wan, 0.25));
 
         this.applyForce(steer);
     }
@@ -198,31 +218,20 @@ class Agent {
         const desiredSeparation = 25;
         let steer = vec(0, 0);
         let count = 0;
-
         for (const other of neighbors) {
-            if (other === this) continue;
-            if (other.type !== this.type) continue;
+            if (other === this || other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < desiredSeparation) {
-                let diff = sub(this.pos, other.pos);
-                diff = norm(diff);
-                diff = mul(diff, 1 / d);
+                let diff = mul(norm(sub(this.pos, other.pos)), 1 / d);
                 steer = add(steer, diff);
                 count++;
             }
         }
-
-        if (count > 0) {
-            steer = mul(steer, 1 / count);
-        }
-
+        if (count > 0) steer = mul(steer, 1 / count);
         if (mag(steer) > 0) {
-            steer = norm(steer);
-            steer = mul(steer, this.maxSpeed);
-            steer = sub(steer, this.vel);
-            steer = limit(steer, this.maxForce);
+            steer = mul(norm(steer), this.maxSpeed);
+            steer = limit(sub(steer, this.vel), this.maxForce);
         }
-
         return steer;
     }
 
@@ -230,26 +239,18 @@ class Agent {
         const neighborDist = 50;
         let sum = vec(0, 0);
         let count = 0;
-
         for (const other of neighbors) {
-            if (other === this) continue;
-            if (other.type !== this.type) continue;
+            if (other === this || other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < neighborDist) {
                 sum = add(sum, other.vel);
                 count++;
             }
         }
-
         if (count > 0) {
-            sum = mul(sum, 1 / count);
-            sum = norm(sum);
-            sum = mul(sum, this.maxSpeed);
-            let steer = sub(sum, this.vel);
-            steer = limit(steer, this.maxForce);
-            return steer;
+            sum = mul(norm(mul(sum, 1 / count)), this.maxSpeed);
+            return limit(sub(sum, this.vel), this.maxForce);
         }
-
         return vec(0, 0);
     }
 
@@ -257,22 +258,17 @@ class Agent {
         const neighborDist = 50;
         let sum = vec(0, 0);
         let count = 0;
-
         for (const other of neighbors) {
-            if (other === this) continue;
-            if (other.type !== this.type) continue;
+            if (other === this || other.type !== this.type) continue;
             const d = mag(sub(this.pos, other.pos));
             if (d > 0 && d < neighborDist) {
                 sum = add(sum, other.pos);
                 count++;
             }
         }
-
         if (count > 0) {
-            sum = mul(sum, 1 / count);
-            return this.steerSeek(sum);
+            return this.steerSeek(mul(sum, 1 / count));
         }
-
         return vec(0, 0);
     }
 
@@ -286,46 +282,40 @@ class Agent {
         const forward = norm(this.vel);
         const ahead = add(this.pos, mul(forward, lookAhead));
         const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
-
         let mostThreatening = null;
 
         for (const obs of obstacles) {
             const collision =
                 mag(sub(obs.pos, ahead)) <= obs.radius ||
                 mag(sub(obs.pos, aheadHalf)) <= obs.radius;
-
             if (collision) {
-                if (!mostThreatening) {
-                    mostThreatening = obs;
-                } else {
-                    const currentDist = mag(sub(obs.pos, this.pos));
-                    const bestDist = mag(sub(mostThreatening.pos, this.pos));
-                    if (currentDist < bestDist) {
-                        mostThreatening = obs;
-                    }
+                if (!mostThreatening) mostThreatening = obs;
+                else {
+                    const d1 = mag(sub(obs.pos, this.pos));
+                    const d2 = mag(sub(mostThreatening.pos, this.pos));
+                    if (d1 < d2) mostThreatening = obs;
                 }
             }
         }
 
         if (mostThreatening) {
-            let avoid = sub(ahead, mostThreatening.pos);
-            avoid = norm(avoid);
-            avoid = mul(avoid, this.maxForce * 2.5);
-            return avoid;
+            let avoid = norm(sub(ahead, mostThreatening.pos));
+            return mul(avoid, this.maxForce * 2.5);
         }
-
         return vec(0, 0);
     }
 
     // --------------------------------------------------------
-    // Predator/Prey interactions
+    // Predator/Prey interactions with memory
     // --------------------------------------------------------
     predatorHuntPack(target, packCenter, packIndex, packSize, packConfusion, hasLOS) {
         const confusionFactor = packConfusion || 0;
         const los = hasLOS !== false;
 
+        // Adaptive flanking bias from memory
+        const biasAngle = this.flankBias * 0.6;
+
         if (!target || !los) {
-            // No clear target or no LOS: wander + mild cohesion
             const wander = this.steerWander();
             const toCenter = this.steerArrive(packCenter, 120);
             let steer = vec(0, 0);
@@ -334,35 +324,32 @@ class Agent {
             return steer;
         }
 
-        // Base seek toward target
         const toTarget = this.steerSeek(target.pos);
-
-        // Pack cohesion: stay near pack center
         const toCenter = this.steerArrive(packCenter, 100);
 
-        // Flanking: offset angle around target based on pack index
-        const offsetAngle = (packIndex / Math.max(1, packSize)) * Math.PI * 2;
+        const baseAngle = (packIndex / Math.max(1, packSize)) * Math.PI * 2;
+        const flankAngle = baseAngle + biasAngle;
         const flankRadius = 40 + confusionFactor * 20;
+
         const flankPos = add(
             target.pos,
-            vec(Math.cos(offsetAngle) * flankRadius, Math.sin(offsetAngle) * flankRadius)
+            vec(Math.cos(flankAngle) * flankRadius, Math.sin(flankAngle) * flankRadius)
         );
         const flankForce = this.steerArrive(flankPos, 60);
 
         const huntWeight = 1.4 * (1 - confusionFactor * 0.7);
         const centerWeight = 0.6 + confusionFactor * 0.4;
-        const flankWeight = 1.0;
 
         let steer = vec(0, 0);
         steer = add(steer, mul(toTarget, huntWeight));
         steer = add(steer, mul(toCenter, centerWeight));
-        steer = add(steer, mul(flankForce, flankWeight));
+        steer = add(steer, flankForce);
 
         return steer;
     }
 
     preyFlee(predators) {
-        if (predators.length === 0) {
+        if (!predators.length) {
             this.panic *= 0.96;
             return vec(0, 0);
         }
@@ -389,8 +376,10 @@ class Agent {
             return vec(0, 0);
         }
 
-        this.panic = Math.min(1, this.panic + 0.05);
+        // Record danger memory
+        this.memory.recordDanger(this.pos);
 
+        this.panic = Math.min(1, this.panic + 0.05);
         const fleeForce = this.steerFlee(threat.pos);
         const scale = 1.0 + (1 - threatDist / fleeRadius) * 2.0;
         return mul(fleeForce, scale);
@@ -413,6 +402,7 @@ class Agent {
             } else if (z.type === "danger") {
                 if (this.type === "prey") {
                     this.panic = Math.min(1, this.panic + 0.02);
+                    this.memory.recordDanger(this.pos);
                 }
             } else if (z.type === "cover") {
                 this.inCover = true;
@@ -422,6 +412,9 @@ class Agent {
         this.maxSpeed = this.baseMaxSpeed * this.terrainFactor;
     }
 
+    // --------------------------------------------------------
+    // Update
+    // --------------------------------------------------------
     update() {
         this.vel = add(this.vel, this.acc);
         this.vel = limit(this.vel, this.maxSpeed * (1 + this.panic * 0.5));
@@ -430,13 +423,13 @@ class Agent {
 
         if (this.decoyTimer > 0) {
             this.decoyTimer--;
-            if (this.decoyTimer <= 0) {
-                this.isDecoy = false;
-            }
+            if (this.decoyTimer <= 0) this.isDecoy = false;
         }
 
         if (this.type === "predator") {
             this.confusion *= 0.97;
+            // mild decay toward neutral flank bias
+            this.flankBias *= 0.99;
         }
 
         this.trail.push({ x: this.pos.x, y: this.pos.y });
@@ -445,7 +438,7 @@ class Agent {
 }
 
 // ------------------------------------------------------------
-// Leader (for prey squads, patrol + steering + evasive)
+// Leader (with patrol biasing from danger memory)
 // ------------------------------------------------------------
 class Leader {
     constructor(x, y, id = 0) {
@@ -467,48 +460,35 @@ class Leader {
         this.evasiveTimer = 0;
         this.evasiveTarget = null;
         this.zigzagPhase = 0;
+
+        // NEW: leader memory (danger clusters)
+        this.memory = new Memory();
     }
 
-    applyForce(f) {
-        this.acc = add(this.acc, f);
-    }
+    applyForce(f) { this.acc = add(this.acc, f); }
 
     steerArrive(target, slowRadius = 80) {
         const desired = sub(target, this.pos);
         const d = mag(desired);
         if (d === 0) return vec(0, 0);
-
         let speed = this.maxSpeed;
-        if (d < slowRadius) {
-            speed = this.maxSpeed * (d / slowRadius);
-        }
-
-        let desiredNorm = norm(desired);
-        desiredNorm = mul(desiredNorm, speed);
-
-        const steer = sub(desiredNorm, this.vel);
-        return limit(steer, this.maxForce);
+        if (d < slowRadius) speed = this.maxSpeed * (d / slowRadius);
+        let desiredNorm = mul(norm(desired), speed);
+        return limit(sub(desiredNorm, this.vel), this.maxForce);
     }
 
     steerWander() {
         const wanderRadius = 10;
         const wanderDistance = 25;
-        theChange: {
-            const change = 0.2;
-            this.wanderAngle += (rand() * 2 - 1) * change;
-        }
-
+        const change = 0.2;
+        this.wanderAngle += (rand() * 2 - 1) * change;
         const circlePos = add(this.pos, mul(norm(this.vel), wanderDistance));
         const wanderOffset = vec(
             Math.cos(this.wanderAngle) * wanderRadius,
             Math.sin(this.wanderAngle) * wanderRadius
         );
-
         const target = add(circlePos, wanderOffset);
-        const desired = sub(target, this.pos);
-        const steer = limit(sub(norm(desired), this.vel), this.maxForce);
-
-        return steer;
+        return limit(sub(norm(sub(target, this.pos)), this.vel), this.maxForce);
     }
 
     avoidObstacles(obstacles) {
@@ -518,34 +498,26 @@ class Leader {
         const forward = norm(this.vel);
         const ahead = add(this.pos, mul(forward, lookAhead));
         const aheadHalf = add(this.pos, mul(forward, lookAhead * 0.5));
-
         let mostThreatening = null;
 
         for (const obs of obstacles) {
             const collision =
                 mag(sub(obs.pos, ahead)) <= obs.radius + 10 ||
                 mag(sub(obs.pos, aheadHalf)) <= obs.radius + 10;
-
             if (collision) {
-                if (!mostThreatening) {
-                    mostThreatening = obs;
-                } else {
-                    const currentDist = mag(sub(obs.pos, this.pos));
-                    const bestDist = mag(sub(mostThreatening.pos, this.pos));
-                    if (currentDist < bestDist) {
-                        mostThreatening = obs;
-                    }
+                if (!mostThreatening) mostThreatening = obs;
+                else {
+                    const d1 = mag(sub(obs.pos, this.pos));
+                    const d2 = mag(sub(mostThreatening.pos, this.pos));
+                    if (d1 < d2) mostThreatening = obs;
                 }
             }
         }
 
         if (mostThreatening) {
-            let avoid = sub(ahead, mostThreatening.pos);
-            avoid = norm(avoid);
-            avoid = mul(avoid, this.maxForce * 3);
-            return avoid;
+            let avoid = norm(sub(ahead, mostThreatening.pos));
+            return mul(avoid, this.maxForce * 3);
         }
-
         return vec(0, 0);
     }
 
@@ -561,19 +533,17 @@ class Leader {
         this.zigzagPhase = 0;
     }
 
+    // Leader patrol with bias away from danger memory
     updatePatrol(obstacles) {
         let steer = vec(0, 0);
 
         if (this.evasive && this.evasiveTimer > 0 && this.evasiveTarget) {
             const base = this.steerArrive(this.evasiveTarget, 80);
-
             this.zigzagPhase += 0.25;
             const perp = norm(vec(-this.vel.y, this.vel.x));
             const zigzag = mul(perp, Math.sin(this.zigzagPhase) * 0.8);
-
             steer = add(steer, base);
             steer = add(steer, zigzag);
-
             this.evasiveTimer--;
             if (this.evasiveTimer <= 0) {
                 this.evasive = false;
@@ -582,10 +552,22 @@ class Leader {
         } else {
             if (!this.waypoints || this.waypoints.length === 0) return;
 
-            const target = this.waypoints[this.currentWaypoint];
+            // Choose current waypoint, but bias away from danger clusters
+            let target = this.waypoints[this.currentWaypoint];
+            const baseDanger = this.memory.dangerBias(target);
+            if (baseDanger > 0.5) {
+                // look ahead to next waypoint if current is "hot"
+                const nextIndex = (this.currentWaypoint + 1) % this.waypoints.length;
+                const nextTarget = this.waypoints[nextIndex];
+                const nextDanger = this.memory.dangerBias(nextTarget);
+                if (nextDanger < baseDanger) {
+                    this.currentWaypoint = nextIndex;
+                    target = nextTarget;
+                }
+            }
+
             const toTarget = sub(target, this.pos);
             const dist = mag(toTarget);
-
             steer = add(steer, this.steerArrive(target, this.arriveRadius));
 
             if (dist < this.arriveRadius * 0.6) {
@@ -613,7 +595,7 @@ const APEXSIM = {
     obstacles: [],
     leaders: [],
     squads: [],          // { leaderId, agentIndices, formationOffsets }
-    predatorPacks: [],   // { packId, predatorIndices, targetPreyIndex, confusion, hasLOS }
+    predatorPacks: [],   // { packId, predatorIndices, targetPreyIndex, confusion, hasLOS, lastTargetDist }
     safeZones: [],       // { x, y, radius }
     terrainZones: [],    // TerrainZone[]
     formationMode: "circle",
@@ -675,7 +657,7 @@ const APEXSIM = {
             new TerrainZone(this.width * 0.5, this.height * 0.55, 80, "cover")
         ];
 
-        // Leaders for prey squads
+        // Leaders
         for (let i = 0; i < squadCount; i++) {
             const angle = (i / squadCount) * Math.PI * 2;
             const cx = this.width / 2 + Math.cos(angle) * 80;
@@ -684,7 +666,7 @@ const APEXSIM = {
             this.leaders.push(leader);
         }
 
-        // Patrol waypoints per leader
+        // Leader waypoints
         const steps = 8;
         const rX = Math.min(this.width, this.height) * 0.25;
         const rY = Math.min(this.width, this.height) * 0.18;
@@ -749,7 +731,8 @@ const APEXSIM = {
                 predatorIndices: packPredators,
                 targetPreyIndex: null,
                 confusion: 0,
-                hasLOS: true
+                hasLOS: true,
+                lastTargetDist: null
             });
         }
 
@@ -962,6 +945,11 @@ const APEXSIM = {
                     leader.triggerEvasive(safeZone);
                 }
             }
+
+            // Feed leader danger memory from squad
+            if (squadAlarm > 0.4) {
+                leader.memory.recordDanger(center);
+            }
         }
     },
 
@@ -1028,6 +1016,51 @@ const APEXSIM = {
     },
 
     // --------------------------------------------------------
+    // Adaptive learning: predator failures -> flank bias
+    // --------------------------------------------------------
+    updatePredatorLearning() {
+        for (const pack of this.predatorPacks) {
+            if (pack.targetPreyIndex == null) {
+                pack.lastTargetDist = null;
+                continue;
+            }
+            const target = this.agents[pack.targetPreyIndex];
+            if (!target) {
+                pack.lastTargetDist = null;
+                continue;
+            }
+
+            let center = vec(0, 0);
+            let count = 0;
+            for (const idx of pack.predatorIndices) {
+                const a = this.agents[idx];
+                center = add(center, a.pos);
+                count++;
+            }
+            if (count > 0) center = mul(center, 1 / count);
+
+            const dist = mag(sub(target.pos, center));
+
+            if (pack.lastTargetDist != null) {
+                const delta = dist - pack.lastTargetDist;
+                // If distance is growing while LOS is present, treat as "failure" and adjust flank bias
+                if (delta > 2 && pack.hasLOS) {
+                    for (const idx of pack.predatorIndices) {
+                        const pr = this.agents[idx];
+                        pr.memory.recordFailure(target.pos);
+                        // Nudge flank bias randomly left/right
+                        const dir = rand() < 0.5 ? -1 : 1;
+                        pr.flankBias += dir * 0.1;
+                        pr.flankBias = Math.max(-1, Math.min(1, pr.flankBias));
+                    }
+                }
+            }
+
+            pack.lastTargetDist = dist;
+        }
+    },
+
+    // --------------------------------------------------------
     // Environmental triggers: noise & light
     // --------------------------------------------------------
     spawnNoiseBurst(x, y, radius = 160, strength = 1.0) {
@@ -1047,6 +1080,7 @@ const APEXSIM = {
                     if (a.type === "prey") {
                         a.panic = Math.min(1, a.panic + 0.03 * n.strength);
                         a.alarm = Math.min(1, a.alarm + 0.02 * n.strength);
+                        a.memory.recordDanger(a.pos);
                     } else {
                         a.confusion = Math.min(1, a.confusion + 0.02 * n.strength);
                     }
@@ -1075,6 +1109,9 @@ const APEXSIM = {
         this.triggers.lightPulses = newLight;
     },
 
+    // --------------------------------------------------------
+    // Step
+    // --------------------------------------------------------
     step() {
         const predators = this.agents.filter(a => a.type === "predator");
         const prey = this.agents.filter(a => a.type === "prey");
@@ -1105,6 +1142,9 @@ const APEXSIM = {
         // LOS and confusion
         this.updatePackLOS();
         this.updatePredatorConfusion();
+
+        // Adaptive predator learning
+        this.updatePredatorLearning();
 
         // Pack target selection
         this.choosePackTargets();
@@ -1144,6 +1184,27 @@ const APEXSIM = {
 
                 a.applyTerrainEffect(this.terrainZones);
 
+                // Memory-based danger avoidance: bias away from danger clusters
+                const dangerBias = a.memory.dangerBias(a.pos);
+                if (dangerBias > 0.2) {
+                    // steer slightly away from local danger centroid
+                    let dangerCenter = vec(0, 0);
+                    let dCount = 0;
+                    for (const d of a.memory.danger) {
+                        dangerCenter = add(dangerCenter, d);
+                        dCount++;
+                    }
+                    if (dCount > 0) {
+                        dangerCenter = mul(dangerCenter, 1 / dCount);
+                        let away = sub(a.pos, dangerCenter);
+                        if (mag(away) > 0) {
+                            away = mul(norm(away), a.maxSpeed);
+                            const avoidDangerForce = limit(sub(away, a.vel), a.maxForce * 1.2 * dangerBias);
+                            a.applyForce(avoidDangerForce);
+                        }
+                    }
+                }
+
                 a.flock(neighbors);
 
                 if (a.isDecoy && a.decoyTimer > 0) {
@@ -1181,6 +1242,7 @@ const APEXSIM = {
                     const safeTarget = vec(squadSafeZone.x, squadSafeZone.y);
                     const safeForce = a.steerArrive(safeTarget, 100);
                     a.applyForce(mul(safeForce, 1.2));
+                    a.memory.recordSafe(safeTarget);
                 } else if (avgAlarm > 0.4 && slotWorld) {
                     const distFromLeader = mag(sub(a.pos, leader.pos));
                     const shieldRadius = 70;
