@@ -1,156 +1,70 @@
-/* ============================================================
-   APEXSIM v4.x — Stabilized Simulation Engine
-   Clean, deterministic, canvas‑based, modular
-   Compatible with APEXCORE v3, APEXOPS v2, APEXAI v3
-   ============================================================ */
+// APEXSIM v4 — Minimal Deterministic Simulation Engine
+// Clean, stable, and UI‑agnostic.
 
-export const APEXSIM = (() => {
+export const APEXSIM = {
 
-    /* ------------------------------------------------------------
-       INTERNAL STATE
-    ------------------------------------------------------------ */
-    let canvas = null;
-    let ctx = null;
+    version: "4.0.0",
 
-    let tick = 0;
-
-    const state = {
+    state: {
+        tick: 0,
         entities: [],
-        scenario: null,
-        lastStep: null
-    };
+        energy: 100,
+        events: []
+    },
 
-    /* ------------------------------------------------------------
-       UTILITY
-    ------------------------------------------------------------ */
+    // Initialize simulation
+    init() {
+        this.state.tick = 0;
+        this.state.energy = 100;
+        this.state.entities = [
+            { id: "ent-1", type: "Unit", hp: 10 },
+            { id: "ent-2", type: "Unit", hp: 12 }
+        ];
+        this.state.events = [];
 
-    function rand(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
-
-    function clearCanvas() {
-        if (!ctx) return;
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function drawEntities() {
-        if (!ctx) return;
-
-        for (const e of state.entities) {
-            ctx.fillStyle = e.color;
-            ctx.fillRect(e.x, e.y, e.size, e.size);
-        }
-    }
-
-    /* ------------------------------------------------------------
-       ENTITY SYSTEM
-    ------------------------------------------------------------ */
-
-    function spawnEntity(x, y, color = "#1e90ff") {
-        const entity = {
-            id: "ENT-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-            x,
-            y,
-            vx: rand(-2, 2),
-            vy: rand(-2, 2),
-            size: rand(6, 12),
-            color
+        return {
+            status: "OK",
+            message: "Simulation initialized.",
+            state: structuredClone(this.state),
+            timestamp: Date.now()
         };
+    },
 
-        state.entities.push(entity);
-        return entity;
-    }
+    // Run one simulation tick
+    tick() {
+        this.state.tick++;
+        this.state.energy = Math.max(0, this.state.energy - 1);
 
-    function updateEntities() {
-        for (const e of state.entities) {
-            e.x += e.vx;
-            e.y += e.vy;
-
-            // bounce off edges
-            if (e.x < 0 || e.x + e.size > canvas.width) e.vx *= -1;
-            if (e.y < 0 || e.y + e.size > canvas.height) e.vy *= -1;
-        }
-    }
-
-    /* ------------------------------------------------------------
-       SCENARIO SYSTEM
-    ------------------------------------------------------------ */
-
-    function loadDefaultScenario() {
-        const scenario = {
-            name: "Default Simulation Scenario",
-            entityCount: 12,
-            colors: ["#1e90ff", "#ff4757", "#ffa502", "#2ed573"]
-        };
-
-        state.entities = [];
-
-        for (let i = 0; i < scenario.entityCount; i++) {
-            spawnEntity(
-                rand(20, canvas.width - 20),
-                rand(20, canvas.height - 20),
-                scenario.colors[rand(0, scenario.colors.length - 1)]
-            );
-        }
-
-        state.scenario = scenario;
-        return scenario;
-    }
-
-    /* ------------------------------------------------------------
-       SIMULATION CORE
-    ------------------------------------------------------------ */
-
-    function init(c) {
-        canvas = c;
-        ctx = canvas.getContext("2d");
-
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-
-        clearCanvas();
-
-        return true;
-    }
-
-    function step() {
-        tick++;
-
-        updateEntities();
-        clearCanvas();
-        drawEntities();
-
-        const result = {
-            tick,
-            entityCount: state.entities.length,
+        const event = {
+            id: crypto.randomUUID(),
+            type: "heartbeat",
+            tick: this.state.tick,
             timestamp: Date.now()
         };
 
-        state.lastStep = result;
-        return result;
+        this.state.events.push(event);
+
+        return {
+            id: crypto.randomUUID(),
+            tick: this.state.tick,
+            energy: this.state.energy,
+            entities: structuredClone(this.state.entities),
+            events: [event],
+            timestamp: Date.now()
+        };
+    },
+
+    // Reset simulation
+    reset() {
+        this.state.tick = 0;
+        this.state.energy = 100;
+        this.state.entities = [];
+        this.state.events = [];
+
+        return {
+            status: "OK",
+            message: "Simulation reset.",
+            timestamp: Date.now()
+        };
     }
-
-    function reset() {
-        tick = 0;
-        state.entities = [];
-        state.scenario = null;
-        state.lastStep = null;
-
-        clearCanvas();
-    }
-
-    /* ------------------------------------------------------------
-       PUBLIC API
-    ------------------------------------------------------------ */
-
-    return {
-        init,
-        step,
-        reset,
-        loadDefaultScenario,
-        spawnEntity,
-        getState: () => JSON.parse(JSON.stringify(state))
-    };
-
-})();
+};
