@@ -1,9 +1,9 @@
-// APEXCORE v3.4 — Core Kernel + Event Bus + Data Registry + Lifecycle + Diagnostics
+// APEXCORE v3.5 — Core Kernel + Event Bus + Data Registry + Lifecycle + Tick Engine + Diagnostics
 // Clean, stable, modular, and future‑proof.
 
 export const APEXCORE = {
 
-    version: "3.4.0",
+    version: "3.5.0",
 
     state: {
         modules: {},        // name -> moduleRef
@@ -30,7 +30,6 @@ export const APEXCORE = {
         this.log(`Module registered: ${name}`);
     },
 
-    // Explicit module getter
     getModule(name) {
         return this.state.modules[name] || null;
     },
@@ -63,7 +62,7 @@ export const APEXCORE = {
 
     ping() {
         return {
-            core: "APEXCORE v3.4",
+            core: "APEXCORE v3.5",
             status: "OK",
             modules: Object.keys(this.state.modules),
             mounted: Object.keys(this.state.moduleStatus)
@@ -256,6 +255,30 @@ export const APEXCORE = {
             this.emit("module:reloaded", { name });
             this.log(`Module reloaded via unmount/mount: ${name}`);
         }
+    },
+
+    // =========================
+    // TICK ENGINE (NEW IN v3.5)
+    // =========================
+
+    tick(tickData) {
+        const mounted = Object.keys(this.state.moduleStatus)
+            .filter(name => this.state.moduleStatus[name] === "mounted");
+
+        for (const name of mounted) {
+            const mod = this.state.modules[name];
+            if (!mod || typeof mod.tick !== "function") continue;
+
+            try {
+                mod.tick(tickData, this);
+            } catch (err) {
+                this.logError(`${name}.tick()`, err);
+            }
+
+            this.emit("module:tick", { name, tick: tickData });
+        }
+
+        this.log(`Tick processed for ${mounted.length} modules.`);
     },
 
     // =========================
