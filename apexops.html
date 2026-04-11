@@ -1,181 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>APEXOPS — Runtime Inspector</title>
+    <meta charset="UTF-8" />
+    <title>APEXOPS v2 — Runtime Inspector</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #0b0e13;
+            color: #e6eef7;
+            font-family: system-ui, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            width: 320px;
+            background: #11161d;
+            border-right: 1px solid #1f2732;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 6px 0;
+            background: #1e90ff;
+            border: none;
+            color: white;
+            font-size: 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #3aa0ff;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        #output {
+            flex: 1;
+            background: #0f141a;
+            border-top: 1px solid #1f2732;
+            padding: 15px;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .panel {
+            background: #1a212c;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .panel h3 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+        }
+    </style>
 </head>
 
-<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
+<body>
 
-<!-- HEADER -->
-<div style="padding:8px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; background:#080a0d;">
-  <div>
-    <span style="font-weight:bold;">APEXOPS — RUNTIME INSPECTOR</span>
-    <span style="color:#888; margin-left:8px;">v2</span>
-  </div>
-  <div style="font-size:12px; color:#aaa;">
-    Mode: <span style="color:#6cf;">Studio / Dev</span> · Status: <span style="color:#6f6;">ONLINE</span>
-  </div>
-</div>
+    <div id="sidebar">
+        <h2>APEXOPS — Runtime Inspector</h2>
 
-<!-- LAYOUT -->
-<div style="display:flex; height:calc(100vh - 40px);">
+        <div class="section">
+            <button id="btnStart">Start OPS Loop</button>
+            <button id="btnStop">Stop OPS Loop</button>
+            <button id="btnStep">Step Once</button>
+        </div>
 
-  <!-- LEFT: CONTROLS -->
-  <div style="width:240px; border-right:1px solid #222; padding:12px; background:#050608;">
-    <div style="font-size:11px; color:#888; margin-bottom:6px;">SIMULATION CONTROLS</div>
+        <div class="section">
+            <h3>Panels</h3>
+            <button id="btnToggleActors">Toggle Actor Panel</button>
+            <button id="btnToggleTimeline">Toggle Timeline Panel</button>
+        </div>
 
-    <button id="ops-run-btn"
-      style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #2a6; background:#041a0f; color:#e5e5e5; cursor:pointer; margin-bottom:6px;">
-      Run Simulation
-    </button>
-
-    <button id="ops-step-btn"
-      style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #264a6a; background:#041326; color:#e5e5e5; cursor:pointer; margin-bottom:6px;">
-      Step Tick
-    </button>
-
-    <button id="ops-reset-btn"
-      style="width:100%; font-size:12px; padding:6px 8px; border:1px solid #6a2626; background:#260404; color:#e5e5e5; cursor:pointer;">
-      Reset
-    </button>
-
-    <div style="margin-top:20px; font-size:11px; color:#888;">ACTIVE SCENARIO</div>
-    <div id="ops-scenario-meta" style="font-size:11px; color:#ccc; margin-top:4px;"></div>
-  </div>
-
-  <!-- CENTER: WORKSPACE -->
-  <div style="flex:1; border-right:1px solid #222; padding:12px; background:#07090c;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">SIMULATION OUTPUT</div>
-    <div id="ops-output"
-      style="border:1px solid #222; padding:12px; background:#050608; height:100%; overflow:auto; white-space:pre; font-size:12px;">
-      No simulation run yet.
+        <div class="section">
+            <button id="btnCopy">Copy Output</button>
+            <button id="btnExport">Export JSON</button>
+        </div>
     </div>
-  </div>
 
-  <!-- RIGHT: SYSTEM LOG -->
-  <div style="width:320px; padding:12px; background:#050608;">
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">SYSTEM LOG</div>
-    <div id="ops-log"
-      style="border:1px solid #222; padding:8px; background:#07090c; height:100%; overflow:auto; font-size:11px;"></div>
-  </div>
-<!-- APEXSIM CONTROL PANEL -->
-<div id="apexsim-controls" style="
-  margin-top:20px;
-  padding:14px;
-  border:1px solid #222;
-  background:#0d1117;
-  font-size:12px;
-  color:#ccc;
-  line-height:1.4;
-">
+    <div id="main">
+        <div id="output">APEXOPS v2 ready.</div>
+    </div>
 
-  <div style="font-size:13px; margin-bottom:10px; color:#7fffd4; font-weight:bold;">
-    APEXSIM Controls
-  </div>
+    <script type="module">
+        import { APEXCORE } from "./apexcore.js";
+        import { APEXSIM } from "./apexsim.js";
+        import { APEXOPS } from "./apexops.js";
+        import { APEXAI } from "./apexai.js";
 
-  <label style="display:flex; align-items:center; margin-bottom:8px;">
-    <input type="checkbox" id="sim-toggle-glow" checked style="margin-right:6px;">
-    Glow
-  </label>
+        const out = document.getElementById("output");
 
-  <label style="display:flex; align-items:center; margin-bottom:8px;">
-    <input type="checkbox" id="sim-toggle-trails" checked style="margin-right:6px;">
-    Trails
-  </label>
+        function log(msg) {
+            out.textContent += "\\n" + msg;
+            out.scrollTop = out.scrollHeight;
+        }
 
-  <label style="display:flex; align-items:center; margin-bottom:8px;">
-    <input type="checkbox" id="sim-toggle-debug" checked style="margin-right:6px;">
-    Debug Vectors
-  </label>
+        /* ------------------------------------------------------------
+           REGISTER MODULES
+        ------------------------------------------------------------ */
+        APEXCORE.registerModule("APEXSIM", APEXSIM);
+        APEXCORE.registerModule("APEXOPS", APEXOPS);
+        APEXCORE.registerModule("APEXAI", APEXAI);
 
-</div>
+        APEXCORE.init();
+        log("APEXCORE initialized.");
 
-</div>
+        /* ------------------------------------------------------------
+           OPS LOOP CONTROL
+        ------------------------------------------------------------ */
+        let loop = null;
 
-<!-- SCRIPT -->
-<script type="module">
-  /* ------------------------------------------------------------
-     IMPORT MODULES
-     ------------------------------------------------------------ */
-  import { createApexCore } from './apexcore.js';
-  import { ApexSim, MinimalTestScenarioV1 } from './apexsim.js';
-  import { createApexAI } from './apexai.js';
+        document.getElementById("btnStart").onclick = () => {
+            if (loop) return;
+            loop = setInterval(() => {
+                const result = APEXCORE.runOpsStep();
+                log("OPS Update:");
+                log(JSON.stringify(result, null, 2));
+            }, 500);
+            log("OPS Loop started.");
+        };
 
-  /* ------------------------------------------------------------
-     INITIALIZE CORE + AI
-     ------------------------------------------------------------ */
-  const core = createApexCore();
-  const ai = createApexAI(core);
+        document.getElementById("btnStop").onclick = () => {
+            if (!loop) return;
+            clearInterval(loop);
+            loop = null;
+            log("OPS Loop stopped.");
+        };
 
-  /* ------------------------------------------------------------
-     DOM ELEMENTS
-     ------------------------------------------------------------ */
-  const runBtn = document.getElementById("ops-run-btn");
-  const stepBtn = document.getElementById("ops-step-btn");
-  const resetBtn = document.getElementById("ops-reset-btn");
-  const outputEl = document.getElementById("ops-output");
-  const logEl = document.getElementById("ops-log");
-  const metaEl = document.getElementById("ops-scenario-meta");
+        document.getElementById("btnStep").onclick = () => {
+            const result = APEXCORE.runOpsStep();
+            log("OPS Step:");
+            log(JSON.stringify(result, null, 2));
+        };
 
-  /* ------------------------------------------------------------
-     LOGGING
-     ------------------------------------------------------------ */
-  function log(msg) {
-    const ts = new Date().toISOString().split("T")[1].split(".")[0];
-    const div = document.createElement("div");
-    div.textContent = `[${ts}] ${msg}`;
-    logEl.prepend(div);
-  }
+        /* ------------------------------------------------------------
+           PANELS (PLACEHOLDERS)
+        ------------------------------------------------------------ */
+        document.getElementById("btnToggleActors").onclick = () => {
+            log("Actor Panel toggled (placeholder).");
+        };
 
-  /* ------------------------------------------------------------
-     LOAD DEFAULT SCENARIO
-     ------------------------------------------------------------ */
-  core.loadScenario(MinimalTestScenarioV1);
-  metaEl.textContent = `ID: ${core.activeScenario.id}`;
+        document.getElementById("btnToggleTimeline").onclick = () => {
+            log("Timeline Panel toggled (placeholder).");
+        };
 
-  /* ------------------------------------------------------------
-     RUN SIMULATION
-     ------------------------------------------------------------ */
-  runBtn.addEventListener("click", () => {
-    log("Running full simulation…");
+        /* ------------------------------------------------------------
+           COPY / EXPORT
+        ------------------------------------------------------------ */
+        document.getElementById("btnCopy").onclick = () => {
+            navigator.clipboard.writeText(out.textContent);
+            log("Output copied to clipboard.");
+        };
 
-    const result = core.startSimulation(s => new ApexSim(s));
+        document.getElementById("btnExport").onclick = () => {
+            const data = out.textContent;
+            const blob = new Blob([data], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
 
-    outputEl.textContent = JSON.stringify(result, null, 2);
-    log("Simulation complete.");
-  });
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "apexops_output.json";
+            a.click();
 
-  /* ------------------------------------------------------------
-     STEP TICK (if supported)
-     ------------------------------------------------------------ */
-  stepBtn.addEventListener("click", () => {
-    log("Step‑tick requested.");
-
-    // If ApexSim supports step() in future versions, hook here.
-    outputEl.textContent = "Step mode not implemented in this scenario.";
-  });
-
-  /* ------------------------------------------------------------
-     RESET
-     ------------------------------------------------------------ */
-  resetBtn.addEventListener("click", () => {
-    log("Resetting scenario…");
-
-    core.loadScenario(MinimalTestScenarioV1);
-    metaEl.textContent = `ID: ${core.activeScenario.id}`;
-    outputEl.textContent = "No simulation run yet.";
-  });
-
-  /* ------------------------------------------------------------
-     EVENT HOOKS
-     ------------------------------------------------------------ */
-  core.on("simulation:start", () => log("Simulation started."));
-  core.on("simulation:complete", () => log("Simulation completed."));
-  core.on("scenario:loaded", sc => log(`Scenario loaded: ${sc.id}`));
-
-  log("APEXOPS Runtime Inspector initialized.");
-</script>
+            URL.revokeObjectURL(url);
+            log("Exported JSON file.");
+        };
+    </script>
 
 </body>
 </html>
