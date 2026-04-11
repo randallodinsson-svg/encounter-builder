@@ -1,85 +1,403 @@
-// APEXOPS v3.5 — Runtime Inspector + Diagnostics Layer
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>APEXOPS Runtime Inspector</title>
 
-export const APEXOPS = {
+    <style>
+        body {
+            background: #000;
+            color: #eee;
+            font-family: "Segoe UI", sans-serif;
+            padding: 20px;
+        }
 
-    core: null,
+        #out {
+            white-space: pre-wrap;
+            background: #111;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
 
-    init(core) {
-        this.core = core;
-        console.log("[APEXOPS] Initialized and connected to APEXCORE diagnostics.");
-    },
+        button {
+            padding: 8px 14px;
+            margin-right: 10px;
+            margin-bottom: 6px;
+            background: #0af;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #000;
+            font-weight: 600;
+        }
 
-    attachEventHooks() {
-        if (!this.core) return;
+        #apexops-diagnostics {
+            padding: 20px;
+            background: #111;
+            border: 1px solid #333;
+            margin-top: 20px;
+            border-radius: 6px;
+        }
 
-        // MODULE LIFECYCLE
-        this.core.on("module:mounted", (e) => {
-            console.log("[APEXOPS] Module mounted:", e.name);
-        });
+        .ops-panel {
+            background: #000;
+            padding: 10px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
 
-        this.core.on("module:unmounted", (e) => {
-            console.log("[APEXOPS] Module unmounted:", e.name);
-        });
+        .ops-panel h3 {
+            margin-top: 0;
+            color: #0af;
+        }
 
-        this.core.on("module:reloaded", (e) => {
-            console.log("[APEXOPS] Module reloaded:", e.name);
-        });
+        .ops-panel pre {
+            white-space: pre-wrap;
+            font-size: 12px;
+            color: #ccc;
+        }
+    </style>
+</head>
 
-        // REGISTRY EVENTS
-        this.core.on("registry:changed", (e) => {
-            console.log("[APEXOPS] Registry changed:", e.key, "=", e.value);
-        });
+<body>
 
-        this.core.on("registry:deleted", (e) => {
-            console.log("[APEXOPS] Registry deleted:", e.key);
-        });
+    <h1>APEXOPS Runtime Inspector</h1>
 
-        this.core.on("registry:cleared", () => {
-            console.log("[APEXOPS] Registry cleared.");
-        });
+    <div>
+        <button id="btnOpsTick">Run Tick</button>
+        <button id="btnOpsClear">Clear Output</button>
+    </div>
 
-        // ⭐ NEW IN STEP 14 — TICK EVENT DIAGNOSTICS
-        this.core.on("module:tick", (e) => {
-            console.log("[APEXOPS] Module tick:", e.name, e.tick);
-        });
+    <div style="margin-top:10px; margin-bottom:10px;">
+        <button id="btnModuleMount">Mount Example Module</button>
+        <button id="btnModuleUnmount">Unmount Example Module</button>
+        <button id="btnModuleReload">Reload Example Module</button>
+    </div>
 
-        console.log("[APEXOPS] Event hooks attached.");
-    },
+    <div id="out">APEXOPS ready.</div>
 
-    // ============================
-    // DIAGNOSTICS ACCESSORS
-    // ============================
+    <script type="module">
+        import { APEXCORE } from "./apexcore.js";
+        import { APEXOPS } from "./apexops.js";
+        import { ExampleModule } from "./example-module.js";
 
-    getCoreLogs() {
-        return this.core.getLogs();
-    },
+        const out = document.getElementById("out");
 
-    getCoreErrors() {
-        return this.core.getErrors();
-    }
+        function log(msg) {
+            out.textContent += "\n" + msg;
+        }
 
-    ,
-    getLifecycleHistory() {
-        return this.core.getLifecycleHistory();
-    },
+        APEXOPS.init(APEXCORE);
+        APEXOPS.attachEventHooks();
 
-    getModuleStatus() {
-        return this.core.getModuleStatus();
-    },
+        APEXCORE.register("example", ExampleModule);
+        APEXCORE.mount("example");
 
-    getRegistryKeys() {
-        return this.core.getDiagnosticsSnapshot().registryKeys;
-    },
-
-    getCoreSnapshot() {
-        return this.core.getDiagnosticsSnapshot();
-    },
-
-    inspectRuntime(simTick) {
-        return {
-            timestamp: Date.now(),
-            sim: simTick,
-            core: this.core.getDiagnosticsSnapshot()
+        const OPS_METRICS = {
+            startTime: Date.now(),
+            lastTick: null,
+            tickCount: 0,
+            avgInterval: 0
         };
-    }
-};
+
+        function updateMetrics(tickTime) {
+            OPS_METRICS.tickCount++;
+
+            if (OPS_METRICS.lastTick) {
+                const interval = tickTime - OPS_METRICS.lastTick;
+                OPS_METRICS.avgInterval =
+                    (OPS_METRICS.avgInterval * (OPS_METRICS.tickCount - 1) + interval) /
+                    OPS_METRICS.tickCount;
+            }
+
+            OPS_METRICS.lastTick = tickTime;
+        }
+
+        function updateMetricsPanel() {
+            const el = document.getElementById("ops-metrics");
+
+            const uptime = ((Date.now() - OPS_METRICS.startTime) / 1000).toFixed(2);
+
+            el.textContent =
+                `Ticks: ${OPS_METRICS.tickCount}\n` +
+                `Uptime: ${uptime}s\n` +
+                `Last Tick: ${OPS_METRICS.lastTick || "none"}\n` +
+                `Avg Interval: ${OPS_METRICS.avgInterval.toFixed(2)}ms`;
+        }
+
+        const OPS_EVENTS = [];
+
+        function pushOpsEvent(msg) {
+            OPS_EVENTS.push({
+                time: Date.now(),
+                msg
+            });
+
+            if (OPS_EVENTS.length > 50) OPS_EVENTS.shift();
+        }
+
+        function updateOpsEventStream() {
+            const el = document.getElementById("ops-events-stream");
+
+            if (OPS_EVENTS.length === 0) {
+                el.textContent = "(no ops events)";
+                return;
+            }
+
+            el.textContent = OPS_EVENTS
+                .map(e => `[${new Date(e.time).toLocaleTimeString()}] ${e.msg}`)
+                .join("\n");
+        }
+
+        function getOpsInternalState() {
+            return {
+                metrics: OPS_METRICS,
+                events: OPS_EVENTS,
+                coreLogs: APEXOPS.getCoreLogs(),
+                coreErrors: APEXOPS.getCoreErrors(),
+                lifecycle: APEXOPS.getLifecycleHistory()
+            };
+        }
+
+        function updateOpsInternalStatePanel() {
+            const el = document.getElementById("ops-internal");
+            el.textContent = JSON.stringify(getOpsInternalState(), null, 2);
+        }
+
+        function updateCoreLogs() {
+            document.getElementById("ops-logs").textContent =
+                APEXOPS.getCoreLogs().join("\n");
+        }
+
+        function updateCoreErrors() {
+            const errors = APEXOPS.getCoreErrors();
+            const el = document.getElementById("ops-errors");
+
+            if (errors.length === 0) {
+                el.textContent = "(no errors)";
+                return;
+            }
+
+            el.textContent = errors
+                .map(err => `[${new Date(err.timestamp).toLocaleTimeString()}] ${err.context}: ${err.error}`)
+                .join("\n");
+        }
+
+        function updateLifecycleHistory() {
+            const history = APEXOPS.getLifecycleHistory();
+            const el = document.getElementById("ops-lifecycle");
+
+            if (history.length === 0) {
+                el.textContent = "(no lifecycle events)";
+                return;
+            }
+
+            el.textContent = history
+                .map(ev => `[${new Date(ev.timestamp).toLocaleTimeString()}] ${ev.type.toUpperCase()} — ${ev.name}`)
+                .join("\n");
+        }
+
+        function updateModuleStatus() {
+            const status = APEXOPS.getModuleStatus();
+            const el = document.getElementById("ops-modules");
+
+            const keys = Object.keys(status);
+            if (keys.length === 0) {
+                el.textContent = "(no modules)";
+                return;
+            }
+
+            el.textContent = keys
+                .map(key => `${key}: ${JSON.stringify(status[key], null, 2)}`)
+                .join("\n\n");
+        }
+
+        function updateRegistryKeys() {
+            const keys = APEXOPS.getRegistryKeys();
+            const el = document.getElementById("ops-registry");
+
+            if (keys.length === 0) {
+                el.textContent = "(no registry keys)";
+                return;
+            }
+
+            el.textContent = keys.join("\n");
+        }
+
+        // ⭐ NEW IN STEP 15 — REGISTRY VALUE PANEL
+        function updateRegistryValues() {
+            const values = APEXOPS.getRegistryValues();
+            const el = document.getElementById("ops-registry-values");
+
+            el.textContent = JSON.stringify(values, null, 2);
+        }
+
+        function updateCoreSnapshot() {
+            const snapshot = APEXOPS.getCoreSnapshot();
+            document.getElementById("ops-snapshot").textContent =
+                JSON.stringify(snapshot, null, 2);
+        }
+
+        function updateEventNames() {
+            const snapshot = APEXOPS.getCoreSnapshot();
+            document.getElementById("ops-events").textContent =
+                snapshot.eventNames.join("\n");
+        }
+
+        // ============================
+        // RUN TICK
+        // ============================
+        document.getElementById("btnOpsTick").onclick = () => {
+            const tick = {
+                time: Date.now(),
+                random: Math.random()
+            };
+
+            APEXCORE.tick(tick);
+
+            const ops = APEXOPS.inspectRuntime(tick);
+
+            log("SIMULATION TICK:");
+            log(JSON.stringify(tick, null, 2));
+
+            log("OPS INSPECTION:");
+            log(JSON.stringify(ops, null, 2));
+
+            updateMetrics(tick.time);
+            pushOpsEvent("OPS: Tick processed");
+
+            updateCoreLogs();
+            updateCoreErrors();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateRegistryValues(); // ⭐ NEW
+            updateCoreSnapshot();
+            updateEventNames();
+            updateMetricsPanel();
+            updateOpsEventStream();
+            updateOpsInternalStatePanel();
+        };
+
+        document.getElementById("btnOpsClear").onclick = () => {
+            out.textContent = "APEXOPS ready.";
+        };
+
+        document.getElementById("btnModuleMount").onclick = () => {
+            APEXCORE.mount("example");
+            pushOpsEvent("OPS: Example module mounted via button");
+            updateCoreLogs();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateRegistryValues();
+            updateCoreSnapshot();
+            updateOpsInternalStatePanel();
+        };
+
+        document.getElementById("btnModuleUnmount").onclick = () => {
+            APEXCORE.unmount("example");
+            pushOpsEvent("OPS: Example module unmounted via button");
+            updateCoreLogs();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateRegistryValues();
+            updateCoreSnapshot();
+            updateOpsInternalStatePanel();
+        };
+
+        document.getElementById("btnModuleReload").onclick = () => {
+            APEXCORE.reload("example");
+            pushOpsEvent("OPS: Example module reloaded via button");
+            updateCoreLogs();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateRegistryValues();
+            updateCoreSnapshot();
+            updateOpsInternalStatePanel();
+        };
+
+        // Initial panel refresh
+        updateCoreLogs();
+        updateLifecycleHistory();
+        updateModuleStatus();
+        updateRegistryKeys();
+        updateRegistryValues(); // ⭐ NEW
+        updateCoreSnapshot();
+        updateEventNames();
+        updateMetricsPanel();
+        updateOpsEventStream();
+        updateOpsInternalStatePanel();
+    </script>
+
+    <div id="apexops-diagnostics">
+        <h2>APEXOPS Diagnostics</h2>
+
+        <div id="ops-panels">
+
+            <div class="ops-panel">
+                <h3>Core Logs</h3>
+                <pre id="ops-logs">(no logs yet)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Core Errors</h3>
+                <pre id="ops-errors">(no errors)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Lifecycle History</h3>
+                <pre id="ops-lifecycle">(no lifecycle events)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Module Status</h3>
+                <pre id="ops-modules">(no modules)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Registry Keys</h3>
+                <pre id="ops-registry">(no registry keys)</pre>
+            </div>
+
+            <!-- ⭐ NEW IN STEP 15 -->
+            <div class="ops-panel">
+                <h3>Registry Values</h3>
+                <pre id="ops-registry-values">(no registry values)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Core Snapshot</h3>
+                <pre id="ops-snapshot">(no snapshot)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Event Names</h3>
+                <pre id="ops-events">(no event names)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>Core Metrics</h3>
+                <pre id="ops-metrics">(no metrics)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>OPS Event Stream</h3>
+                <pre id="ops-events-stream">(no ops events)</pre>
+            </div>
+
+            <div class="ops-panel">
+                <h3>OPS Internal State</h3>
+                <pre id="ops-internal">(no internal state)</pre>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
