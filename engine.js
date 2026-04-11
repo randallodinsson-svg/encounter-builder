@@ -1,140 +1,126 @@
-/* ========================================================================
-   engine.js — APEX ENGINE FAMILY ORCHESTRATOR
-   ------------------------------------------------------------------------
-   Author: Randy Sellhausen (APEXCORE Platform)
-   Module: Engine Loader / Orchestrator
-   Version: 3.0.0
-   Identity: Industrial, world‑agnostic, platform‑neutral
-   Purpose: Unified loader that initializes APEXCORE, registers modules,
-            and exposes a clean API for the APEX System Shell.
-   ======================================================================== */
+/* ============================================================
+   APEX ENGINE FAMILY — MASTER ORCHESTRATOR (v3 Unified Edition)
+   Author: Randy Sellhausen — VECTORCORE INTERACTIVE
+   Purpose: Tie together APEXCORE, APEXAI, APEXSIM, APEXOPS
+   ============================================================ */
 
-import { createApexCore } from './apexcore.js';
-import { createApexAI } from './apexai.js';
-import { createApexSim, MinimalTestScenarioV1 } from './apexsim.js';
-import { createApexOps } from './apexops.js';
+import { APEXCORE } from "./apexcore.js";
+import { APEXAI }   from "./apexai.js";
+import { APEXSIM }  from "./apexsim.js";
+import { APEXOPS }  from "./apexops.js";
 
-/* ========================================================================
-   ENGINE ORCHESTRATOR
-   ======================================================================== */
-
+/* ------------------------------------------------------------
+   ENGINE CLASS
+------------------------------------------------------------ */
 export class ApexEngine {
-  constructor() {
-    /* ------------------------------------------------------------
-       CORE INITIALIZATION
-       ------------------------------------------------------------ */
-    this.core = createApexCore();
+
+    constructor() {
+        this.core = APEXCORE;
+        this.ai   = APEXAI;
+        this.sim  = APEXSIM;
+        this.ops  = APEXOPS;
+
+        this.initialized = false;
+        this.started     = false;
+
+        this._registerModules();
+    }
 
     /* ------------------------------------------------------------
-       MODULE INITIALIZATION
-       ------------------------------------------------------------ */
-    this.ai = createApexAI(this.core);
-
-    // Default simFactory for OPS + SIM panels
-    this.simFactory = scenario => createApexSim(scenario);
-
-    // OPS is UI‑bound, so we instantiate it lazily
-    this.ops = null;
+       MODULE REGISTRATION
+    ------------------------------------------------------------ */
+    _registerModules() {
+        this.core.registerModule("APEXAI",  this.ai);
+        this.core.registerModule("APEXSIM", this.sim);
+        this.core.registerModule("APEXOPS", this.ops);
+    }
 
     /* ------------------------------------------------------------
-       DEFAULT SCENARIO
-       ------------------------------------------------------------ */
-    this.core.loadScenario(MinimalTestScenarioV1);
+       LIFECYCLE
+    ------------------------------------------------------------ */
+    init(canvas = null) {
+        if (this.initialized) return;
+
+        this.core.init();
+
+        if (canvas) {
+            this.sim.init(canvas);
+        }
+
+        this.initialized = true;
+        console.log("[ENGINE] Initialized.");
+    }
+
+    start() {
+        if (!this.initialized) this.init();
+        if (this.started) return;
+
+        this.core.start();
+        this.started = true;
+
+        console.log("[ENGINE] Started.");
+    }
+
+    reset() {
+        this.core.reset();
+        this.initialized = false;
+        this.started = false;
+
+        console.log("[ENGINE] Reset.");
+    }
 
     /* ------------------------------------------------------------
-       EVENT LOGGING (for debugging + shell panels)
-       ------------------------------------------------------------ */
-    this._wireEvents();
-  }
+       UNIFIED ENGINE API
+    ------------------------------------------------------------ */
 
-  /* ========================================================================
-     EVENT BUS WIRING
-     ======================================================================== */
-  _wireEvents() {
-    this.core.on("core:boot", () => this._log("CORE booted."));
-    this.core.on("core:shutdown", () => this._log("CORE shutdown."));
+    // AI
+    generateScenario() {
+        return this.ai.generateScenario();
+    }
 
-    this.core.on("scenario:loaded", sc =>
-      this._log(`Scenario loaded: ${sc.id}`)
-    );
+    evaluateScenario() {
+        return this.ai.evaluateScenario();
+    }
 
-    this.core.on("simulation:start", () =>
-      this._log("Simulation started.")
-    );
+    setDifficulty(level) {
+        this.ai.setDifficulty(level);
+    }
 
-    this.core.on("simulation:complete", () =>
-      this._log("Simulation completed.")
-    );
+    // SIM
+    simStep() {
+        return this.core.runSimulationStep();
+    }
 
-    this.core.on("module:registered", m =>
-      this._log(`Module registered: ${m.id}`)
-    );
-  }
+    loadDefaultScenario() {
+        return this.sim.loadDefaultScenario();
+    }
 
-  _log(msg) {
-    console.log(`[APEXENGINE] ${msg}`);
-  }
+    // OPS
+    opsStep() {
+        return this.core.runOpsStep();
+    }
 
-  /* ========================================================================
-     OPS INITIALIZATION (LAZY)
-     ======================================================================== */
-  mountOps(rootId) {
-    this.ops = createApexOps(rootId, this.simFactory);
-    this._log("APEXOPS mounted.");
-    return this.ops;
-  }
+    // AI Step (evaluation)
+    aiStep() {
+        return this.core.runAIStep();
+    }
 
-  /* ========================================================================
-     SIMULATION HELPERS
-     ======================================================================== */
-  runSimulation() {
-    return this.core.startSimulation(this.simFactory);
-  }
-
-  loadScenario(scenario) {
-    this.core.loadScenario(scenario);
-  }
-
-  /* ========================================================================
-     AI HELPERS
-     ======================================================================== */
-  generateScenario(generatorId, options = {}) {
-    return this.ai.generateScenario(generatorId, options);
-  }
-
-  generateBatch(generatorId, count = 5, options = {}) {
-    return this.ai.generateBatch(generatorId, count, options);
-  }
-
-  evaluateScenario(evaluatorId, scenario) {
-    return this.ai.evaluateScenario(evaluatorId, scenario);
-  }
-
-  evaluateBatch(evaluatorId, scenarios) {
-    return this.ai.evaluateBatch(evaluatorId, scenarios);
-  }
-
-  /* ========================================================================
-     EXPORT API
-     ======================================================================== */
-  getAPI() {
-    return {
-      core: this.core,
-      ai: this.ai,
-      ops: this.ops,
-      runSimulation: () => this.runSimulation(),
-      loadScenario: s => this.loadScenario(s),
-      generateScenario: (id, opt) => this.generateScenario(id, opt),
-      generateBatch: (id, n, opt) => this.generateBatch(id, n, opt),
-      evaluateScenario: (id, sc) => this.evaluateScenario(id, sc),
-      evaluateBatch: (id, list) => this.evaluateBatch(id, list)
-    };
-  }
+    /* ------------------------------------------------------------
+       DEBUG / INTROSPECTION
+    ------------------------------------------------------------ */
+    getState() {
+        return {
+            core: "APEXCORE v3",
+            ai: this.ai.getState ? this.ai.getState() : "AI state unavailable",
+            sim: this.sim.getState(),
+            ops: this.ops.getState ? this.ops.getState() : "OPS state unavailable"
+        };
+    }
 }
 
-/* ========================================================================
-   FACTORY — Create a fully configured ApexEngine instance
-   ======================================================================== */
-export function createApexEngine() {
-  return new ApexEngine();
-}
+/* ------------------------------------------------------------
+   DEFAULT ENGINE INSTANCE
+------------------------------------------------------------ */
+export const ENGINE = new ApexEngine();
+
+console.log("[ENGINE] APEX Engine Family v3 loaded.");
