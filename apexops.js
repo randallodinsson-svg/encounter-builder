@@ -1,30 +1,86 @@
-// APEXOPS v2 — Runtime Inspector Layer
-// Clean, deterministic, and UI‑agnostic.
+// APEXOPS v3 — Runtime Inspector + APEXCORE Diagnostics Integration
+// Clean, stable, and fully compatible with APEXCORE v3.4
 
 export const APEXOPS = {
 
-    version: "2.0.0",
+    version: "3.0.0",
 
-    // Inspect a simulation tick and return structured diagnostics
-    inspect(tickData) {
-        if (!tickData) {
-            return {
-                status: "ERROR",
-                message: "No tick data provided.",
-                timestamp: Date.now()
-            };
-        }
+    init(core) {
+        this.core = core;
+        console.log("[APEXOPS] Initialized and connected to APEXCORE diagnostics.");
+    },
 
+    // =========================
+    // CORE DIAGNOSTICS ACCESS
+    // =========================
+
+    getCoreLogs() {
+        return this.core?.getLogs() || [];
+    },
+
+    getCoreErrors() {
+        return this.core?.getErrors() || [];
+    }
+
+    getLifecycleHistory() {
+        return this.core?.getLifecycleHistory() || [];
+    },
+
+    getModuleStatus() {
+        return this.core?.getModuleStatus() || {};
+    },
+
+    getRegistryKeys() {
+        return Object.keys(this.core?.state?.registry || {});
+    },
+
+    getCoreSnapshot() {
+        return this.core?.getDiagnosticsSnapshot() || null;
+    },
+
+    // =========================
+    // OPS RUNTIME INSPECTION
+    // =========================
+
+    inspectRuntime(simState) {
         return {
-            status: "OK",
             timestamp: Date.now(),
-            tickId: tickData.id || null,
-            summary: {
-                entities: tickData.entities?.length || 0,
-                events: tickData.events?.length || 0,
-                energy: tickData.energy ?? "N/A"
-            },
-            raw: tickData
+            sim: simState || null,
+            core: this.getCoreSnapshot()
         };
+    },
+
+    // =========================
+    // OPS EVENT HOOKS
+    // =========================
+
+    attachEventHooks() {
+        if (!this.core) return;
+
+        this.core.on("module:mounted", (e) => {
+            console.log("[APEXOPS] Module mounted:", e.name);
+        });
+
+        this.core.on("module:unmounted", (e) => {
+            console.log("[APEXOPS] Module unmounted:", e.name);
+        });
+
+        this.core.on("module:reloaded", (e) => {
+            console.log("[APEXOPS] Module reloaded:", e.name);
+        });
+
+        this.core.on("registry:changed", (e) => {
+            console.log("[APEXOPS] Registry changed:", e.key, "=", e.value);
+        });
+
+        this.core.on("registry:deleted", (e) => {
+            console.log("[APEXOPS] Registry deleted:", e.key);
+        });
+
+        this.core.on("registry:cleared", () => {
+            console.log("[APEXOPS] Registry cleared.");
+        });
+
+        console.log("[APEXOPS] Event hooks attached.");
     }
 };
