@@ -120,6 +120,33 @@
         }
 
         // ============================
+        // STEP 10 — OPS EVENT STREAM
+        // ============================
+        const OPS_EVENTS = [];
+
+        function pushOpsEvent(msg) {
+            OPS_EVENTS.push({
+                time: Date.now(),
+                msg
+            });
+
+            if (OPS_EVENTS.length > 50) OPS_EVENTS.shift();
+        }
+
+        function updateOpsEventStream() {
+            const el = document.getElementById("ops-events-stream");
+
+            if (OPS_EVENTS.length === 0) {
+                el.textContent = "(no ops events)";
+                return;
+            }
+
+            el.textContent = OPS_EVENTS
+                .map(e => `[${new Date(e.time).toLocaleTimeString()}] ${e.msg}`)
+                .join("\n");
+        }
+
+        // ============================
         // Existing panel update functions
         // ============================
 
@@ -212,10 +239,9 @@
             log("OPS INSPECTION:");
             log(JSON.stringify(ops, null, 2));
 
-            // Update metrics
             updateMetrics(tick.time);
+            pushOpsEvent("OPS: Tick processed");
 
-            // Update all panels
             updateCoreLogs();
             updateCoreErrors();
             updateLifecycleHistory();
@@ -223,7 +249,8 @@
             updateRegistryKeys();
             updateCoreSnapshot();
             updateEventNames();
-            updateMetricsPanel(); // STEP 09
+            updateMetricsPanel();
+            updateOpsEventStream();
         };
 
         document.getElementById("btnOpsClear").onclick = () => {
@@ -271,10 +298,15 @@
                 <pre id="ops-events">(no event names)</pre>
             </div>
 
-            <!-- STEP 09 — Core Metrics Panel -->
             <div class="ops-panel">
                 <h3>Core Metrics</h3>
                 <pre id="ops-metrics">(no metrics)</pre>
+            </div>
+
+            <!-- STEP 10 — OPS Event Stream Panel -->
+            <div class="ops-panel">
+                <h3>OPS Event Stream</h3>
+                <pre id="ops-events-stream">(no ops events)</pre>
             </div>
 
         </div>
