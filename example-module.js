@@ -4,33 +4,44 @@
 export const ExampleModule = {
 
     name: "example",
+    counter: 0,
 
     init(core) {
         core.log("ExampleModule.init() called.");
 
-        // Write something into the registry so the Registry panel lights up.
+        this.counter = 0;
+
         core.set("example.status", {
             initialized: true,
-            value: 1,
+            value: this.counter,
             note: "Example module mounted."
         });
     },
 
     destroy(core) {
         core.log("ExampleModule.destroy() called.");
-
-        // Clean up registry so unmount is visible.
         core.delete("example.status");
     },
 
     reload(core) {
         core.log("ExampleModule.reload() called.");
 
-        // Change the registry value so reload is visible.
+        this.counter = 0;
+
         core.set("example.status", {
             initialized: true,
-            value: 2,
+            value: this.counter,
             note: "Example module reloaded."
+        });
+    },
+
+    tick(tick, core) {
+        this.counter++;
+
+        core.set("example.status", {
+            initialized: true,
+            value: this.counter,
+            note: "Tick updated value."
         });
     }
 };
