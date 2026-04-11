@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>APEXAI v3 — Scenario Engine</title>
+
     <style>
         body {
             margin: 0;
@@ -15,7 +16,7 @@
         }
 
         #sidebar {
-            width: 320px;
+            width: 280px;
             background: #11161d;
             border-right: 1px solid #1f2732;
             padding: 20px;
@@ -23,13 +24,7 @@
             overflow-y: auto;
         }
 
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        h2 {
+        #sidebar h2 {
             margin-top: 0;
             font-size: 20px;
             letter-spacing: 0.5px;
@@ -52,39 +47,104 @@
         }
 
         .section {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
-        #output {
+        .difficulty-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .difficulty-btn {
+            width: 100%;
+            padding: 8px;
+            font-size: 13px;
+        }
+
+        #main {
             flex: 1;
+            display: flex;
+            flex-direction: row;
+        }
+
+        #leftPanel {
+            width: 320px;
+            border-right: 1px solid #1f2732;
             background: #0f141a;
-            border-top: 1px solid #1f2732;
-            padding: 15px;
-            font-family: Consolas, monospace;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #scenarioListHeader {
+            padding: 10px 12px;
+            border-bottom: 1px solid #1f2732;
             font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.8;
+        }
+
+        #scenarioList {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .scenario-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #1f2732;
+            cursor: pointer;
+        }
+
+        .scenario-item:hover {
+            background: #151b24;
+        }
+
+        .scenario-item-title {
+            font-size: 14px;
+        }
+
+        .scenario-item-meta {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        #rightPanel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #detailPanel {
+            height: 220px;
+            border-bottom: 1px solid #1f2732;
+            background: #0f141a;
+            padding: 12px;
+            box-sizing: border-box;
+            font-family: Consolas, monospace;
+            font-size: 13px;
             overflow-y: auto;
             white-space: pre-wrap;
         }
 
-        #scenarioList {
-            background: #0f141a;
-            border: 1px solid #1f2732;
-            padding: 10px;
-            height: 200px;
+        #output {
+            flex: 1;
+            background: #05070a;
+            padding: 12px;
+            box-sizing: border-box;
+            font-family: Consolas, monospace;
+            font-size: 13px;
             overflow-y: auto;
-            font-size: 14px;
+            white-space: pre-wrap;
+            border-top: 1px solid #1f2732;
         }
 
-        .scenarioItem {
-            padding: 6px;
-            margin-bottom: 6px;
-            background: #1a212c;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .scenarioItem:hover {
-            background: #243040;
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            opacity: 0.7;
+            margin-bottom: 4px;
         }
     </style>
 </head>
@@ -92,98 +152,140 @@
 <body>
 
     <div id="sidebar">
-        <h2>APEXAI — Scenario Browser</h2>
+        <h2>APEXAI — Scenario Engine</h2>
 
         <div class="section">
+            <div class="label">Scenario Actions</div>
             <button id="btnGenerate">Generate Scenario</button>
             <button id="btnEvaluate">Evaluate Scenario</button>
+            <button id="btnClearLog">Clear Output</button>
         </div>
 
         <div class="section">
-            <h3>Difficulty Filter</h3>
-            <button data-diff="easy">Easy</button>
-            <button data-diff="normal">Normal</button>
-            <button data-diff="hard">Hard</button>
-            <button data-diff="extreme">Extreme</button>
+            <div class="label">Difficulty</div>
+            <div class="difficulty-row">
+                <button class="difficulty-btn" data-diff="easy">Easy</button>
+                <button class="difficulty-btn" data-diff="normal">Normal</button>
+                <button class="difficulty-btn" data-diff="hard">Hard</button>
+                <button class="difficulty-btn" data-diff="extreme">Extreme</button>
+            </div>
         </div>
 
         <div class="section">
-            <h3>Scenarios</h3>
-            <div id="scenarioList"></div>
-        </div>
-
-        <div class="section">
-            <button id="btnCopy">Copy Output</button>
-            <button id="btnExport">Export JSON</button>
+            <div class="label">History</div>
+            <button id="btnClearHistory">Clear Scenario History</button>
         </div>
     </div>
 
     <div id="main">
-        <div id="output">APEXAI v3 ready.</div>
+        <div id="leftPanel">
+            <div id="scenarioListHeader">Scenario History</div>
+            <div id="scenarioList"></div>
+        </div>
+
+        <div id="rightPanel">
+            <div id="detailPanel">Scenario detail will appear here.</div>
+            <div id="output">APEXAI v3 ready.</div>
+        </div>
     </div>
 
-    <script src="apexai.js"></script>
-    <script>
-        const out = document.getElementById("output");
-        const list = document.getElementById("scenarioList");
+    <script type="module">
+        import { APEXAI } from "./apexai.js";
+
+        const outputEl = document.getElementById("output");
+        const detailEl = document.getElementById("detailPanel");
+        const listEl = document.getElementById("scenarioList");
+
+        const history = [];
 
         function log(msg) {
-            out.textContent += "\\n" + msg;
-            out.scrollTop = out.scrollHeight;
+            outputEl.textContent += "\\n" + msg;
+            outputEl.scrollTop = outputEl.scrollHeight;
         }
 
-        // Generate Scenario
+        function renderScenarioList() {
+            listEl.innerHTML = "";
+            if (history.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "scenario-item";
+                empty.style.opacity = "0.6";
+                empty.textContent = "No scenarios generated yet.";
+                listEl.appendChild(empty);
+                return;
+            }
+
+            history.slice().reverse().forEach((scenario, index) => {
+                const item = document.createElement("div");
+                item.className = "scenario-item";
+
+                const title = document.createElement("div");
+                title.className = "scenario-item-title";
+                title.textContent = scenario.title;
+
+                const meta = document.createElement("div");
+                meta.className = "scenario-item-meta";
+                meta.textContent =
+                    `ID: ${scenario.id} • ` +
+                    `Diff: ${scenario.difficulty} • ` +
+                    `Enemies: ${scenario.enemyCount} ${scenario.enemyType}`;
+
+                item.appendChild(title);
+                item.appendChild(meta);
+
+                item.onclick = () => {
+                    showScenarioDetail(scenario);
+                };
+
+                listEl.appendChild(item);
+            });
+        }
+
+        function showScenarioDetail(scenario) {
+            detailEl.textContent =
+                "Scenario Detail:\\n" +
+                JSON.stringify(scenario, null, 2);
+        }
+
+        // Initial list render
+        renderScenarioList();
+
+        // Buttons
         document.getElementById("btnGenerate").onclick = () => {
             const scenario = APEXAI.generateScenario();
+            history.push(scenario);
+
             log("Generated Scenario:");
             log(JSON.stringify(scenario, null, 2));
 
-            const item = document.createElement("div");
-            item.className = "scenarioItem";
-            item.textContent = scenario.title || "Untitled Scenario";
-            item.onclick = () => {
-                log("Selected Scenario:");
-                log(JSON.stringify(scenario, null, 2));
-            };
-            list.appendChild(item);
+            renderScenarioList();
+            showScenarioDetail(scenario);
         };
 
-        // Evaluate Scenario
         document.getElementById("btnEvaluate").onclick = () => {
             const result = APEXAI.evaluateScenario();
             log("Evaluation Result:");
             log(JSON.stringify(result, null, 2));
         };
 
-        // Difficulty Filters
-        document.querySelectorAll("[data-diff]").forEach(btn => {
+        document.getElementById("btnClearLog").onclick = () => {
+            outputEl.textContent = "APEXAI v3 ready.";
+        };
+
+        document.getElementById("btnClearHistory").onclick = () => {
+            history.length = 0;
+            renderScenarioList();
+            detailEl.textContent = "Scenario detail will appear here.";
+            log("Scenario history cleared.");
+        };
+
+        // Difficulty buttons
+        document.querySelectorAll(".difficulty-btn").forEach(btn => {
             btn.onclick = () => {
-                const diff = btn.getAttribute("data-diff");
-                APEXAI.setDifficulty(diff);
-                log("Difficulty set to: " + diff);
+                const level = btn.getAttribute("data-diff");
+                APEXAI.setDifficulty(level);
+                log(`Difficulty set to: ${level}`);
             };
         });
-
-        // Copy Output
-        document.getElementById("btnCopy").onclick = () => {
-            navigator.clipboard.writeText(out.textContent);
-            log("Output copied to clipboard.");
-        };
-
-        // Export JSON
-        document.getElementById("btnExport").onclick = () => {
-            const data = out.textContent;
-            const blob = new Blob([data], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "apexai_output.json";
-            a.click();
-
-            URL.revokeObjectURL(url);
-            log("Exported JSON file.");
-        };
     </script>
 
 </body>
