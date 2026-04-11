@@ -75,6 +75,14 @@
         input[type="range"] {
             width: 180px;
         }
+
+        #ops-tps-graph {
+            width: 100%;
+            height: 80px;
+            background: #050505;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
     </style>
 </head>
 
@@ -93,7 +101,7 @@
         <button id="btnModuleReload">Reload Example Module</button>
     </div>
 
-    <!-- ⭐ STEP 16 — AUTO-TICK ENGINE CONTROLS -->
+    <!-- STEP 16 — AUTO-TICK ENGINE CONTROLS -->
     <div style="margin-top:10px; margin-bottom:10px;">
         <button id="btnAutoStart">Start Auto-Tick</button>
         <button id="btnAutoStop">Stop Auto-Tick</button>
@@ -282,6 +290,67 @@
         }
 
         // ============================
+        // STEP 17 — TPS GRAPH STATE
+        // ============================
+        const TPS_HISTORY = [];
+        const TPS_HISTORY_MAX = 60; // last 60 seconds
+        let lastTpsSampleTime = Date.now();
+        let ticksThisSecond = 0;
+
+        function recordTickForTps() {
+            const now = Date.now();
+            ticksThisSecond++;
+
+            const elapsed = now - lastTpsSampleTime;
+            if (elapsed >= 1000) {
+                const tps = ticksThisSecond;
+                TPS_HISTORY.push(tps);
+                if (TPS_HISTORY.length > TPS_HISTORY_MAX) {
+                    TPS_HISTORY.shift();
+                }
+                ticksThisSecond = 0;
+                lastTpsSampleTime = now;
+                drawTpsGraph();
+            }
+        }
+
+        function drawTpsGraph() {
+            const canvas = document.getElementById("ops-tps-graph");
+            if (!canvas) return;
+
+            const ctx = canvas.getContext("2d");
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (TPS_HISTORY.length === 0) {
+                ctx.fillStyle = "#555";
+                ctx.font = "12px Segoe UI";
+                ctx.fillText("No TPS data yet", 10, height / 2);
+                return;
+            }
+
+            const maxTps = Math.max(...TPS_HISTORY, 1);
+            const barWidth = width / TPS_HISTORY.length;
+
+            TPS_HISTORY.forEach((tps, index) => {
+                const normalized = tps / maxTps;
+                const barHeight = normalized * (height - 10);
+                const x = index * barWidth;
+                const y = height - barHeight;
+
+                const intensity = 100 + Math.floor(155 * normalized);
+                ctx.fillStyle = `rgb(0, ${intensity}, 255)`;
+                ctx.fillRect(x, y, barWidth - 1, barHeight);
+            });
+
+            ctx.fillStyle = "#aaa";
+            ctx.font = "10px Segoe UI";
+            ctx.fillText(`Max TPS: ${maxTps}`, 8, 12);
+        }
+
+        // ============================
         // CORE TICK PIPELINE (SHARED)
         // ============================
         function runTick() {
@@ -301,6 +370,7 @@
             log(JSON.stringify(ops, null, 2));
 
             updateMetrics(tick.time);
+            recordTickForTps();
             pushOpsEvent("OPS: Tick processed");
 
             updateCoreLogs();
@@ -407,7 +477,6 @@
         autoIntervalInput.addEventListener("input", () => {
             updateIntervalLabel();
 
-            // If auto-tick is running, apply new interval immediately
             if (autoTickTimer) {
                 startAutoTick();
             }
@@ -421,7 +490,6 @@
             stopAutoTick();
         };
 
-        // Initial label sync
         updateIntervalLabel();
 
         // Initial panel refresh
@@ -435,6 +503,7 @@
         updateMetricsPanel();
         updateOpsEventStream();
         updateOpsInternalStatePanel();
+        drawTpsGraph();
     </script>
 
     <div id="apexops-diagnostics">
@@ -495,6 +564,12 @@
             <div class="ops-panel">
                 <h3>OPS Internal State</h3>
                 <pre id="ops-internal">(no internal state)</pre>
+            </div>
+
+            <!-- STEP 17 — TPS GRAPH PANEL -->
+            <div class="ops-panel">
+                <h3>Tick Rate Graph (TPS)</h3>
+                <canvas id="ops-tps-graph" width="400" height="80"></canvas>
             </div>
 
         </div>
