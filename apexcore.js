@@ -1,40 +1,48 @@
-// APEXCORE v3.1 — Central System Core + Event Bus
-// Clean, stable, dependency‑safe, and fully modular.
+// APEXCORE v3.2 — Core Kernel + Event Bus + Data Registry
+// Clean, stable, modular, and future‑proof.
 
 export const APEXCORE = {
 
-    version: "3.1.0",
+    version: "3.2.0",
 
     state: {
         modules: {},
         logs: [],
-        events: {} // { eventName: [listener, ...] }
+        events: {},      // Event Bus
+        registry: {}     // Data Registry
     },
 
-    // Register a module into the core system
+    // =========================
+    // MODULE REGISTRATION
+    // =========================
+
     register(name, moduleRef) {
         if (!name || !moduleRef) return;
-
         this.state.modules[name] = moduleRef;
         this.log(`Module registered: ${name}`);
     },
 
-    // Retrieve a module
     get(name) {
         return this.state.modules[name] || null;
     },
 
-    // Core logging
+    // =========================
+    // LOGGING
+    // =========================
+
     log(msg) {
         const entry = `[APEXCORE] ${msg}`;
         this.state.logs.push(entry);
         console.log(entry);
     },
 
-    // System heartbeat
+    // =========================
+    // HEARTBEAT
+    // =========================
+
     ping() {
         return {
-            core: "APEXCORE v3.1",
+            core: "APEXCORE v3.2",
             status: "OK",
             modules: Object.keys(this.state.modules),
             timestamp: Date.now()
@@ -45,7 +53,6 @@ export const APEXCORE = {
     // EVENT BUS
     // =========================
 
-    // Subscribe to an event
     on(eventName, listener) {
         if (!eventName || typeof listener !== "function") return;
 
@@ -56,7 +63,6 @@ export const APEXCORE = {
         this.log(`Listener added for event: ${eventName}`);
     },
 
-    // Unsubscribe from an event
     off(eventName, listener) {
         const list = this.state.events[eventName];
         if (!list) return;
@@ -65,7 +71,6 @@ export const APEXCORE = {
         this.log(`Listener removed for event: ${eventName}`);
     },
 
-    // Emit an event
     emit(eventName, payload) {
         const list = this.state.events[eventName];
         if (!list || list.length === 0) return;
@@ -80,7 +85,6 @@ export const APEXCORE = {
         }
     },
 
-    // Subscribe once to an event
     once(eventName, listener) {
         if (!eventName || typeof listener !== "function") return;
 
@@ -90,5 +94,38 @@ export const APEXCORE = {
         };
 
         this.on(eventName, wrapper);
+    },
+
+    // =========================
+    // DATA REGISTRY
+    // =========================
+
+    set(key, value) {
+        this.state.registry[key] = value;
+
+        this.emit("registry:changed", { key, value });
+        this.log(`Registry set: ${key}`);
+    },
+
+    get(key) {
+        return this.state.registry[key];
+    },
+
+    has(key) {
+        return Object.prototype.hasOwnProperty.call(this.state.registry, key);
+    },
+
+    delete(key) {
+        if (this.has(key)) {
+            delete this.state.registry[key];
+            this.emit("registry:deleted", { key });
+            this.log(`Registry deleted: ${key}`);
+        }
+    },
+
+    clear() {
+        this.state.registry = {};
+        this.emit("registry:cleared", {});
+        this.log("Registry cleared.");
     }
 };
