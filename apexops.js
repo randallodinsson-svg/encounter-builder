@@ -1,89 +1,73 @@
-// APEXOPS v3.6 — Runtime Inspector + Diagnostics Layer + Registry Value Viewer
+/* ============================================================
+   STEP 17.4 — TICK‑TIME PROFILER (OPS‑SIDE, OPTION A)
+   Complete, drop‑in module
+============================================================ */
 
-export const APEXOPS = {
+export const TickTimeProfiler = (() => {
 
-    core: null,
+    // name -> { totalMs, count, avgMs, lastMs }
+    const moduleStats = new Map();
 
-    init(core) {
-        this.core = core;
-        console.log("[APEXOPS] Initialized and connected to APEXCORE diagnostics.");
-    },
+    // total tick time for last tick
+    let lastTickTotalMs = 0;
 
-    attachEventHooks() {
-        if (!this.core) return;
+    // internal temp store
+    const activeTimers = new Map();
 
-        // MODULE LIFECYCLE
-        this.core.on("module:mounted", (e) => {
-            console.log("[APEXOPS] Module mounted:", e.name);
-        });
+    function beginModuleTick(name) {
+        activeTimers.set(name, performance.now());
+    }
 
-        this.core.on("module:unmounted", (e) => {
-            console.log("[APEXOPS] Module unmounted:", e.name);
-        });
+    function endModuleTick(name) {
+        const start = activeTimers.get(name);
+        if (start == null) return;
 
-        this.core.on("module:reloaded", (e) => {
-            console.log("[APEXOPS] Module reloaded:", e.name);
-        });
+        const duration = performance.now() - start;
+        activeTimers.delete(name);
 
-        // REGISTRY EVENTS
-        this.core.on("registry:changed", (e) => {
-            console.log("[APEXOPS] Registry changed:", e.key, "=", e.value);
-        });
+        let entry = moduleStats.get(name);
+        if (!entry) {
+            entry = { totalMs: 0, count: 0, avgMs: 0, lastMs: 0 };
+            moduleStats.set(name, entry);
+        }
 
-        this.core.on("registry:deleted", (e) => {
-            console.log("[APEXOPS] Registry deleted:", e.key);
-        });
+        entry.totalMs += duration;
+        entry.count++;
+        entry.lastMs = duration;
+        entry.avgMs = entry.totalMs / entry.count;
 
-        this.core.on("registry:cleared", () => {
-            console.log("[APEXOPS] Registry cleared.");
-        });
+        return duration;
+    }
 
-        // ⭐ STEP 14 — TICK EVENT DIAGNOSTICS
-        this.core.on("module:tick", (e) => {
-            console.log("[APEXOPS] Module tick:", e.name, e.tick);
-        });
+    function beginTick() {
+        lastTickTotalMs = performance.now();
+    }
 
-        console.log("[APEXOPS] Event hooks attached.");
-    },
+    function endTick() {
+        lastTickTotalMs = performance.now() - lastTickTotalMs;
+    }
 
-    // ============================
-    // DIAGNOSTICS ACCESSORS
-    // ============================
-
-    getCoreLogs() {
-        return this.core.getLogs();
-    },
-
-    getCoreErrors() {
-        return this.core.getErrors();
-    },
-
-    getLifecycleHistory() {
-        return this.core.getLifecycleHistory();
-    },
-
-    getModuleStatus() {
-        return this.core.getModuleStatus();
-    },
-
-    getRegistryKeys() {
-        return this.core.getDiagnosticsSnapshot().registryKeys;
-    },
-
-    // ⭐ STEP 15 — FULL REGISTRY VALUE ACCESS
-    getRegistryValues() {
-        return this.core.state.registry;
-    },
-
-    getCoreSnapshot() {
-        return this.core.getDiagnosticsSnapshot();
-    },
-
-    inspectRuntime(simTick) {
+    function getSnapshot() {
+        const out = {};
+        for (const [name, data] of moduleStats.entries()) {
+            out[name] = {
+                lastMs: Number(data.lastMs.toFixed(3)),
+                avgMs: Number(data.avgMs.toFixed(3)),
+                count: data.count
+            };
+        }
         return {
-            timestamp: Date.now(),
-            sim: simTick,
-            core: this.core.getDiagnosticsSnapshot()
+            modules: out,
+            totalTickMs: Number(lastTickTotalMs.toFixed(3))
         };
     }
-};
+
+    return {
+        beginModuleTick,
+        endModuleTick,
+        beginTick,
+        endTick,
+        getSnapshot
+    };
+
+})();
