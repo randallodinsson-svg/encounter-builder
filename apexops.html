@@ -147,6 +147,73 @@
         APEXCORE.register("example", ExampleModule);
         APEXCORE.mount("example");
 
+        /* ============================================================
+           STEP 17.4 — TICK‑TIME PROFILER (OPS‑SIDE, OPTION A)
+        ============================================================ */
+        const TickTimeProfiler = (() => {
+
+            const moduleStats = new Map(); // name -> { totalMs, count, avgMs, lastMs }
+            let lastTickTotalMs = 0;
+            const activeTimers = new Map();
+
+            function beginModuleTick(name) {
+                activeTimers.set(name, performance.now());
+            }
+
+            function endModuleTick(name) {
+                const start = activeTimers.get(name);
+                if (start == null) return;
+
+                const duration = performance.now() - start;
+                activeTimers.delete(name);
+
+                let entry = moduleStats.get(name);
+                if (!entry) {
+                    entry = { totalMs: 0, count: 0, avgMs: 0, lastMs: 0 };
+                    moduleStats.set(name, entry);
+                }
+
+                entry.totalMs += duration;
+                entry.count++;
+                entry.lastMs = duration;
+                entry.avgMs = entry.totalMs / entry.count;
+
+                return duration;
+            }
+
+            function beginTick() {
+                lastTickTotalMs = performance.now();
+            }
+
+            function endTick() {
+                lastTickTotalMs = performance.now() - lastTickTotalMs;
+            }
+
+            function getSnapshot() {
+                const out = {};
+                for (const [name, data] of moduleStats.entries()) {
+                    out[name] = {
+                        lastMs: Number(data.lastMs.toFixed(3)),
+                        avgMs: Number(data.avgMs.toFixed(3)),
+                        count: data.count
+                    };
+                }
+                return {
+                    modules: out,
+                    totalTickMs: Number(lastTickTotalMs.toFixed(3))
+                };
+            }
+
+            return {
+                beginModuleTick,
+                endModuleTick,
+                beginTick,
+                endTick,
+                getSnapshot
+            };
+
+        })();
+
         const OPS_METRICS = {
             startTime: Date.now(),
             lastTick: null,
@@ -328,7 +395,6 @@
                     TPS_HISTORY.shift();
                 }
 
-                // rolling average over last TPS_AVG_WINDOW samples
                 const windowSize = Math.min(TPS_AVG_WINDOW, TPS_HISTORY.length);
                 if (windowSize > 0) {
                     let sum = 0;
@@ -431,15 +497,60 @@
         }
 
         /* ============================
-           CORE TICK PIPELINE
+           TICK‑TIME PANEL UPDATE
+        ============================ */
+        function updateTickTimePanel() {
+            const snap = TickTimeProfiler.getSnapshot();
+            const el = document.getElementById("ops-ticktime");
+
+            const lines = [];
+            lines.push(`Total Tick Time: ${snap.totalTickMs} ms\n`);
+
+            const names = Object.keys(snap.modules);
+            if (names.length === 0) {
+                lines.push("(no module timing data)");
+            } else {
+                for (const name of names) {
+                    const m = snap.modules[name];
+                    lines.push(
+                        `${name} — last: ${m.lastMs} ms | avg: ${m.avgMs} ms | samples: ${m.count}`
+                    );
+                }
+            }
+
+            el.textContent = lines.join("\n");
+        }
+
+        /* ============================
+           PROFILING‑ENABLED TICK LOOP
         ============================ */
         function runTick() {
+
+            TickTimeProfiler.beginTick();
+
             const tick = {
                 time: Date.now(),
                 random: Math.random()
             };
 
-            APEXCORE.tick(tick);
+            // OPS‑side per‑module profiling
+            const mounted = APEXCORE.getMountedModules
+                ? APEXCORE.getMountedModules()
+                : Object.keys(APEXOPS.getModuleStatus());
+
+            for (const name of mounted) {
+                const mod = APEXCORE.getModule
+                    ? APEXCORE.getModule(name)
+                    : APEXCORE.modules?.[name];
+
+                if (!mod || typeof mod.tick !== "function") continue;
+
+                TickTimeProfiler.beginModuleTick(name);
+                mod.tick(tick);
+                TickTimeProfiler.endModuleTick(name);
+            }
+
+            TickTimeProfiler.endTick();
 
             const ops = APEXOPS.inspectRuntime(tick);
 
@@ -464,6 +575,7 @@
             updateMetricsPanel();
             updateOpsEventStream();
             updateOpsInternalStatePanel();
+            updateTickTimePanel();
         }
 
         /* ============================
@@ -589,6 +701,7 @@
         updateMinMaxTpsLabel();
         updateAvgTpsLabel();
         drawTpsGraph();
+        updateTickTimePanel();
     </script>
 
     <div id="apexops-diagnostics">
@@ -658,6 +771,12 @@
                 <div id="ops-minmax-tps">Min TPS: 0   |   Max TPS: 0</div>
                 <div id="ops-avg-tps">Avg TPS (5s): 0.00</div>
                 <canvas id="ops-tps-graph" width="400" height="80"></canvas>
+            </div>
+
+            <!-- TICK-TIME PROFILER PANEL -->
+            <div class="ops-panel">
+                <h3>Tick‑Time Profiler (ms)</h3>
+                <pre id="ops-ticktime">(no tick-time data yet)</pre>
             </div>
 
         </div>
