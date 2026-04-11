@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>APEXSIM v4 — Simulation Panel</title>
+    <title>APEXSIM — Simulation Engine</title>
 
     <style>
         body {
@@ -16,24 +16,12 @@
         }
 
         #sidebar {
-            width: 320px;
+            width: 260px;
             background: #11161d;
             border-right: 1px solid #1f2732;
             padding: 20px;
             box-sizing: border-box;
             overflow-y: auto;
-        }
-
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        h2 {
-            margin-top: 0;
-            font-size: 20px;
-            letter-spacing: 0.5px;
         }
 
         button {
@@ -52,26 +40,22 @@
             background: #3aa0ff;
         }
 
-        .section {
-            margin-bottom: 25px;
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        #output {
+        #simOutput {
             flex: 1;
-            background: #0f141a;
-            border-top: 1px solid #1f2732;
-            padding: 15px;
+            background: #05070a;
+            padding: 12px;
+            box-sizing: border-box;
             font-family: Consolas, monospace;
-            font-size: 14px;
+            font-size: 13px;
             overflow-y: auto;
             white-space: pre-wrap;
-        }
-
-        #simCanvas {
-            width: 100%;
-            height: 300px;
-            background: #000;
-            border-bottom: 1px solid #1f2732;
+            border-top: 1px solid #1f2732;
         }
     </style>
 </head>
@@ -79,115 +63,49 @@
 <body>
 
     <div id="sidebar">
-        <h2>APEXSIM — Simulation Panel</h2>
+        <h2>APEXSIM — Simulation Engine</h2>
 
-        <div class="section">
-            <button id="btnInit">Init Simulation</button>
-            <button id="btnStart">Start Simulation</button>
-            <button id="btnStop">Stop Simulation</button>
-            <button id="btnStep">Step Once</button>
-        </div>
-
-        <div class="section">
-            <h3>Scenario Controls</h3>
-            <button id="btnLoadScenario">Load Default Scenario</button>
-            <button id="btnReset">Reset Engine</button>
-        </div>
-
-        <div class="section">
-            <button id="btnCopy">Copy Output</button>
-            <button id="btnExport">Export JSON</button>
-        </div>
+        <button id="btnInit">Initialize Simulation</button>
+        <button id="btnTick">Run Tick</button>
+        <button id="btnReset">Reset Simulation</button>
+        <button id="btnClear">Clear Output</button>
     </div>
 
     <div id="main">
-        <canvas id="simCanvas"></canvas>
-        <div id="output">APEXSIM v4 ready.</div>
+        <div id="simOutput">APEXSIM v4 ready.</div>
     </div>
 
     <script type="module">
-        import { APEXCORE } from "./apexcore.js";
         import { APEXSIM } from "./apexsim.js";
+        import { APEXCORE } from "./apexcore.js";
 
-        const out = document.getElementById("output");
-        const canvas = document.getElementById("simCanvas");
+        const out = document.getElementById("simOutput");
 
-        function log(msg) {
-            out.textContent += "\\n" + msg;
+        function log(x) {
+            out.textContent += "\n" + x;
             out.scrollTop = out.scrollHeight;
         }
 
-        /* ------------------------------------------------------------
-           REGISTER MODULE
-        ------------------------------------------------------------ */
-        APEXCORE.registerModule("APEXSIM", APEXSIM);
-
-        /* ------------------------------------------------------------
-           BUTTON HOOKS
-        ------------------------------------------------------------ */
-
         document.getElementById("btnInit").onclick = () => {
-            APEXSIM.init(canvas);
-            log("Simulation initialized.");
-        };
-
-        let loop = null;
-
-        document.getElementById("btnStart").onclick = () => {
-            if (loop) return;
-            loop = setInterval(() => {
-                const result = APEXSIM.step();
-                log("SIM Step:");
-                log(JSON.stringify(result, null, 2));
-            }, 200);
-            log("Simulation loop started.");
-        };
-
-        document.getElementById("btnStop").onclick = () => {
-            if (!loop) return;
-            clearInterval(loop);
-            loop = null;
-            log("Simulation loop stopped.");
-        };
-
-        document.getElementById("btnStep").onclick = () => {
-            const result = APEXSIM.step();
-            log("Single step executed:");
+            const result = APEXSIM.init();
+            log("SIM INIT:");
             log(JSON.stringify(result, null, 2));
         };
 
-        document.getElementById("btnLoadScenario").onclick = () => {
-            const scenario = APEXSIM.loadDefaultScenario();
-            log("Loaded default scenario:");
-            log(JSON.stringify(scenario, null, 2));
+        document.getElementById("btnTick").onclick = () => {
+            const tick = APEXSIM.tick();
+            log("SIM TICK:");
+            log(JSON.stringify(tick, null, 2));
         };
 
         document.getElementById("btnReset").onclick = () => {
-            APEXSIM.reset();
-            log("Simulation reset.");
+            const reset = APEXSIM.reset();
+            log("SIM RESET:");
+            log(JSON.stringify(reset, null, 2));
         };
 
-        /* ------------------------------------------------------------
-           COPY / EXPORT
-        ------------------------------------------------------------ */
-
-        document.getElementById("btnCopy").onclick = () => {
-            navigator.clipboard.writeText(out.textContent);
-            log("Output copied to clipboard.");
-        };
-
-        document.getElementById("btnExport").onclick = () => {
-            const data = out.textContent;
-            const blob = new Blob([data], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "apexsim_output.json";
-            a.click();
-
-            URL.revokeObjectURL(url);
-            log("Exported JSON file.");
+        document.getElementById("btnClear").onclick = () => {
+            out.textContent = "APEXSIM v4 ready.";
         };
     </script>
 
