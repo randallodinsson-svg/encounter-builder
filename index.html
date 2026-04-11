@@ -1,69 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>APEXCORE — Platform Entry</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <title>APEXSIM Sanity Check</title>
+  <style>
+    body { margin: 0; background: #05070a; color: #eee; font-family: system-ui; }
+    #simCanvas { background: #111822; display: block; margin: 20px auto; }
+    #startBtn { display: block; margin: 20px auto; padding: 10px 20px; }
+  </style>
 </head>
+<body>
+  <button id="startBtn">START SANITY CHECK</button>
+  <canvas id="simCanvas" width="900" height="600"></canvas>
 
-<body style="margin:0; background:#050608; color:#e5e5e5; font-family:monospace;">
+  <script>
+    console.log("HTML is alive.");
 
-<!-- HEADER -->
-<div style="
-  padding:16px 20px;
-  border-bottom:1px solid #222;
-  background:#080a0d;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-">
-  <div style="font-size:18px; font-weight:bold;">
-    APEXCORE — PLATFORM ENTRY
-  </div>
-  <div style="font-size:12px; color:#aaa;">
-    Status: <span style="color:#6f6;">ONLINE</span>
-  </div>
-</div>
+    const canvas = document.getElementById("simCanvas");
+    const ctx = canvas.getContext("2d");
 
-<!-- MAIN -->
-<div style="
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  height:calc(100vh - 60px);
-  text-align:center;
-  padding:20px;
-">
-
-  <div style="font-size:22px; margin-bottom:12px; color:#7fd0ff;">
-    APEX ENGINE FAMILY
-  </div>
-
-  <div style="font-size:14px; color:#ccc; max-width:600px; margin-bottom:24px;">
-    Unified, modular, world‑agnostic engine architecture.  
-    Access the full APEXCORE System Shell below.
-  </div>
-
-  <a href="./core-shell.html"
-     style="
-       display:inline-block;
-       padding:10px 20px;
-       border:1px solid #2a6;
-       background:#041a0f;
-       color:#e5e5e5;
-       text-decoration:none;
-       font-size:14px;
-       cursor:pointer;
-     ">
-    ENTER SYSTEM SHELL
-  </a>
-
-  <div style="margin-top:40px; font-size:11px; color:#666;">
-    Build: APEXCORE v3 · APEXAI v3 · APEXSIM v3 · APEXOPS v3
-  </div>
-
-</div>
-
+    document.getElementById("startBtn").addEventListener("click", () => {
+      console.log("Button works.");
+      ctx.fillStyle = "lime";
+      ctx.fillRect(100, 100, 200, 150);
+    });
+  </script>
 </body>
 </html>
