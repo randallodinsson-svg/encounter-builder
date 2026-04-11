@@ -1,92 +1,96 @@
-/* ========================================================================
-   APEXOPS v3 — RUNTIME INSPECTOR MODULE
-   ------------------------------------------------------------------------
-   Author: Randy Sellhausen (APEXCORE Platform)
-   Module: APEXOPS — Runtime Inspector
-   Version: 3.0.0
-   Identity: Industrial, world‑agnostic, platform‑neutral
-   Purpose: Provide structured inspection, visualization, and analysis
-            of simulation results produced by APEXCORE + APEXSIM.
-   ======================================================================== */
+/* ============================================================
+   APEXOPS v2 — Operational Runtime Layer
+   Provides structured inspection, visualization, and analysis
+   Compatible with APEXCORE v3, APEXAI v3, APEXSIM v3
+   ============================================================ */
 
-export class ApexOps {
-  constructor(rootElementId, simFactory) {
-    this.rootId = rootElementId;
-    this.simFactory = simFactory;
+export const APEXOPS = (() => {
 
-    this.root = null;
-    this.currentResult = null;
+    /* ------------------------------------------------------------
+       INTERNAL STATE
+    ------------------------------------------------------------ */
+    let tick = 0;
 
-    this._mount();
-  }
+    const state = {
+        actors: [],
+        timeline: [],
+        lastUpdate: null
+    };
 
-  /* ========================================================================
-     MOUNT PANEL
-     ======================================================================== */
-  _mount() {
-    this.root = document.getElementById(this.rootId);
-    if (!this.root) {
-      console.warn(`APEXOPS: Root element '${this.rootId}' not found.`);
-      return;
+    /* ------------------------------------------------------------
+       ACTOR SYSTEM (SIMPLE PLACEHOLDER)
+    ------------------------------------------------------------ */
+
+    function spawnActor(name = "Actor") {
+        const actor = {
+            id: "ACT-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+            name,
+            hp: 100,
+            status: "idle"
+        };
+
+        state.actors.push(actor);
+        return actor;
     }
 
-    this.root.innerHTML = `
-      <div style="font-size:12px; color:#ccc;">
-        <div style="margin-bottom:8px;">APEXOPS Runtime Inspector Ready.</div>
-        <div id="ops-live-view" style="white-space:pre; font-size:11px; color:#aaa;">
-          No simulation loaded.
-        </div>
-      </div>
-    `;
-  }
-
-  /* ========================================================================
-     LOAD SIMULATION RESULT
-     ======================================================================== */
-  loadSimulationResult(result) {
-    this.currentResult = result;
-
-    const view = this.root.querySelector("#ops-live-view");
-    if (!view) return;
-
-    try {
-      view.textContent = JSON.stringify(result, null, 2);
-    } catch {
-      view.textContent = String(result);
-    }
-  }
-
-  /* ========================================================================
-     RUN SIMULATION (INTERNAL)
-     ------------------------------------------------------------------------
-     Used by APEXOPS UI or external callers.
-     ======================================================================== */
-  runSimulation(core) {
-    if (!this.simFactory) {
-      throw new Error("APEXOPS: No simFactory provided.");
+    function updateActors() {
+        for (const actor of state.actors) {
+            // placeholder behavior
+            if (Math.random() < 0.1) {
+                actor.status = "moving";
+            } else if (Math.random() < 0.05) {
+                actor.status = "attacking";
+            } else {
+                actor.status = "idle";
+            }
+        }
     }
 
-    const result = core.startSimulation(s => this.simFactory(s));
-    this.loadSimulationResult(result);
-    return result;
-  }
+    /* ------------------------------------------------------------
+       TIMELINE SYSTEM
+    ------------------------------------------------------------ */
 
-  /* ========================================================================
-     RESET VIEW
-     ======================================================================== */
-  reset() {
-    this.currentResult = null;
-
-    const view = this.root.querySelector("#ops-live-view");
-    if (view) {
-      view.textContent = "No simulation loaded.";
+    function pushTimelineEvent(type, data = {}) {
+        state.timeline.push({
+            tick,
+            type,
+            data,
+            timestamp: Date.now()
+        });
     }
-  }
-}
 
-/* ========================================================================
-   FACTORY — Create a fully configured APEXOPS instance
-   ======================================================================== */
-export function createApexOps(rootId, simFactory) {
-  return new ApexOps(rootId, simFactory);
-}
+    /* ------------------------------------------------------------
+       OPS UPDATE LOOP
+    ------------------------------------------------------------ */
+
+    function update() {
+        tick++;
+
+        updateActors();
+
+        pushTimelineEvent("ops_tick", {
+            tick,
+            actorCount: state.actors.length
+        });
+
+        state.lastUpdate = Date.now();
+
+        return {
+            tick,
+            actors: JSON.parse(JSON.stringify(state.actors)),
+            timelineEvent: state.timeline[state.timeline.length - 1]
+        };
+    }
+
+    /* ------------------------------------------------------------
+       PUBLIC API
+    ------------------------------------------------------------ */
+
+    return {
+        update,
+        spawnActor,
+        pushTimelineEvent,
+        getState: () => JSON.parse(JSON.stringify(state))
+    };
+
+})();
