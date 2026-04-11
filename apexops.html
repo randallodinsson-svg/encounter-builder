@@ -24,6 +24,7 @@
         button {
             padding: 8px 14px;
             margin-right: 10px;
+            margin-bottom: 6px;
             background: #0af;
             border: none;
             border-radius: 4px;
@@ -65,14 +66,24 @@
 
     <h1>APEXOPS Runtime Inspector</h1>
 
-    <button id="btnOpsTick">Run Tick</button>
-    <button id="btnOpsClear">Clear Output</button>
+    <div>
+        <button id="btnOpsTick">Run Tick</button>
+        <button id="btnOpsClear">Clear Output</button>
+    </div>
+
+    <!-- STEP 12 — Example Module Controls -->
+    <div style="margin-top:10px; margin-bottom:10px;">
+        <button id="btnModuleMount">Mount Example Module</button>
+        <button id="btnModuleUnmount">Unmount Example Module</button>
+        <button id="btnModuleReload">Reload Example Module</button>
+    </div>
 
     <div id="out">APEXOPS ready.</div>
 
     <script type="module">
         import { APEXCORE } from "./apexcore.js";
         import { APEXOPS } from "./apexops.js";
+        import { ExampleModule } from "./example-module.js";
 
         const out = document.getElementById("out");
 
@@ -83,6 +94,10 @@
         // Initialize OPS
         APEXOPS.init(APEXCORE);
         APEXOPS.attachEventHooks();
+
+        // STEP 12 — Register and auto-mount the Example module
+        APEXCORE.register("example", ExampleModule);
+        APEXCORE.mount("example");
 
         // ============================
         // STEP 09 — OPS METRICS ENGINE
@@ -272,12 +287,59 @@
             updateEventNames();
             updateMetricsPanel();
             updateOpsEventStream();
-            updateOpsInternalStatePanel(); // STEP 11
+            updateOpsInternalStatePanel();
         };
 
         document.getElementById("btnOpsClear").onclick = () => {
             out.textContent = "APEXOPS ready.";
         };
+
+        // ============================
+        // STEP 12 — Example Module Controls
+        // ============================
+        document.getElementById("btnModuleMount").onclick = () => {
+            APEXCORE.mount("example");
+            pushOpsEvent("OPS: Example module mounted via button");
+            updateCoreLogs();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateCoreSnapshot();
+            updateOpsInternalStatePanel();
+        };
+
+        document.getElementById("btnModuleUnmount").onclick = () => {
+            APEXCORE.unmount("example");
+            pushOpsEvent("OPS: Example module unmounted via button");
+            updateCoreLogs();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateCoreSnapshot();
+            updateOpsInternalStatePanel();
+        };
+
+        document.getElementById("btnModuleReload").onclick = () => {
+            APEXCORE.reload("example");
+            pushOpsEvent("OPS: Example module reloaded via button");
+            updateCoreLogs();
+            updateLifecycleHistory();
+            updateModuleStatus();
+            updateRegistryKeys();
+            updateCoreSnapshot();
+            updateOpsInternalStatePanel();
+        };
+
+        // Initial panel refresh after auto-mount
+        updateCoreLogs();
+        updateLifecycleHistory();
+        updateModuleStatus();
+        updateRegistryKeys();
+        updateCoreSnapshot();
+        updateEventNames();
+        updateMetricsPanel();
+        updateOpsEventStream();
+        updateOpsInternalStatePanel();
     </script>
 
     <div id="apexops-diagnostics">
@@ -330,7 +392,6 @@
                 <pre id="ops-events-stream">(no ops events)</pre>
             </div>
 
-            <!-- STEP 11 — OPS Internal State Panel -->
             <div class="ops-panel">
                 <h3>OPS Internal State</h3>
                 <pre id="ops-internal">(no internal state)</pre>
