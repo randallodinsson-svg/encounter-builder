@@ -1,11 +1,11 @@
-// HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm for APEXSIM/APEXCORE
+// HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm + Tier 1 Tactical Overlays (Soft Gradient Cone)
 
 export const HaloRenderer = {
     meta: {
         name: "halo-renderer",
-        version: "2.0.0",
+        version: "2.1.0",
         author: "VECTORCORE",
-        description: "Extreme-aggression tactical swarm with flocking (cohesion, alignment, separation), camera, trails, and debug overlay.",
+        description: "Extreme-aggression tactical swarm with flocking, camera, trails, and Tier 1 tactical overlays.",
         namespace: "halo",
         capabilities: ["render", "sim", "ops"]
     },
@@ -61,7 +61,7 @@ export const HaloRenderer = {
             return min + Math.random() * (max - min);
         }
 
-        // Leader (primary tactical anchor)
+        // Leader
         const leader = {
             x: center.x,
             y: center.y,
@@ -97,19 +97,14 @@ export const HaloRenderer = {
             maxSpeed: 2.4,
             maxForce: 0.16,
 
-            // Flocking weights
             weightSeparation: 2.4,
             weightAlignment: 1.6,
             weightCohesion: 1.8,
 
-            // Leader influence
             leaderAttractRadius: 260,
             leaderAttractWeight: 2.2,
 
-            // Wander / noise
             wanderStrength: 0.22,
-
-            // Damping
             damping: 0.90
         };
         ctx.state.params = params;
@@ -153,17 +148,14 @@ export const HaloRenderer = {
                 if (dist <= 0) continue;
 
                 if (dist < params.neighborRadius) {
-                    // Cohesion: move toward neighbors' center
                     cohesion.x += other.x;
                     cohesion.y += other.y;
 
-                    // Alignment: match neighbors' velocity
                     alignment.x += other.vx;
                     alignment.y += other.vy;
 
                     count++;
 
-                    // Separation: push away when too close
                     if (dist < params.separationRadius) {
                         separation.x -= dx / dist;
                         separation.y -= dy / dist;
@@ -175,7 +167,6 @@ export const HaloRenderer = {
             const steer = { sep: { x: 0, y: 0 }, ali: { x: 0, y: 0 }, coh: { x: 0, y: 0 } };
 
             if (count > 0) {
-                // Cohesion
                 cohesion.x /= count;
                 cohesion.y /= count;
                 cohesion.x -= agent.x;
@@ -183,7 +174,6 @@ export const HaloRenderer = {
                 limit(cohesion, params.maxForce);
                 steer.coh = cohesion;
 
-                // Alignment
                 alignment.x /= count;
                 alignment.y /= count;
                 limit(alignment, params.maxForce);
@@ -197,7 +187,7 @@ export const HaloRenderer = {
                 steer.sep = separation;
             }
 
-            // Leader attraction (tactical anchor)
+            // Leader attraction
             const ldx = leader.x - agent.x;
             const ldy = leader.y - agent.y;
             const ldist = Math.hypot(ldx, ldy) || 1;
@@ -215,13 +205,13 @@ export const HaloRenderer = {
             const t = performance.now() * 0.001;
             const cam = ctx.state.camera;
 
-            // Leader orbit — more aggressive, wider radius
+            // Leader orbit
             const orbitRadius = 110;
             const orbitSpeed = 0.95;
             leader.x = center.x + Math.cos(t * orbitSpeed) * orbitRadius;
             leader.y = center.y + Math.sin(t * orbitSpeed) * orbitRadius;
 
-            // Camera tracks leader aggressively but smoothly
+            // Camera follow
             const camFollow = 0.10;
             cam.x += (leader.x - cam.x) * camFollow;
             cam.y += (leader.y - cam.y) * camFollow;
@@ -231,7 +221,6 @@ export const HaloRenderer = {
             for (const a of agents) {
                 const { steer, leaderForce } = computeFlockingForces(a, agents, leader, params);
 
-                // Combine forces with aggressive tactical weights
                 a.vx += steer.sep.x * params.weightSeparation;
                 a.vy += steer.sep.y * params.weightSeparation;
 
@@ -244,11 +233,9 @@ export const HaloRenderer = {
                 a.vx += leaderForce.x;
                 a.vy += leaderForce.y;
 
-                // Wander / noise
                 a.vx += (Math.random() - 0.5) * params.wanderStrength;
                 a.vy += (Math.random() - 0.5) * params.wanderStrength;
 
-                // Damping + speed limit
                 a.vx *= params.damping;
                 a.vy *= params.damping;
                 limit(a, params.maxSpeed);
@@ -263,7 +250,7 @@ export const HaloRenderer = {
             const r = container.getBoundingClientRect();
             const cam = ctx.state.camera;
 
-            // Motion trails: fade instead of hard clear
+            // Motion trails
             ctx2d.save();
             ctx2d.globalCompositeOperation = "source-over";
             ctx2d.fillStyle = "rgba(3, 7, 18, 0.40)";
@@ -282,19 +269,117 @@ export const HaloRenderer = {
             ctx2d.fillRect(0, 0, r.width, r.height);
             ctx2d.restore();
 
-            // Orbit ring
+            // -----------------------------
+            // TIER 1 TACTICAL OVERLAYS
+            // -----------------------------
+
+            // Compute swarm centroid
+            let cx = 0, cy = 0;
+            for (const a of agents) {
+                cx += a.x;
+                cy += a.y;
+            }
+            cx /= agents.length;
+            cy /= agents.length;
+            const centroid = { x: cx, y: cy };
+            const centroidScreen = worldToScreen(cx, cy);
+
+            // 1. Leader Range Rings
+            const leaderScreen = worldToScreen(leader.x, leader.y);
+
             ctx2d.save();
+            ctx2d.lineWidth = 1.2;
+
+            // Inner ring
             ctx2d.beginPath();
-            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.7)";
-            ctx2d.lineWidth = 1;
-            ctx2d.setLineDash([4, 4]);
-            const orbitRadius = 110 * cam.zoom;
-            ctx2d.arc(center.x, center.y, orbitRadius, 0, Math.PI * 2);
+            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.35)";
+            ctx2d.arc(leaderScreen.x, leaderScreen.y, 90 * cam.zoom, 0, Math.PI * 2);
+            ctx2d.stroke();
+
+            // Outer ring
+            ctx2d.beginPath();
+            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.18)";
+            ctx2d.arc(leaderScreen.x, leaderScreen.y, 160 * cam.zoom, 0, Math.PI * 2);
             ctx2d.stroke();
             ctx2d.restore();
 
+            // 2. Swarm Cohesion Ring
+            let cohesionRadius = 0;
+            for (const a of agents) {
+                const dx = a.x - cx;
+                const dy = a.y - cy;
+                cohesionRadius += Math.hypot(dx, dy);
+            }
+            cohesionRadius /= agents.length;
+
+            ctx2d.save();
+            ctx2d.beginPath();
+            ctx2d.strokeStyle = "rgba(148, 163, 184, 0.25)";
+            ctx2d.lineWidth = 1;
+            ctx2d.arc(centroidScreen.x, centroidScreen.y, cohesionRadius * cam.zoom, 0, Math.PI * 2);
+            ctx2d.stroke();
+            ctx2d.restore();
+
+            // 3. Velocity Vectors
+            ctx2d.save();
+            ctx2d.strokeStyle = "rgba(148, 163, 184, 0.55)";
+            ctx2d.lineWidth = 1;
+            for (const a of agents) {
+                const p = worldToScreen(a.x, a.y);
+                const speed = Math.hypot(a.vx, a.vy);
+                const len = Math.min(18, 4 + speed * 8) * cam.zoom;
+
+                const dirX = (a.vx / (speed || 1)) * len;
+                const dirY = (a.vy / (speed || 1)) * len;
+
+                ctx2d.beginPath();
+                ctx2d.moveTo(p.x, p.y);
+                ctx2d.lineTo(p.x + dirX, p.y + dirY);
+                ctx2d.stroke();
+            }
+            ctx2d.restore();
+
+            // 4. Soft Gradient Threat Cone
+            ctx2d.save();
+            const coneAngle = Math.PI * 0.33; // ~60 degrees
+            const leaderDir = Math.atan2(leader.vy, leader.vx) || 0;
+
+            const coneGrad = ctx2d.createRadialGradient(
+                leaderScreen.x, leaderScreen.y, 0,
+                leaderScreen.x, leaderScreen.y, 240 * cam.zoom
+            );
+            coneGrad.addColorStop(0, "rgba(56, 189, 248, 0.25)");
+            coneGrad.addColorStop(1, "rgba(56, 189, 248, 0)");
+
+            ctx2d.fillStyle = coneGrad;
+            ctx2d.beginPath();
+            ctx2d.moveTo(leaderScreen.x, leaderScreen.y);
+            ctx2d.arc(
+                leaderScreen.x,
+                leaderScreen.y,
+                240 * cam.zoom,
+                leaderDir - coneAngle,
+                leaderDir + coneAngle
+            );
+            ctx2d.closePath();
+            ctx2d.fill();
+            ctx2d.restore();
+
+            // 5. Target Line (Leader → Centroid)
+            ctx2d.save();
+            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.45)";
+            ctx2d.lineWidth = 1;
+            ctx2d.beginPath();
+            ctx2d.moveTo(leaderScreen.x, leaderScreen.y);
+            ctx2d.lineTo(centroidScreen.x, centroidScreen.y);
+            ctx2d.stroke();
+            ctx2d.restore();
+
+            // -----------------------------
+            // AGENTS + LEADER RENDERING
+            // -----------------------------
+
             // Leader glow
-            const leaderScreen = worldToScreen(leader.x, leader.y);
             ctx2d.save();
             ctx2d.beginPath();
             ctx2d.arc(leaderScreen.x, leaderScreen.y, leader.radius * 3.4, 0, Math.PI * 2);
@@ -308,7 +393,7 @@ export const HaloRenderer = {
             ctx2d.fill();
             ctx2d.restore();
 
-            // Agents — bright, sharp, aggressive
+            // Agents
             ctx2d.save();
             ctx2d.shadowColor = "rgba(148, 163, 184, 0.9)";
             ctx2d.shadowBlur = 10;
@@ -345,7 +430,7 @@ export const HaloRenderer = {
             ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
             ctx2d.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
             ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO VISUAL LAYER v2 — B2‑X EXTREME TACTICAL SWARM", 10, 8);
+            ctx2d.fillText("HALO VISUAL LAYER v2.1 — B2‑X + TIER 1 OVERLAYS", 10, 8);
             ctx2d.fillText(`Agents: ${agents.length}`, 10, 24);
             ctx2d.fillText(`Zoom: ${cam.zoom.toFixed(2)}`, 10, 40);
             ctx2d.restore();
@@ -375,23 +460,3 @@ export const HaloRenderer = {
     },
 
     destroy(core, ctx) {
-        const ns = ctx.meta.namespace;
-
-        if (ctx.state && ctx.state.rafId) {
-            cancelAnimationFrame(ctx.state.rafId);
-            ctx.state.rafId = null;
-        }
-
-        if (ctx.state && ctx.state.resizeHandler) {
-            window.removeEventListener("resize", ctx.state.resizeHandler);
-            ctx.state.resizeHandler = null;
-        }
-
-        core.set(`${ns}.status`, "stopped");
-    },
-
-    reload(core, ctx) {
-        const ns = ctx.meta.namespace;
-        core.set(`${ns}.status`, "reloaded");
-    }
-};
