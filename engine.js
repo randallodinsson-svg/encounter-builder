@@ -18,7 +18,6 @@ export const ENGINE = (() => {
             start();
         }
     }
-
     function runSingleTick() {
         if (!core) return;
 
@@ -37,8 +36,13 @@ export const ENGINE = (() => {
 
         // CRITICAL: Feed duration to TickProfiler
         core.set("profiler.lastTickDuration", duration);
-    }
 
+        // ⭐ NEW: Export live snapshot for APEXOPS UI
+        // This makes apexops.html update automatically.
+        if (typeof window !== "undefined") {
+            window.APEXCORE_SNAPSHOT = core.getSnapshot();
+        }
+    }
     function start() {
         if (!core) return;
         if (intervalId) return;
