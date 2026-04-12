@@ -1,113 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>APEXCORE — System Shell</title>
-
-    <style>
-        body {
-            margin: 0;
-            background: #0b0e13;
-            color: #e6eef7;
-            font-family: system-ui, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #sidebar {
-            width: 260px;
-            background: #11161d;
-            border-right: 1px solid #1f2732;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
-            margin: 6px 0;
-            background: #1e90ff;
-            border: none;
-            color: white;
-            font-size: 15px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #3aa0ff;
-        }
-
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #systemLog {
-            flex: 1;
-            background: #05070a;
-            padding: 12px;
-            box-sizing: border-box;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            border-top: 1px solid #1f2732;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <title>APEXCORE Shell</title>
+    <meta http-equiv="refresh" content="0; url=index.html">
 </head>
-
 <body>
-
-    <div id="sidebar">
-        <h2>APEXCORE — System Shell</h2>
-
-        <button id="btnPing">Ping Core</button>
-        <button id="btnModules">List Modules</button>
-        <button id="btnClear">Clear Log</button>
-    </div>
-
-    <div id="main">
-        <div id="systemLog">APEXCORE Shell ready.</div>
-    </div>
-
-    <script type="module">
-        import { APEXCORE } from "./apexcore.js";
-        import { APEXSIM } from "./apexsim.js";
-        import { APEXAI } from "./apexai.js";
-        import { APEXOPS } from "./apexops.js";
-
-        // Register modules into the core
-        APEXCORE.register("APEXSIM", APEXSIM);
-        APEXCORE.register("APEXAI", APEXAI);
-        APEXCORE.register("APEXOPS", APEXOPS);
-
-        const logEl = document.getElementById("systemLog");
-
-        function log(msg) {
-            logEl.textContent += "\n" + msg;
-            logEl.scrollTop = logEl.scrollHeight;
-        }
-
-        document.getElementById("btnPing").onclick = () => {
-            const result = APEXCORE.ping();
-            log("CORE PING:");
-            log(JSON.stringify(result, null, 2));
-        };
-
-        document.getElementById("btnModules").onclick = () => {
-            const mods = Object.keys(APEXCORE.state.modules);
-            log("REGISTERED MODULES:");
-            log(JSON.stringify(mods, null, 2));
-        };
-
-        document.getElementById("btnClear").onclick = () => {
-            logEl.textContent = "APEXCORE Shell ready.";
-        };
-    </script>
-
+Redirecting to APEXCORE console…
 </body>
 </html>
