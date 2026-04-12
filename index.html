@@ -101,7 +101,7 @@
             color: #e5e7eb;
             border: 1px solid #111827;
             padding: 6px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
             font-size: 11px;
             resize: vertical;
             min-height: 120px;
@@ -208,9 +208,19 @@
 
     <!-- MODULES TAB -->
     <div class="tab-panel" id="tab-modules">
-        <div class="panel">
-            <h2>Module Inspector</h2>
-            <pre id="modulesDetail">Waiting for tick...</pre>
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>Module Inspector</h2>
+                    <pre id="modulesDetail">Waiting for tick...</pre>
+                </div>
+            </div>
+            <div class="col">
+                <div class="panel">
+                    <h2>Tick Profiler</h2>
+                    <pre id="profilerView">Waiting for tick...</pre>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -223,6 +233,7 @@
     import { APEXAI } from "./apexai.js";
     import { ExampleModule } from "./example-module.js";
     import { ModuleInspector } from "./module-inspector.js";
+    import { TickProfiler } from "./tick-profiler.js";
 
     // Tabs
     const tabButtons = document.querySelectorAll(".tab-button");
@@ -245,6 +256,9 @@
 
     APEXCORE.register(ModuleInspector);
     APEXCORE.mount("module-inspector");
+
+    APEXCORE.register(TickProfiler);
+    APEXCORE.mount("tick-profiler");
 
     // Wire subsystems
     APEXOPS.init(APEXCORE, ENGINE, {
@@ -287,16 +301,44 @@
         detailEl.textContent = JSON.stringify(snapshot, null, 2);
     }
 
+    // Tick Profiler view
+    function refreshProfilerView() {
+        const viewEl = document.getElementById("profilerView");
+        const ns = "profiler";
+
+        const status = APEXCORE.get(`${ns}.status`);
+        const ticks = APEXCORE.get(`${ns}.ticks`);
+        const minMs = APEXCORE.get(`${ns}.minMs`);
+        const maxMs = APEXCORE.get(`${ns}.maxMs`);
+        const avgMs = APEXCORE.get(`${ns}.avgMs`);
+        const lastMs = APEXCORE.get(`${ns}.lastMs`);
+
+        if (!status) {
+            viewEl.textContent = "Tick Profiler not ready.";
+            return;
+        }
+
+        viewEl.textContent =
+            `Status: ${status}\n` +
+            `Samples: ${ticks ?? 0}\n` +
+            `Last Tick: ${lastMs != null ? lastMs.toFixed(3) + " ms" : "n/a"}\n` +
+            `Min: ${minMs != null ? minMs.toFixed(3) + " ms" : "n/a"}\n` +
+            `Max: ${maxMs != null ? maxMs.toFixed(3) + " ms" : "n/a"}\n` +
+            `Avg: ${avgMs != null ? avgMs.toFixed(3) + " ms" : "n/a"}`;
+    }
+
     // Tick listener
     APEXCORE.onTick(() => {
         APEXOPS.refreshViews();
         APEXSIM.refresh();
         refreshCoreSnapshot();
         refreshModuleInspector();
+        refreshProfilerView();
     });
 
     refreshCoreSnapshot();
     refreshModuleInspector();
+    refreshProfilerView();
 </script>
 </body>
 </html>
