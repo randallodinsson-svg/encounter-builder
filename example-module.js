@@ -1,47 +1,40 @@
-// example-module.js
-// A tiny, clean APEXCORE module to light up diagnostics.
+// ============================================================
+// Example Module — Clean, Stable, APEXCORE v3.5 Compatible
+// ============================================================
 
 export const ExampleModule = {
 
     name: "example",
-    counter: 0,
 
+    // Called when module is mounted
     init(core) {
-        core.log("ExampleModule.init() called.");
-
-        this.counter = 0;
-
-        core.set("example.status", {
-            initialized: true,
-            value: this.counter,
-            note: "Example module mounted."
-        });
+        console.log("ExampleModule.init() called.");
+        core.set("example.status", "initialized");
     },
 
+    // Called every tick
+    tick(tickData, core) {
+        // Update registry safely
+        core.set("example.status", `tick @ ${tickData.time}`);
+
+        // Optional: do something with tickData.random
+        const r = tickData.random;
+        core.set("example.random", r);
+
+        // Log something lightweight
+        // console.log("ExampleModule.tick() executed.");
+    },
+
+    // Called when module is unmounted
     destroy(core) {
-        core.log("ExampleModule.destroy() called.");
+        console.log("ExampleModule.destroy() called.");
         core.delete("example.status");
+        core.delete("example.random");
     },
 
+    // Optional reload hook
     reload(core) {
-        core.log("ExampleModule.reload() called.");
-
-        this.counter = 0;
-
-        core.set("example.status", {
-            initialized: true,
-            value: this.counter,
-            note: "Example module reloaded."
-        });
-    },
-
-    tick(tick, core) {
-        this.counter++;
-
-        core.set("example.status", {
-            initialized: true,
-            value: this.counter,
-            note: "Tick updated value."
-        });
+        console.log("ExampleModule.reload() called.");
+        core.set("example.status", "reloaded");
     }
 };
