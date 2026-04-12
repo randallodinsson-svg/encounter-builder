@@ -72,6 +72,38 @@
     #diffAdded li { color: #4ade80; }     /* green */
     #diffChanged li { color: #facc15; }   /* yellow */
     #diffRemoved li { color: #f87171; }   /* red */
+
+    /* Timeline Panel Styling */
+    #timelineList {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    #timelineList li {
+      font-size: 12px;
+      padding: 4px 0;
+      border-bottom: 1px solid #1f2933;
+      color: #cbd5e1;
+    }
+    #timelineList li span {
+      display: inline-block;
+      margin-right: 8px;
+    }
+    .tl-tick {
+      color: #93c5fd;
+      min-width: 60px;
+    }
+    .tl-time {
+      color: #a5b4fc;
+      min-width: 80px;
+    }
+    .tl-dur {
+      color: #fbbf24;
+      min-width: 70px;
+    }
+    .tl-reg {
+      color: #9ca3af;
+    }
   </style>
 </head>
 <body>
@@ -129,6 +161,12 @@
       </div>
     </div>
 
+    <!-- TIMELINE PANEL -->
+    <div class="metric-box">
+      <h2>Tick Timeline</h2>
+      <ul id="timelineList"></ul>
+    </div>
+
   </div>
 </div>
 
@@ -138,7 +176,7 @@ function getRegistrySnapshot() {
   return window.APEXCORE_SNAPSHOT || null;
 }
 
-/* Update Registry Diff Panel */
+/* Registry Diff Panel */
 function updateRegistryDiff(snap) {
   const diff = snap.regdiff?.diff;
   if (!diff) return;
@@ -176,6 +214,47 @@ function updateRegistryDiff(snap) {
   }
 }
 
+/* Timeline Panel */
+function updateTimeline(snap) {
+  const timeline = snap.timeline;
+  const list = document.getElementById("timelineList");
+  list.innerHTML = "";
+
+  if (!timeline || !Array.isArray(timeline.events)) return;
+
+  // Show most recent first, limit to last 20
+  const events = [...timeline.events].slice(-20).reverse();
+
+  for (const ev of events) {
+    const li = document.createElement("li");
+
+    const tickSpan = document.createElement("span");
+    tickSpan.className = "tl-tick";
+    tickSpan.textContent = `#${ev.tick}`;
+
+    const timeSpan = document.createElement("span");
+    timeSpan.className = "tl-time";
+    timeSpan.textContent = `${ev.time.toFixed ? ev.time.toFixed(1) : ev.time}`;
+
+    const durSpan = document.createElement("span");
+    durSpan.className = "tl-dur";
+    const d = ev.durationMs;
+    durSpan.textContent = d == null ? "– ms" : `${d.toFixed(2)} ms`;
+
+    const regSpan = document.createElement("span");
+    regSpan.className = "tl-reg";
+    const reg = ev.registry || {};
+    regSpan.textContent = `Δ registry: +${reg.added ?? 0} / ~${reg.changed ?? 0} / -${reg.removed ?? 0}`;
+
+    li.appendChild(tickSpan);
+    li.appendChild(timeSpan);
+    li.appendChild(durSpan);
+    li.appendChild(regSpan);
+
+    list.appendChild(li);
+  }
+}
+
 /* Update UI */
 function updateUI() {
   const snap = getRegistrySnapshot();
@@ -206,6 +285,9 @@ function updateUI() {
 
   // Registry Diff Panel
   updateRegistryDiff(snap);
+
+  // Timeline Panel
+  updateTimeline(snap);
 }
 
 setInterval(updateUI, 300);
