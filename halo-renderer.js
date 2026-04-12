@@ -1,13 +1,13 @@
 // HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm
-// Tier 1 + Tier 2 Tactical Overlays + Formation System (SWARM, RING, SPEAR, ORBIT, SCATTER)
-// Control: 1=SWARM, 2=RING, 3=SPEAR, 4=ORBIT, 5=SCATTER
+// Tier 1 + Tier 2 Tactical Overlays + Formation System + Tier 3 Tactical HUD
+// Controls: 1=SWARM, 2=RING, 3=SPEAR, 4=ORBIT, 5=SCATTER
 
 export const HaloRenderer = {
     meta: {
         name: "halo-renderer",
-        version: "2.3.0",
+        version: "2.4.0",
         author: "VECTORCORE",
-        description: "Extreme-aggression tactical swarm with flocking, camera, trails, Tier 1+2 overlays, and formation modes.",
+        description: "Extreme-aggression tactical swarm with flocking, camera, trails, Tier 1+2 overlays, formations, and Tier 3 HUD.",
         namespace: "halo",
         capabilities: ["render", "sim", "ops"]
     },
@@ -63,6 +63,12 @@ export const HaloRenderer = {
             mode: "SWARM",          // SWARM, RING, SPEAR, ORBIT, SCATTER
             lastMode: "SWARM",
             t: 0                     // transition factor 0..1
+        };
+
+        // HUD state
+        ctx.state.hud = {
+            lastTick: 0,
+            lastUpdate: 0
         };
 
         // Keyboard controls for formations
@@ -264,9 +270,8 @@ export const HaloRenderer = {
             const mode = formationState.mode;
             const lastMode = formationState.lastMode;
             const t = Math.min(1, formationState.t);
-            const blend = t; // simple linear blend between lastMode and mode
+            const blend = t;
 
-            // Helper to get per-mode force
             function modeForce(m) {
                 const fx = { x: 0, y: 0 };
 
@@ -284,7 +289,6 @@ export const HaloRenderer = {
 
                 switch (m) {
                     case "SWARM":
-                        // No extra force; pure flocking
                         break;
 
                     case "RING": {
@@ -297,7 +301,6 @@ export const HaloRenderer = {
                     }
 
                     case "SPEAR": {
-                        // Pull agents toward a line in leader direction through centroid
                         const relX = agent.x - centroid.x;
                         const relY = agent.y - centroid.y;
                         const proj = relX * dirX + relY * dirY;
@@ -318,7 +321,6 @@ export const HaloRenderer = {
                     }
 
                     case "SCATTER": {
-                        // Push outward from centroid, reduce cohesion feel
                         const pushStrength = 0.03;
                         fx.x += (dxC / distC) * pushStrength * 200;
                         fx.y += (dyC / distC) * pushStrength * 200;
@@ -332,7 +334,6 @@ export const HaloRenderer = {
             const fLast = modeForce(lastMode);
             const fNew = modeForce(mode);
 
-            // Blend between last and new mode for smooth transitions
             return {
                 x: fLast.x * (1 - blend) + fNew.x * blend,
                 y: fLast.y * (1 - blend) + fNew.y * blend
@@ -344,10 +345,10 @@ export const HaloRenderer = {
             const tNow = performance.now() * 0.001;
             const cam = ctx.state.camera;
             const formationState = ctx.state.formation;
+            const agents = ctx.state.agents;
 
-            // Advance formation transition
             if (formationState.t < 1) {
-                formationState.t += dt * 0.0008; // transition speed
+                formationState.t += dt * 0.0008;
                 if (formationState.t > 1) formationState.t = 1;
             }
 
@@ -362,7 +363,7 @@ export const HaloRenderer = {
             cam.x += (leader.x - cam.x) * camFollow;
             cam.y += (leader.y - cam.y) * camFollow;
 
-            // Swarm centroid (for formations)
+            // Swarm centroid
             let cx = 0, cy = 0;
             for (const a of agents) {
                 cx += a.x;
@@ -377,7 +378,6 @@ export const HaloRenderer = {
             for (const a of agents) {
                 const { steer, leaderForce } = computeFlockingForces(a, agents, leader, params);
 
-                // Base flocking
                 a.vx += steer.sep.x * params.weightSeparation;
                 a.vy += steer.sep.y * params.weightSeparation;
 
@@ -390,21 +390,17 @@ export const HaloRenderer = {
                 a.vx += leaderForce.x;
                 a.vy += leaderForce.y;
 
-                // Formation shaping
                 const fForm = computeFormationForce(a, centroid, leader, params, formationState);
                 a.vx += fForm.x;
                 a.vy += fForm.y;
 
-                // Wander
                 a.vx += (Math.random() - 0.5) * params.wanderStrength;
                 a.vy += (Math.random() - 0.5) * params.wanderStrength;
 
-                // Damping + clamp
                 a.vx *= params.damping;
                 a.vy *= params.damping;
                 clampVelocity(a, params.maxSpeed);
 
-                // Integrate
                 a.x += a.vx * dtScale;
                 a.y += a.vy * dtScale;
             }
@@ -412,9 +408,13 @@ export const HaloRenderer = {
 
         // DRAW
         function draw() {
+            const container = ctx.state.canvas.parentElement;
             const r = container.getBoundingClientRect();
             const cam = ctx.state.camera;
             const formationState = ctx.state.formation;
+            const hudState = ctx.state.hud;
+            const agents = ctx.state.agents;
+            const leader = ctx.state.leader;
 
             // Motion trails
             ctx2d.save();
@@ -435,9 +435,7 @@ export const HaloRenderer = {
             ctx2d.fillRect(0, 0, r.width, r.height);
             ctx2d.restore();
 
-            // -----------------------------
-            // TIER 2: SOFT-MEDIUM CINEMATIC GRID
-            // -----------------------------
+            // Cinematic grid
             ctx2d.save();
             ctx2d.strokeStyle = "rgba(30, 64, 175, 0.18)";
             ctx2d.lineWidth = 1;
@@ -461,10 +459,6 @@ export const HaloRenderer = {
 
             ctx2d.restore();
 
-            // -----------------------------
-            // TIER 1 + TIER 2 TACTICAL OVERLAYS
-            // -----------------------------
-
             // Swarm centroid + bounds
             let cx = 0, cy = 0;
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -481,7 +475,7 @@ export const HaloRenderer = {
             const centroidScreen = worldToScreen(cx, cy);
             const leaderScreen = worldToScreen(leader.x, leader.y);
 
-            // 1. Leader Range Rings (Tier 1)
+            // Leader range rings
             ctx2d.save();
             ctx2d.lineWidth = 1.2;
 
@@ -496,7 +490,7 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 2. Swarm Cohesion Ring (Tier 1)
+            // Swarm cohesion ring
             let cohesionRadius = 0;
             for (const a of agents) {
                 const dx = a.x - cx;
@@ -513,7 +507,7 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 3. Velocity Vectors (Tier 1, heat-tinted)
+            // Velocity vectors
             ctx2d.save();
             ctx2d.lineWidth = 1;
             for (const a of agents) {
@@ -533,9 +527,9 @@ export const HaloRenderer = {
             }
             ctx2d.restore();
 
-            // 4. Soft Gradient Threat Cone (Tier 1)
+            // Threat cone
             ctx2d.save();
-            const coneAngle = Math.PI * 0.33; // ~60 degrees
+            const coneAngle = Math.PI * 0.33;
             const leaderDir = Math.atan2(leader.vy, leader.vx) || 0;
 
             const coneGrad = ctx2d.createRadialGradient(
@@ -559,7 +553,7 @@ export const HaloRenderer = {
             ctx2d.fill();
             ctx2d.restore();
 
-            // 5. Target Line (Leader → Centroid) (Tier 1)
+            // Leader → centroid line
             ctx2d.save();
             ctx2d.strokeStyle = "rgba(56, 189, 248, 0.45)";
             ctx2d.lineWidth = 1;
@@ -569,7 +563,7 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 6. Influence Radius Circles (Tier 2)
+            // Influence circles
             ctx2d.save();
             ctx2d.lineWidth = 0.6;
             for (const a of agents) {
@@ -584,7 +578,6 @@ export const HaloRenderer = {
                 ctx2d.arc(p.x, p.y, radius, 0, Math.PI * 2);
                 ctx2d.stroke();
             }
-            // Leader stronger influence ring
             ctx2d.beginPath();
             ctx2d.strokeStyle = "rgba(56, 189, 248, 0.35)";
             ctx2d.lineWidth = 1;
@@ -592,7 +585,7 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 7. Formation Bounding Box (Tier 2)
+            // Formation bounding box
             const minScreen = worldToScreen(minX, minY);
             const maxScreen = worldToScreen(maxX, maxY);
             const boxPadding = 16 * cam.zoom;
@@ -609,10 +602,10 @@ export const HaloRenderer = {
             );
             ctx2d.restore();
 
-            // 8. Leader Command Arc (Tier 2)
+            // Leader command arc
             ctx2d.save();
             const commandRadius = 130 * cam.zoom;
-            const commandAngle = Math.PI * 0.20; // narrower than threat cone
+            const commandAngle = Math.PI * 0.20;
             const cmdStart = leaderDir - commandAngle;
             const cmdEnd = leaderDir + commandAngle;
 
@@ -622,10 +615,6 @@ export const HaloRenderer = {
             ctx2d.arc(leaderScreen.x, leaderScreen.y, commandRadius, cmdStart, cmdEnd);
             ctx2d.stroke();
             ctx2d.restore();
-
-            // -----------------------------
-            // AGENTS + LEADER RENDERING
-            // -----------------------------
 
             // Leader glow
             ctx2d.save();
@@ -645,17 +634,18 @@ export const HaloRenderer = {
             ctx2d.save();
             ctx2d.shadowColor = "rgba(148, 163, 184, 0.9)";
             ctx2d.shadowBlur = 10;
+            let totalSpeed = 0;
             for (const a of agents) {
                 const p = worldToScreen(a.x, a.y);
 
                 const speed = Math.hypot(a.vx, a.vy);
+                totalSpeed += speed;
                 const streakLen = Math.min(26, 6 + speed * 10);
                 const dirX = (a.vx / (speed || 1)) * streakLen * cam.zoom;
                 const dirY = (a.vy / (speed || 1)) * streakLen * cam.zoom;
 
                 const heatColor = speedToColor(speed, params.maxSpeed);
 
-                // Velocity streak
                 ctx2d.beginPath();
                 ctx2d.moveTo(p.x - dirX, p.y - dirY);
                 ctx2d.lineTo(p.x, p.y);
@@ -663,7 +653,6 @@ export const HaloRenderer = {
                 ctx2d.lineWidth = 1.2;
                 ctx2d.stroke();
 
-                // Core agent
                 ctx2d.beginPath();
                 ctx2d.arc(p.x, p.y, a.radius * cam.zoom, 0, Math.PI * 2);
                 ctx2d.fillStyle = heatColor;
@@ -675,16 +664,105 @@ export const HaloRenderer = {
             }
             ctx2d.restore();
 
-            // Debug overlay
+            // -----------------------------
+            // TIER 3 TACTICAL HUD
+            // -----------------------------
+            const avgSpeed = totalSpeed / agents.length;
+            const aggression = Math.min(1, avgSpeed / params.maxSpeed);
+
+            const hudPadding = 10;
+            const hudWidth = 230;
+            const hudHeight = 110;
+            const hudX = r.width - hudWidth - hudPadding;
+            const hudY = hudPadding;
+
             ctx2d.save();
-            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
+            ctx2d.fillStyle = "rgba(15, 23, 42, 0.88)";
+            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.9)";
+            ctx2d.lineWidth = 1;
+            ctx2d.beginPath();
+            ctx2d.roundRect(hudX, hudY, hudWidth, hudHeight, 8);
+            ctx2d.fill();
+            ctx2d.stroke();
+
+            ctx2d.clip();
+
+            ctx2d.fillStyle = "rgba(30, 64, 175, 0.35)";
+            ctx2d.fillRect(hudX, hudY, hudWidth, 22);
+
+            ctx2d.fillStyle = "rgba(191, 219, 254, 0.95)";
             ctx2d.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
             ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO VISUAL LAYER v2.3.0 — B2‑X + TIER 1+2 + FORMATIONS", 10, 8);
-            ctx2d.fillText(`Agents: ${agents.length}`, 10, 24);
-            ctx2d.fillText(`Zoom: ${cam.zoom.toFixed(2)}`, 10, 40);
-            ctx2d.fillText(`Formation: ${formationState.mode}`, 10, 56);
-            ctx2d.fillText("1=SWARM 2=RING 3=SPEAR 4=ORBIT 5=SCATTER", 10, 72);
+            ctx2d.fillText("HALO TACTICAL HUD — TIER 3", hudX + 8, hudY + 5);
+
+            const textYBase = hudY + 26;
+            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
+            ctx2d.fillText(`Formation: ${formationState.mode}`, hudX + 8, textYBase);
+            ctx2d.fillText(`Agents: ${agents.length}`, hudX + 8, textYBase + 14);
+            ctx2d.fillText(`Last tick: ${hudState.lastTick}`, hudX + 8, textYBase + 28);
+
+            // Aggression meter
+            const barX = hudX + 8;
+            const barY = textYBase + 46;
+            const barW = hudWidth - 16;
+            const barH = 10;
+
+            ctx2d.fillStyle = "rgba(30, 64, 175, 0.6)";
+            ctx2d.fillRect(barX, barY, barW, barH);
+
+            const agW = barW * aggression;
+            const agGrad = ctx2d.createLinearGradient(barX, barY, barX + barW, barY);
+            agGrad.addColorStop(0, "rgba(56, 189, 248, 0.9)");
+            agGrad.addColorStop(1, "rgba(248, 250, 252, 0.95)");
+            ctx2d.fillStyle = agGrad;
+            ctx2d.fillRect(barX, barY, agW, barH);
+
+            ctx2d.strokeStyle = "rgba(15, 23, 42, 0.9)";
+            ctx2d.strokeRect(barX, barY, barW, barH);
+
+            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
+            ctx2d.fillText("Aggression", barX, barY - 12);
+
+            // Mini-map inset (swarm footprint)
+            const miniW = hudWidth - 16;
+            const miniH = 32;
+            const miniX = hudX + 8;
+            const miniY = barY + 22;
+
+            ctx2d.fillStyle = "rgba(15, 23, 42, 0.95)";
+            ctx2d.fillRect(miniX, miniY, miniW, miniH);
+            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.9)";
+            ctx2d.strokeRect(miniX, miniY, miniW, miniH);
+
+            const spanX = Math.max(40, maxX - minX);
+            const spanY = Math.max(40, maxY - minY);
+            const scale = Math.min(miniW / spanX, miniH / spanY) * 0.9;
+
+            const centerMiniX = miniX + miniW / 2;
+            const centerMiniY = miniY + miniH / 2;
+
+            ctx2d.fillStyle = "rgba(56, 189, 248, 0.9)";
+            for (const a of agents) {
+                const nx = (a.x - cx) * scale;
+                const ny = (a.y - cy) * scale;
+                const px = centerMiniX + nx;
+                const py = centerMiniY + ny;
+                ctx2d.fillRect(px - 1, py - 1, 2, 2);
+            }
+
+            ctx2d.fillStyle = "rgba(248, 250, 252, 0.95)";
+            const lnx = (leader.x - cx) * scale;
+            const lny = (leader.y - cy) * scale;
+            ctx2d.fillRect(centerMiniX + lnx - 2, centerMiniY + lny - 2, 4, 4);
+
+            ctx2d.restore();
+
+            // Debug overlay (small, since HUD exists)
+            ctx2d.save();
+            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
+            ctx2d.font = "10px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
+            ctx2d.textBaseline = "top";
+            ctx2d.fillText("HALO VISUAL LAYER v2.4.0 — B2‑X / T1+T2 / FORM / HUD", 10, 8);
             ctx2d.restore();
         }
 
@@ -709,6 +787,11 @@ export const HaloRenderer = {
         const ns = ctx.meta.namespace;
         core.set(`${ns}.lastTick`, tickData.count ?? null);
         core.set(`${ns}.lastUpdate`, tickData.time ?? null);
+
+        if (!ctx.state) ctx.state = {};
+        if (!ctx.state.hud) ctx.state.hud = { lastTick: 0, lastUpdate: 0 };
+        ctx.state.hud.lastTick = tickData.count ?? 0;
+        ctx.state.hud.lastUpdate = tickData.time ?? 0;
     },
 
     destroy(core, ctx) {
