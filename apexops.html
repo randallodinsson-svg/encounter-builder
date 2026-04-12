@@ -68,10 +68,9 @@
       padding: 2px 0;
       color: #cbd5e1;
     }
-
-    #diffAdded li { color: #4ade80; }     /* green */
-    #diffChanged li { color: #facc15; }   /* yellow */
-    #diffRemoved li { color: #f87171; }   /* red */
+    #diffAdded li { color: #4ade80; }
+    #diffChanged li { color: #facc15; }
+    #diffRemoved li { color: #f87171; }
 
     /* Timeline Panel Styling */
     #timelineList {
@@ -103,6 +102,27 @@
     #haloAgents { color: #4ade80; }
     #haloTick   { color: #fbbf24; }
     #haloUpdate { color: #a5b4fc; }
+
+    /* Module Inspector Panel */
+    #moduleInspectorTable td {
+      font-size: 11px;
+      vertical-align: top;
+    }
+    .capability-tag {
+      background: #1f2937;
+      padding: 2px 4px;
+      border-radius: 4px;
+      margin-right: 4px;
+      font-size: 10px;
+      display: inline-block;
+    }
+    .hook-true {
+      color: #4ade80;
+      font-weight: bold;
+    }
+    .hook-false {
+      color: #64748b;
+    }
   </style>
 </head>
 <body>
@@ -173,6 +193,22 @@
       <div>Agents: <span id="haloAgents">–</span></div>
       <div>Last Tick: <span id="haloTick">–</span></div>
       <div>Last Update: <span id="haloUpdate">–</span></div>
+    </div>
+
+    <!-- MODULE INSPECTOR PANEL -->
+    <div class="metric-box">
+      <h2>Module Inspector</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Mounted</th>
+            <th>Capabilities</th>
+            <th>Hooks</th>
+          </tr>
+        </thead>
+        <tbody id="moduleInspectorTable"></tbody>
+      </table>
     </div>
 
   </div>
@@ -269,6 +305,40 @@ function updateHALO(snap) {
   document.getElementById("haloUpdate").textContent = snap.halo?.lastUpdate ?? "–";
 }
 
+/* MODULE INSPECTOR PANEL */
+function updateModuleInspector(snap) {
+  const table = document.getElementById("moduleInspectorTable");
+  table.innerHTML = "";
+
+  const mods = snap.modinspector?.modules || {};
+  for (const name in mods) {
+    const m = mods[name];
+
+    const row = document.createElement("tr");
+
+    const capTags = (m.meta.capabilities || [])
+      .map(c => `<span class="capability-tag">${c}</span>`)
+      .join("");
+
+    const hooks = m.hooks || {};
+    const hookHTML = `
+      <div class="${hooks.init ? 'hook-true' : 'hook-false'}">init</div>
+      <div class="${hooks.tick ? 'hook-true' : 'hook-false'}">tick</div>
+      <div class="${hooks.destroy ? 'hook-true' : 'hook-false'}">destroy</div>
+      <div class="${hooks.reload ? 'hook-true' : 'hook-false'}">reload</div>
+    `;
+
+    row.innerHTML = `
+      <td>${name}</td>
+      <td>${m.mounted ? 'Yes' : 'No'}</td>
+      <td>${capTags}</td>
+      <td>${hookHTML}</td>
+    `;
+
+    table.appendChild(row);
+  }
+}
+
 /* Update UI */
 function updateUI() {
   const snap = getRegistrySnapshot();
@@ -298,6 +368,7 @@ function updateUI() {
   updateRegistryDiff(snap);
   updateTimeline(snap);
   updateHALO(snap);
+  updateModuleInspector(snap);
 }
 
 setInterval(updateUI, 300);
