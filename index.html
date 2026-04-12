@@ -756,135 +756,165 @@
     ENGINE.start();
 
     console.log("[BOOT] APEXCORE + ENGINE initialized, auto-tick started.");
-  </script>
-
-  <!-- APEXOPS UI SCRIPT (INLINE) -->
   <script>
-  (function () {
-    console.log("[APEXOPS] UI script loaded.");
+/* ============================================================================
+   APEXOPS UI SCRIPT — UPDATED VERSION
+   Fixes:
+   - HALO panel activation now forces canvas resize
+   - HALO canvas guaranteed to render when panel becomes visible
+   - Full panel switching + registry/diff/timeline/profiler/HALO HUD
+   ============================================================================ */
 
-    // DOM LOOKUPS
-    const nav = document.getElementById("apexops-nav");
-    const panels = document.querySelectorAll(".apexops-panel");
+(function () {
+  console.log("[APEXOPS] UI script loaded.");
 
-    const regContainer = document.getElementById("registry-container");
-    const diffContainer = document.getElementById("diff-container");
-    const timelineContainer = document.getElementById("timeline-container");
-    const profilerContainer = document.getElementById("profiler-container");
+  // ---------------------------------------------------------------------------
+  // DOM LOOKUPS
+  // ---------------------------------------------------------------------------
+  const nav = document.getElementById("apexops-nav");
+  const panels = document.querySelectorAll(".apexops-panel");
 
-    const haloAgentCount = document.getElementById("halo-agent-count");
-    const haloFormation = document.getElementById("halo-formation");
-    const haloLastTick = document.getElementById("halo-last-tick");
-    const haloLastUpdate = document.getElementById("halo-last-update");
+  const regContainer = document.getElementById("registry-container");
+  const diffContainer = document.getElementById("diff-container");
+  const timelineContainer = document.getElementById("timeline-container");
+  const profilerContainer = document.getElementById("profiler-container");
 
-    const haloProfLast = document.getElementById("halo-prof-lastMs");
-    const haloProfMin = document.getElementById("halo-prof-minMs");
-    const haloProfMax = document.getElementById("halo-prof-maxMs");
-    const haloProfAvg = document.getElementById("halo-prof-avgMs");
-    const haloProfTicks = document.getElementById("halo-prof-ticks");
+  const haloAgentCount = document.getElementById("halo-agent-count");
+  const haloFormation = document.getElementById("halo-formation");
+  const haloLastTick = document.getElementById("halo-last-tick");
+  const haloLastUpdate = document.getElementById("halo-last-update");
 
-    // PANEL SWITCHING
-    function showPanel(id) {
-      panels.forEach(p => p.classList.remove("active"));
-      const target = document.getElementById(id);
-      if (target) target.classList.add("active");
+  const haloProfLast = document.getElementById("halo-prof-lastMs");
+  const haloProfMin = document.getElementById("halo-prof-minMs");
+  const haloProfMax = document.getElementById("halo-prof-maxMs");
+  const haloProfAvg = document.getElementById("halo-prof-avgMs");
+  const haloProfTicks = document.getElementById("halo-prof-ticks");
 
-      nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
-      const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
-      if (activeBtn) activeBtn.classList.add("active");
-    }
+  // ---------------------------------------------------------------------------
+  // PANEL SWITCHING (WITH HALO FIX)
+  // ---------------------------------------------------------------------------
+  function showPanel(id) {
+    panels.forEach(p => p.classList.remove("active"));
+    const target = document.getElementById(id);
+    if (target) target.classList.add("active");
 
-    nav.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-panel]");
-      if (!btn) return;
-      const panel = btn.getAttribute("data-panel");
-      showPanel(panel);
-    });
+    nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
+    if (activeBtn) activeBtn.classList.add("active");
 
-    // REGISTRY RENDERING
-    function renderRegistry() {
-      if (!window.APEXCORE || !regContainer) return;
-      try {
-        const reg = APEXCORE.api.dump();
-        regContainer.textContent = JSON.stringify(reg, null, 2);
-      } catch (err) {
-        regContainer.textContent = "// registry error: " + err.message;
+    // ⭐ HALO PANEL ACTIVATION FIX ⭐
+    if (id === "panel-halo") {
+      if (window.HALO_RENDERER && HALO_RENDERER.__forceResize) {
+        console.log("[APEXOPS] HALO panel activated → forcing canvas resize");
+        HALO_RENDERER.__forceResize();
       }
     }
+  }
 
-    // DIFF VIEWER RENDERING
-    function renderDiff() {
-      if (!window.APEXCORE || !diffContainer) return;
-      try {
-        const diff = APEXCORE.api.getDiff ? APEXCORE.api.getDiff() : {};
-        diffContainer.textContent = JSON.stringify(diff, null, 2);
-      } catch (err) {
-        diffContainer.textContent = "// diff error: " + err.message;
-      }
+  nav.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-panel]");
+    if (!btn) return;
+    const panel = btn.getAttribute("data-panel");
+    showPanel(panel);
+  });
+
+  // ---------------------------------------------------------------------------
+  // REGISTRY RENDERING
+  // ---------------------------------------------------------------------------
+  function renderRegistry() {
+    if (!window.APEXCORE || !regContainer) return;
+    try {
+      const reg = APEXCORE.api.dump();
+      regContainer.textContent = JSON.stringify(reg, null, 2);
+    } catch (err) {
+      regContainer.textContent = "// registry error: " + err.message;
     }
+  }
 
-    // TIMELINE RENDERING
-    function renderTimeline() {
-      if (!window.APEXCORE || !timelineContainer) return;
-      try {
-        const events = APEXCORE.api.getTimeline ? APEXCORE.api.getTimeline() : [];
-        timelineContainer.textContent = JSON.stringify(events, null, 2);
-      } catch (err) {
-        timelineContainer.textContent = "// timeline error: " + err.message;
-      }
+  // ---------------------------------------------------------------------------
+  // DIFF VIEWER RENDERING
+  // ---------------------------------------------------------------------------
+  function renderDiff() {
+    if (!window.APEXCORE || !diffContainer) return;
+    try {
+      const diff = APEXCORE.api.getDiff ? APEXCORE.api.getDiff() : {};
+      diffContainer.textContent = JSON.stringify(diff, null, 2);
+    } catch (err) {
+      diffContainer.textContent = "// diff error: " + err.message;
     }
+  }
 
-    // PROFILER RENDERING
-    function renderProfiler() {
-      if (!window.APEXCORE || !profilerContainer) return;
-      try {
-        const prof = APEXCORE.api.get ? APEXCORE.api.get("profiler") : {};
-        profilerContainer.textContent = JSON.stringify(prof, null, 2);
-      } catch (err) {
-        profilerContainer.textContent = "// profiler error: " + err.message;
-      }
+  // ---------------------------------------------------------------------------
+  // TIMELINE RENDERING
+  // ---------------------------------------------------------------------------
+  function renderTimeline() {
+    if (!window.APEXCORE || !timelineContainer) return;
+    try {
+      const events = APEXCORE.api.getTimeline ? APEXCORE.api.getTimeline() : [];
+      timelineContainer.textContent = JSON.stringify(events, null, 2);
+    } catch (err) {
+      timelineContainer.textContent = "// timeline error: " + err.message;
     }
+  }
 
-    // HALO HUD RENDERING
-    function renderHaloHUD() {
-      if (!window.APEXCORE) return;
-
-      try {
-        haloAgentCount.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("halo.agents")) ?? "—";
-        haloFormation.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("halo.formation")) ?? "—";
-        haloLastTick.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("engine.lastTick")) ?? "—";
-        haloLastUpdate.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("halo.lastUpdate")) ?? "—";
-
-        haloProfLast.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.lastMs")) ?? "—";
-        haloProfMin.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.minMs")) ?? "—";
-        haloProfMax.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.maxMs")) ?? "—";
-        haloProfAvg.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.avgMs")) ?? "—";
-        haloProfTicks.textContent =
-          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.ticks")) ?? "—";
-      } catch (err) {
-        // fail silently in HUD; keep UI alive
-      }
+  // ---------------------------------------------------------------------------
+  // PROFILER RENDERING
+  // ---------------------------------------------------------------------------
+  function renderProfiler() {
+    if (!window.APEXCORE || !profilerContainer) return;
+    try {
+      const prof = APEXCORE.api.get ? APEXCORE.api.get("profiler") : {};
+      profilerContainer.textContent = JSON.stringify(prof, null, 2);
+    } catch (err) {
+      profilerContainer.textContent = "// profiler error: " + err.message;
     }
+  }
 
-    // MAIN UI LOOP
-    setInterval(() => {
-      renderRegistry();
-      renderDiff();
-      renderTimeline();
-      renderProfiler();
-      renderHaloHUD();
-    }, 200);
+  // ---------------------------------------------------------------------------
+  // HALO HUD RENDERING
+  // ---------------------------------------------------------------------------
+  function renderHaloHUD() {
+    if (!window.APEXCORE) return;
 
-    console.log("[APEXOPS] UI initialized.");
-  })();
-  </script>
+    try {
+      haloAgentCount.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("halo.agents")) ?? "—";
+      haloFormation.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("halo.formation")) ?? "—";
+      haloLastTick.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("engine.lastTick")) ?? "—";
+      haloLastUpdate.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("halo.lastUpdate")) ?? "—";
+
+      haloProfLast.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.lastMs")) ?? "—";
+      haloProfMin.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.minMs")) ?? "—";
+      haloProfMax.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.maxMs")) ?? "—";
+      haloProfAvg.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.avgMs")) ?? "—";
+      haloProfTicks.textContent =
+        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.ticks")) ?? "—";
+    } catch (err) {
+      // HUD errors are non-fatal
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // MAIN UI LOOP
+  // ---------------------------------------------------------------------------
+  setInterval(() => {
+    renderRegistry();
+    renderDiff();
+    renderTimeline();
+    renderProfiler();
+    renderHaloHUD();
+  }, 200);
+
+  console.log("[APEXOPS] UI initialized.");
+})();
+</script>
+
 </body>
 </html>
