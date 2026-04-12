@@ -1,32 +1,47 @@
-// Example module — simple, stable, APEXCORE v3.5 compatible
+// Example module — APEXCORE Module API v1.0 compatible
 
 export const ExampleModule = {
-    name: "example",
-
-    init(core) {
-        console.log("ExampleModule.init() called.");
-        core.set("example.status", "initialized");
-        core.set("example.ticks", 0);
+    meta: {
+        name: "example",
+        version: "1.0.0",
+        author: "VECTORCORE",
+        description: "Baseline diagnostics/example module for APEXCORE v3.5.",
+        namespace: "example",
+        capabilities: ["tick", "registry"]
     },
 
-    tick(tickData, core) {
-        const count = (core.get("example.ticks") || 0) + 1;
-        core.set("example.ticks", count);
-        core.set("example.lastTickTime", tickData.time);
-        core.set("example.random", tickData.random);
-        core.set("example.status", `running (${count} ticks)`);
+    init(core, ctx) {
+        console.log("ExampleModule.init() called.", ctx);
+        const ns = ctx.meta.namespace || ctx.name;
+
+        core.set(`${ns}.status`, "initialized");
+        core.set(`${ns}.ticks`, 0);
     },
 
-    destroy(core) {
-        console.log("ExampleModule.destroy() called.");
-        core.delete("example.status");
-        core.delete("example.ticks");
-        core.delete("example.lastTickTime");
-        core.delete("example.random");
+    tick(tickData, core, ctx) {
+        const ns = ctx.meta.namespace || ctx.name;
+
+        const count = (core.get(`${ns}.ticks`) || 0) + 1;
+        core.set(`${ns}.ticks`, count);
+        core.set(`${ns}.lastTickTime`, tickData.time);
+        core.set(`${ns}.random`, tickData.random);
+        core.set(`${ns}.status`, `running (${count} ticks)`);
     },
 
-    reload(core) {
-        console.log("ExampleModule.reload() called.");
-        core.set("example.status", "reloaded");
+    destroy(core, ctx) {
+        console.log("ExampleModule.destroy() called.", ctx);
+        const ns = ctx.meta.namespace || ctx.name;
+
+        core.delete(`${ns}.status`);
+        core.delete(`${ns}.ticks`);
+        core.delete(`${ns}.lastTickTime`);
+        core.delete(`${ns}.random`);
+    },
+
+    reload(core, ctx) {
+        console.log("ExampleModule.reload() called.", ctx);
+        const ns = ctx.meta.namespace || ctx.name;
+
+        core.set(`${ns}.status`, "reloaded");
     }
 };
