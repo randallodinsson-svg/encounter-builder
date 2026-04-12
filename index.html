@@ -291,6 +291,20 @@
             const tab = btn.dataset.tab;
             tabButtons.forEach(b => b.classList.toggle("active", b === btn));
             tabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + tab));
+
+            // HALO RESIZE FIX — ensures canvas renders correctly when SIM tab is opened
+            if (tab === "sim") {
+                const canvas = document.getElementById("haloCanvas");
+                const container = document.getElementById("haloContainer");
+                if (canvas && container) {
+                    const dpr = window.devicePixelRatio || 1;
+                    const rect = container.getBoundingClientRect();
+                    canvas.width = rect.width * dpr;
+                    canvas.height = rect.height * dpr;
+                    const ctx2d = canvas.getContext("2d");
+                    ctx2d.scale(dpr, dpr);
+                }
+            }
         });
     });
 
@@ -388,7 +402,7 @@
     function refreshRegDiffView() {
         const viewEl = document.getElementById("regDiffView");
         const diff = APEXCORE.get("regdiff.diff");
-        const status = APEXCORE.get("regdiff.status");
+        the status = APEXCORE.get("regdiff.status");
 
         if (!status || !diff) {
             viewEl.textContent = "Registry Diff Viewer not ready.";
