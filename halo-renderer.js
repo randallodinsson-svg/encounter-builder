@@ -3,7 +3,7 @@
 export const HaloRenderer = {
     meta: {
         name: "halo-renderer",
-        version: "2.1.0",
+        version: "2.1.1",
         author: "VECTORCORE",
         description: "Extreme-aggression tactical swarm with flocking, camera, trails, and Tier 1 tactical overlays.",
         namespace: "halo",
@@ -121,12 +121,21 @@ export const HaloRenderer = {
         }
 
         // Vector helpers
-        function limit(vec, max) {
+        function limitVector(vec, max) {
             const mag = Math.hypot(vec.x, vec.y);
             if (mag > max && mag > 0) {
                 const scale = max / mag;
                 vec.x *= scale;
                 vec.y *= scale;
+            }
+        }
+
+        function clampVelocity(agent, maxSpeed) {
+            const s = Math.hypot(agent.vx, agent.vy);
+            if (s > maxSpeed && s > 0) {
+                const k = maxSpeed / s;
+                agent.vx *= k;
+                agent.vy *= k;
             }
         }
 
@@ -171,19 +180,19 @@ export const HaloRenderer = {
                 cohesion.y /= count;
                 cohesion.x -= agent.x;
                 cohesion.y -= agent.y;
-                limit(cohesion, params.maxForce);
+                limitVector(cohesion, params.maxForce);
                 steer.coh = cohesion;
 
                 alignment.x /= count;
                 alignment.y /= count;
-                limit(alignment, params.maxForce);
+                limitVector(alignment, params.maxForce);
                 steer.ali = alignment;
             }
 
             if (sepCount > 0) {
                 separation.x /= sepCount;
                 separation.y /= sepCount;
-                limit(separation, params.maxForce * 1.4);
+                limitVector(separation, params.maxForce * 1.4);
                 steer.sep = separation;
             }
 
@@ -238,7 +247,7 @@ export const HaloRenderer = {
 
                 a.vx *= params.damping;
                 a.vy *= params.damping;
-                limit(a, params.maxSpeed);
+                clampVelocity(a, params.maxSpeed);
 
                 a.x += a.vx * dtScale;
                 a.y += a.vy * dtScale;
@@ -273,7 +282,7 @@ export const HaloRenderer = {
             // TIER 1 TACTICAL OVERLAYS
             // -----------------------------
 
-            // Compute swarm centroid
+            // Swarm centroid
             let cx = 0, cy = 0;
             for (const a of agents) {
                 cx += a.x;
@@ -284,19 +293,18 @@ export const HaloRenderer = {
             const centroid = { x: cx, y: cy };
             const centroidScreen = worldToScreen(cx, cy);
 
-            // 1. Leader Range Rings
+            // Leader screen position
             const leaderScreen = worldToScreen(leader.x, leader.y);
 
+            // 1. Leader Range Rings
             ctx2d.save();
             ctx2d.lineWidth = 1.2;
 
-            // Inner ring
             ctx2d.beginPath();
             ctx2d.strokeStyle = "rgba(56, 189, 248, 0.35)";
             ctx2d.arc(leaderScreen.x, leaderScreen.y, 90 * cam.zoom, 0, Math.PI * 2);
             ctx2d.stroke();
 
-            // Outer ring
             ctx2d.beginPath();
             ctx2d.strokeStyle = "rgba(56, 189, 248, 0.18)";
             ctx2d.arc(leaderScreen.x, leaderScreen.y, 160 * cam.zoom, 0, Math.PI * 2);
@@ -400,7 +408,6 @@ export const HaloRenderer = {
             for (const a of agents) {
                 const p = worldToScreen(a.x, a.y);
 
-                // Velocity streak
                 const speed = Math.hypot(a.vx, a.vy);
                 const streakLen = Math.min(26, 6 + speed * 10);
                 const dirX = (a.vx / (speed || 1)) * streakLen * cam.zoom;
@@ -413,7 +420,6 @@ export const HaloRenderer = {
                 ctx2d.lineWidth = 1.2;
                 ctx2d.stroke();
 
-                // Core agent
                 ctx2d.beginPath();
                 ctx2d.arc(p.x, p.y, a.radius * cam.zoom, 0, Math.PI * 2);
                 ctx2d.fillStyle = a.color;
@@ -430,7 +436,7 @@ export const HaloRenderer = {
             ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
             ctx2d.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
             ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO VISUAL LAYER v2.1 — B2‑X + TIER 1 OVERLAYS", 10, 8);
+            ctx2d.fillText("HALO VISUAL LAYER v2.1.1 — B2‑X + TIER 1 OVERLAYS", 10, 8);
             ctx2d.fillText(`Agents: ${agents.length}`, 10, 24);
             ctx2d.fillText(`Zoom: ${cam.zoom.toFixed(2)}`, 10, 40);
             ctx2d.restore();
@@ -460,3 +466,23 @@ export const HaloRenderer = {
     },
 
     destroy(core, ctx) {
+        const ns = ctx.meta.namespace;
+
+        if (ctx.state && ctx.state.rafId) {
+            cancelAnimationFrame(ctx.state.rafId);
+            ctx.state.rafId = null;
+        }
+
+        if (ctx.state && ctx.state.resizeHandler) {
+            window.removeEventListener("resize", ctx.state.resizeHandler);
+            ctx.state.resizeHandler = null;
+        }
+
+        core.set(`${ns}.status`, "stopped");
+    },
+
+    reload(core, ctx) {
+        const ns = ctx.meta.namespace;
+        core.set(`${ns}.status`, "reloaded");
+    }
+};
