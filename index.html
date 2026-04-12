@@ -141,7 +141,7 @@
     <button class="tab-button" data-tab="sim">SIM</button>
     <button class="tab-button" data-tab="ai">AI</button>
     <button class="tab-button" data-tab="core">CORE</button>
-        <button class="tab-button" data-tab="modules">MODULES</button>
+    <button class="tab-button" data-tab="modules">MODULES</button>
 </div>
 
 <div class="tab-content">
@@ -190,7 +190,7 @@
             <div class="col">
                 <div class="panel">
                     <h2>Simulation Status</h2>
-                    <pre id="simStatus">SIM idle.</pre>
+                    <pre id="simStatus">SIM online.</pre>
                 </div>
             </div>
         </div>
@@ -292,21 +292,36 @@
             tabButtons.forEach(b => b.classList.toggle("active", b === btn));
             tabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + tab));
 
-            // HALO RESIZE FIX
+            // HALO RESIZE FIX — SIM TAB ACTIVATION
             if (tab === "sim") {
-                const canvas = document.getElementById("haloCanvas");
-                const container = document.getElementById("haloContainer");
-                if (canvas && container) {
-                    const dpr = window.devicePixelRatio || 1;
-                    const rect = container.getBoundingClientRect();
-                    canvas.width = rect.width * dpr;
-                    canvas.height = rect.height * dpr;
-                    const ctx2d = canvas.getContext("2d");
-                    ctx2d.scale(dpr, dpr);
-                }
+                resizeHaloCanvas();
             }
         });
     });
+
+    // GLOBAL RESIZE FIX
+    window.addEventListener("resize", () => {
+        const simTabActive = document.querySelector('[data-tab="sim"]').classList.contains("active");
+        if (simTabActive) resizeHaloCanvas();
+    });
+
+    function resizeHaloCanvas() {
+        const canvas = document.getElementById("haloCanvas");
+        const container = document.getElementById("haloContainer");
+        if (!canvas || !container) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = container.getBoundingClientRect();
+
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+
+        const ctx2d = canvas.getContext("2d");
+
+        // ⭐ CRITICAL FIX: reset transform before scaling
+        ctx2d.setTransform(1, 0, 0, 1, 0, 0);
+        ctx2d.scale(dpr, dpr);
+    }
 
     // Init core + engine
     APEXCORE.init();
