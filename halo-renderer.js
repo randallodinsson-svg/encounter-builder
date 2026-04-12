@@ -1,822 +1,328 @@
-// HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm
-// Tier 1 + Tier 2 Tactical Overlays + Formation System + Tier 3 Tactical HUD
-// Controls: 1=SWARM, 2=RING, 3=SPEAR, 4=ORBIT, 5=SCATTER
-
-export const HaloRenderer = {
-    meta: {
-        name: "halo-renderer",
-        version: "2.4.0",
-        author: "VECTORCORE",
-        description: "Extreme-aggression tactical swarm with flocking, camera, trails, Tier 1+2 overlays, formations, and Tier 3 HUD.",
-        namespace: "halo",
-        capabilities: ["render", "sim", "ops"]
-    },
-
-    init(core, ctx) {
-        const ns = ctx.meta.namespace;
-
-        const canvas = document.getElementById("haloCanvas");
-        const container = document.getElementById("haloContainer");
-
-        if (!canvas || !container) {
-            console.warn("[HALO-RENDERER] canvas or container missing");
-            core.set(`${ns}.status`, "error: no canvas");
-            return;
-        }
-
-        const ctx2d = canvas.getContext("2d");
-        ctx.state = ctx.state || {};
-        ctx.state.canvas = canvas;
-        ctx.state.ctx2d = ctx2d;
-
-        // Initial sizing
-        const rect = container.getBoundingClientRect();
-        const center = { x: rect.width / 2, y: rect.height / 2 };
-        ctx.state.center = center;
-
-        function applyCanvasSize() {
-            const dpr = window.devicePixelRatio || 1;
-            const r = container.getBoundingClientRect();
-            canvas.width = r.width * dpr;
-            canvas.height = r.height * dpr;
-
-            ctx2d.setTransform(1, 0, 0, 1, 0, 0);
-            ctx2d.scale(dpr, dpr);
-
-            center.x = r.width / 2;
-            center.y = r.height / 2;
-        }
-
-        applyCanvasSize();
-        ctx.state.resizeHandler = () => applyCanvasSize();
-        window.addEventListener("resize", ctx.state.resizeHandler);
-
-        // Camera
-        ctx.state.camera = {
-            x: center.x,
-            y: center.y,
-            zoom: 1.0
-        };
-
-        // Formation state
-        ctx.state.formation = {
-            mode: "SWARM",          // SWARM, RING, SPEAR, ORBIT, SCATTER
-            lastMode: "SWARM",
-            t: 0                     // transition factor 0..1
-        };
-
-        // HUD state
-        ctx.state.hud = {
-            lastTick: 0,
-            lastUpdate: 0
-        };
-
-        // Keyboard controls for formations
-        function handleKeyDown(e) {
-            const f = ctx.state.formation;
-            let newMode = null;
-            switch (e.key) {
-                case "1": newMode = "SWARM"; break;
-                case "2": newMode = "RING"; break;
-                case "3": newMode = "SPEAR"; break;
-                case "4": newMode = "ORBIT"; break;
-                case "5": newMode = "SCATTER"; break;
-                default: break;
-            }
-            if (newMode && newMode !== f.mode) {
-                f.lastMode = f.mode;
-                f.mode = newMode;
-                f.t = 0; // restart transition
-            }
-        }
-        ctx.state.keyHandler = handleKeyDown;
-        window.addEventListener("keydown", handleKeyDown);
-
-        // Random helper
-        function randRange(min, max) {
-            return min + Math.random() * (max - min);
-        }
-
-        // Leader
-        const leader = {
-            x: center.x,
-            y: center.y,
-            vx: 0,
-            vy: 0,
-            radius: 13,
-            color: "#38bdf8"
-        };
-        ctx.state.leader = leader;
-
-        // Agents
-        const AGENT_COUNT = 32;
-        const agents = [];
-        ctx.state.agents = agents;
-
-        for (let i = 0; i < AGENT_COUNT; i++) {
-            const angle = (i / AGENT_COUNT) * Math.PI * 2;
-            const dist = randRange(80, 200);
-            agents.push({
-                x: center.x + Math.cos(angle) * dist,
-                y: center.y + Math.sin(angle) * dist,
-                vx: randRange(-0.4, 0.4),
-                vy: randRange(-0.4, 0.4),
-                radius: randRange(4.5, 6.5),
-                baseColor: "rgba(219, 234, 254, 0.98)"
-            });
-        }
-
-        // Flocking parameters — B2‑X Extreme Aggression
-        const params = {
-            neighborRadius: 140,
-            separationRadius: 55,
-            maxSpeed: 2.4,
-            maxForce: 0.16,
-
-            weightSeparation: 2.4,
-            weightAlignment: 1.6,
-            weightCohesion: 1.8,
-
-            leaderAttractRadius: 260,
-            leaderAttractWeight: 2.2,
-
-            wanderStrength: 0.22,
-            damping: 0.90
-        };
-        ctx.state.params = params;
-
-        let lastTime = performance.now();
-
-        // World → Screen
-        function worldToScreen(x, y) {
-            const cam = ctx.state.camera;
-            return {
-                x: center.x + (x - cam.x) * cam.zoom,
-                y: center.y + (y - cam.y) * cam.zoom
-            };
-        }
-
-        // Vector helpers
-        function limitVector(vec, max) {
-            const mag = Math.hypot(vec.x, vec.y);
-            if (mag > max && mag > 0) {
-                const scale = max / mag;
-                vec.x *= scale;
-                vec.y *= scale;
-            }
-        }
-
-        function clampVelocity(agent, maxSpeed) {
-            const s = Math.hypot(agent.vx, agent.vy);
-            if (s > maxSpeed && s > 0) {
-                const k = maxSpeed / s;
-                agent.vx *= k;
-                agent.vy *= k;
-            }
-        }
-
-        // Heat-tint helper (Blue → Cyan → White)
-        function speedToColor(speed, maxSpeed) {
-            const t = Math.min(1, speed / maxSpeed);
-            if (t < 0.5) {
-                // Blue (0, 122, 255) → Cyan (56, 189, 248)
-                const k = t / 0.5;
-                const r = 0 + (56 - 0) * k;
-                const g = 122 + (189 - 122) * k;
-                const b = 255 + (248 - 255) * k;
-                return `rgba(${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}, 0.95)`;
-            } else {
-                // Cyan (56, 189, 248) → White (255, 255, 255)
-                const k = (t - 0.5) / 0.5;
-                const r = 56 + (255 - 56) * k;
-                const g = 189 + (255 - 189) * k;
-                const b = 248 + (255 - 248) * k;
-                return `rgba(${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}, 0.98)`;
-            }
-        }
-
-        // Flocking forces
-        function computeFlockingForces(agent, agents, leader, params) {
-            let count = 0;
-            let sepCount = 0;
-
-            const cohesion = { x: 0, y: 0 };
-            const alignment = { x: 0, y: 0 };
-            const separation = { x: 0, y: 0 };
-
-            for (const other of agents) {
-                if (other === agent) continue;
-
-                const dx = other.x - agent.x;
-                const dy = other.y - agent.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist <= 0) continue;
-
-                if (dist < params.neighborRadius) {
-                    cohesion.x += other.x;
-                    cohesion.y += other.y;
-
-                    alignment.x += other.vx;
-                    alignment.y += other.vy;
-
-                    count++;
-
-                    if (dist < params.separationRadius) {
-                        separation.x -= dx / dist;
-                        separation.y -= dy / dist;
-                        sepCount++;
-                    }
-                }
-            }
-
-            const steer = { sep: { x: 0, y: 0 }, ali: { x: 0, y: 0 }, coh: { x: 0, y: 0 } };
-
-            if (count > 0) {
-                cohesion.x /= count;
-                cohesion.y /= count;
-                cohesion.x -= agent.x;
-                cohesion.y -= agent.y;
-                limitVector(cohesion, params.maxForce);
-                steer.coh = cohesion;
-
-                alignment.x /= count;
-                alignment.y /= count;
-                limitVector(alignment, params.maxForce);
-                steer.ali = alignment;
-            }
-
-            if (sepCount > 0) {
-                separation.x /= sepCount;
-                separation.y /= sepCount;
-                limitVector(separation, params.maxForce * 1.4);
-                steer.sep = separation;
-            }
-
-            // Leader attraction
-            const ldx = leader.x - agent.x;
-            const ldy = leader.y - agent.y;
-            const ldist = Math.hypot(ldx, ldy) || 1;
-            const leaderForce = { x: 0, y: 0 };
-            if (ldist < params.leaderAttractRadius) {
-                leaderForce.x = (ldx / ldist) * params.leaderAttractWeight * params.maxForce;
-                leaderForce.y = (ldy / ldist) * params.leaderAttractWeight * params.maxForce;
-            }
-
-            return { steer, leaderForce };
-        }
-
-        // Formation forces
-        function computeFormationForce(agent, centroid, leader, params, formationState) {
-            const mode = formationState.mode;
-            const lastMode = formationState.lastMode;
-            const t = Math.min(1, formationState.t);
-            const blend = t;
-
-            function modeForce(m) {
-                const fx = { x: 0, y: 0 };
-
-                const dxC = agent.x - centroid.x;
-                const dyC = agent.y - centroid.y;
-                const distC = Math.hypot(dxC, dyC) || 1;
-
-                const dxL = agent.x - leader.x;
-                const dyL = agent.y - leader.y;
-                const distL = Math.hypot(dxL, dyL) || 1;
-
-                const leaderDir = Math.atan2(leader.vy, leader.vx) || 0;
-                const dirX = Math.cos(leaderDir);
-                const dirY = Math.sin(leaderDir);
-
-                switch (m) {
-                    case "SWARM":
-                        break;
-
-                    case "RING": {
-                        const targetRadius = 160;
-                        const targetX = centroid.x + (dxC / distC) * targetRadius;
-                        const targetY = centroid.y + (dyC / distC) * targetRadius;
-                        fx.x += (targetX - agent.x) * 0.015;
-                        fx.y += (targetY - agent.y) * 0.015;
-                        break;
-                    }
-
-                    case "SPEAR": {
-                        const relX = agent.x - centroid.x;
-                        const relY = agent.y - centroid.y;
-                        const proj = relX * dirX + relY * dirY;
-                        const targetX = centroid.x + dirX * proj;
-                        const targetY = centroid.y + dirY * proj;
-                        fx.x += (targetX - agent.x) * 0.02;
-                        fx.y += (targetY - agent.y) * 0.02;
-                        break;
-                    }
-
-                    case "ORBIT": {
-                        const orbitRadius = 90;
-                        const targetX = leader.x + (dxL / distL) * orbitRadius;
-                        const targetY = leader.y + (dyL / distL) * orbitRadius;
-                        fx.x += (targetX - agent.x) * 0.02;
-                        fx.y += (targetY - agent.y) * 0.02;
-                        break;
-                    }
-
-                    case "SCATTER": {
-                        const pushStrength = 0.03;
-                        fx.x += (dxC / distC) * pushStrength * 200;
-                        fx.y += (dyC / distC) * pushStrength * 200;
-                        break;
-                    }
-                }
-
-                return fx;
-            }
-
-            const fLast = modeForce(lastMode);
-            const fNew = modeForce(mode);
-
-            return {
-                x: fLast.x * (1 - blend) + fNew.x * blend,
-                y: fLast.y * (1 - blend) + fNew.y * blend
-            };
-        }
-
-        // UPDATE
-        function update(dt) {
-            const tNow = performance.now() * 0.001;
-            const cam = ctx.state.camera;
-            const formationState = ctx.state.formation;
-            const agents = ctx.state.agents;
-
-            if (formationState.t < 1) {
-                formationState.t += dt * 0.0008;
-                if (formationState.t > 1) formationState.t = 1;
-            }
-
-            // Leader orbit
-            const orbitRadius = 110;
-            const orbitSpeed = 0.95;
-            leader.x = center.x + Math.cos(tNow * orbitSpeed) * orbitRadius;
-            leader.y = center.y + Math.sin(tNow * orbitSpeed) * orbitRadius;
-
-            // Camera follow
-            const camFollow = 0.10;
-            cam.x += (leader.x - cam.x) * camFollow;
-            cam.y += (leader.y - cam.y) * camFollow;
-
-            // Swarm centroid
-            let cx = 0, cy = 0;
-            for (const a of agents) {
-                cx += a.x;
-                cy += a.y;
-            }
-            cx /= agents.length;
-            cy /= agents.length;
-            const centroid = { x: cx, y: cy };
-
-            const dtScale = dt * 0.06;
-
-            for (const a of agents) {
-                const { steer, leaderForce } = computeFlockingForces(a, agents, leader, params);
-
-                a.vx += steer.sep.x * params.weightSeparation;
-                a.vy += steer.sep.y * params.weightSeparation;
-
-                a.vx += steer.ali.x * params.weightAlignment;
-                a.vy += steer.ali.y * params.weightAlignment;
-
-                a.vx += steer.coh.x * params.weightCohesion;
-                a.vy += steer.coh.y * params.weightCohesion;
-
-                a.vx += leaderForce.x;
-                a.vy += leaderForce.y;
-
-                const fForm = computeFormationForce(a, centroid, leader, params, formationState);
-                a.vx += fForm.x;
-                a.vy += fForm.y;
-
-                a.vx += (Math.random() - 0.5) * params.wanderStrength;
-                a.vy += (Math.random() - 0.5) * params.wanderStrength;
-
-                a.vx *= params.damping;
-                a.vy *= params.damping;
-                clampVelocity(a, params.maxSpeed);
-
-                a.x += a.vx * dtScale;
-                a.y += a.vy * dtScale;
-            }
-        }
-
-        // DRAW
-        function draw() {
-            const container = ctx.state.canvas.parentElement;
-            const r = container.getBoundingClientRect();
-            const cam = ctx.state.camera;
-            const formationState = ctx.state.formation;
-            const hudState = ctx.state.hud;
-            const agents = ctx.state.agents;
-            const leader = ctx.state.leader;
-
-            // Motion trails
-            ctx2d.save();
-            ctx2d.globalCompositeOperation = "source-over";
-            ctx2d.fillStyle = "rgba(3, 7, 18, 0.40)";
-            ctx2d.fillRect(0, 0, r.width, r.height);
-            ctx2d.restore();
-
-            // Background halo
-            ctx2d.save();
-            const bgGrad = ctx2d.createRadialGradient(
-                center.x, center.y, 0,
-                center.x, center.y, Math.max(r.width, r.height) * 0.8
-            );
-            bgGrad.addColorStop(0, "rgba(15, 23, 42, 0.98)");
-            bgGrad.addColorStop(1, "rgba(15, 23, 42, 0)");
-            ctx2d.fillStyle = bgGrad;
-            ctx2d.fillRect(0, 0, r.width, r.height);
-            ctx2d.restore();
-
-            // Cinematic grid
-            ctx2d.save();
-            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.18)";
-            ctx2d.lineWidth = 1;
-
-            const gridSpacingBase = 64;
-            const spacing = gridSpacingBase * cam.zoom;
-
-            for (let x = 0; x <= r.width; x += spacing) {
-                ctx2d.beginPath();
-                ctx2d.moveTo(x, 0);
-                ctx2d.lineTo(x, r.height);
-                ctx2d.stroke();
-            }
-
-            for (let y = 0; y <= r.height; y += spacing) {
-                ctx2d.beginPath();
-                ctx2d.moveTo(0, y);
-                ctx2d.lineTo(r.width, y);
-                ctx2d.stroke();
-            }
-
-            ctx2d.restore();
-
-            // Swarm centroid + bounds
-            let cx = 0, cy = 0;
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            for (const a of agents) {
-                cx += a.x;
-                cy += a.y;
-                if (a.x < minX) minX = a.x;
-                if (a.x > maxX) maxX = a.x;
-                if (a.y < minY) minY = a.y;
-                if (a.y > maxY) maxY = a.y;
-            }
-            cx /= agents.length;
-            cy /= agents.length;
-            const centroidScreen = worldToScreen(cx, cy);
-            const leaderScreen = worldToScreen(leader.x, leader.y);
-
-            // Leader range rings
-            ctx2d.save();
-            ctx2d.lineWidth = 1.2;
-
-            ctx2d.beginPath();
-            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.35)";
-            ctx2d.arc(leaderScreen.x, leaderScreen.y, 90 * cam.zoom, 0, Math.PI * 2);
-            ctx2d.stroke();
-
-            ctx2d.beginPath();
-            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.18)";
-            ctx2d.arc(leaderScreen.x, leaderScreen.y, 160 * cam.zoom, 0, Math.PI * 2);
-            ctx2d.stroke();
-            ctx2d.restore();
-
-            // Swarm cohesion ring
-            let cohesionRadius = 0;
-            for (const a of agents) {
-                const dx = a.x - cx;
-                const dy = a.y - cy;
-                cohesionRadius += Math.hypot(dx, dy);
-            }
-            cohesionRadius /= agents.length;
-
-            ctx2d.save();
-            ctx2d.beginPath();
-            ctx2d.strokeStyle = "rgba(148, 163, 184, 0.25)";
-            ctx2d.lineWidth = 1;
-            ctx2d.arc(centroidScreen.x, centroidScreen.y, cohesionRadius * cam.zoom, 0, Math.PI * 2);
-            ctx2d.stroke();
-            ctx2d.restore();
-
-            // Velocity vectors
-            ctx2d.save();
-            ctx2d.lineWidth = 1;
-            for (const a of agents) {
-                const p = worldToScreen(a.x, a.y);
-                const speed = Math.hypot(a.vx, a.vy);
-                const len = Math.min(18, 4 + speed * 8) * cam.zoom;
-
-                const dirX = (a.vx / (speed || 1)) * len;
-                const dirY = (a.vy / (speed || 1)) * len;
-
-                const col = speedToColor(speed, params.maxSpeed).replace("0.98", "0.65");
-                ctx2d.strokeStyle = col;
-                ctx2d.beginPath();
-                ctx2d.moveTo(p.x, p.y);
-                ctx2d.lineTo(p.x + dirX, p.y + dirY);
-                ctx2d.stroke();
-            }
-            ctx2d.restore();
-
-            // Threat cone
-            ctx2d.save();
-            const coneAngle = Math.PI * 0.33;
-            const leaderDir = Math.atan2(leader.vy, leader.vx) || 0;
-
-            const coneGrad = ctx2d.createRadialGradient(
-                leaderScreen.x, leaderScreen.y, 0,
-                leaderScreen.x, leaderScreen.y, 240 * cam.zoom
-            );
-            coneGrad.addColorStop(0, "rgba(56, 189, 248, 0.25)");
-            coneGrad.addColorStop(1, "rgba(56, 189, 248, 0)");
-
-            ctx2d.fillStyle = coneGrad;
-            ctx2d.beginPath();
-            ctx2d.moveTo(leaderScreen.x, leaderScreen.y);
-            ctx2d.arc(
-                leaderScreen.x,
-                leaderScreen.y,
-                240 * cam.zoom,
-                leaderDir - coneAngle,
-                leaderDir + coneAngle
-            );
-            ctx2d.closePath();
-            ctx2d.fill();
-            ctx2d.restore();
-
-            // Leader → centroid line
-            ctx2d.save();
-            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.45)";
-            ctx2d.lineWidth = 1;
-            ctx2d.beginPath();
-            ctx2d.moveTo(leaderScreen.x, leaderScreen.y);
-            ctx2d.lineTo(centroidScreen.x, centroidScreen.y);
-            ctx2d.stroke();
-            ctx2d.restore();
-
-            // Influence circles
-            ctx2d.save();
-            ctx2d.lineWidth = 0.6;
-            for (const a of agents) {
-                const p = worldToScreen(a.x, a.y);
-                const speed = Math.hypot(a.vx, a.vy);
-                const radius = 22 * cam.zoom;
-                ctx2d.beginPath();
-                ctx2d.strokeStyle = "rgba(148, 163, 184, 0.18)";
-                if (speed > params.maxSpeed * 0.7) {
-                    ctx2d.strokeStyle = "rgba(56, 189, 248, 0.25)";
-                }
-                ctx2d.arc(p.x, p.y, radius, 0, Math.PI * 2);
-                ctx2d.stroke();
-            }
-            ctx2d.beginPath();
-            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.35)";
-            ctx2d.lineWidth = 1;
-            ctx2d.arc(leaderScreen.x, leaderScreen.y, 40 * cam.zoom, 0, Math.PI * 2);
-            ctx2d.stroke();
-            ctx2d.restore();
-
-            // Formation bounding box
-            const minScreen = worldToScreen(minX, minY);
-            const maxScreen = worldToScreen(maxX, maxY);
-            const boxPadding = 16 * cam.zoom;
-
-            ctx2d.save();
-            ctx2d.strokeStyle = "rgba(148, 163, 184, 0.30)";
-            ctx2d.lineWidth = 1;
-            ctx2d.setLineDash([6, 4]);
-            ctx2d.strokeRect(
-                minScreen.x - boxPadding,
-                minScreen.y - boxPadding,
-                (maxScreen.x - minScreen.x) + boxPadding * 2,
-                (maxScreen.y - minScreen.y) + boxPadding * 2
-            );
-            ctx2d.restore();
-
-            // Leader command arc
-            ctx2d.save();
-            const commandRadius = 130 * cam.zoom;
-            const commandAngle = Math.PI * 0.20;
-            const cmdStart = leaderDir - commandAngle;
-            const cmdEnd = leaderDir + commandAngle;
-
-            ctx2d.beginPath();
-            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.70)";
-            ctx2d.lineWidth = 1.4;
-            ctx2d.arc(leaderScreen.x, leaderScreen.y, commandRadius, cmdStart, cmdEnd);
-            ctx2d.stroke();
-            ctx2d.restore();
-
-            // Leader glow
-            ctx2d.save();
-            ctx2d.beginPath();
-            ctx2d.arc(leaderScreen.x, leaderScreen.y, leader.radius * 3.4, 0, Math.PI * 2);
-            ctx2d.fillStyle = "rgba(56, 189, 248, 0.30)";
-            ctx2d.fill();
-            ctx2d.beginPath();
-            ctx2d.arc(leaderScreen.x, leaderScreen.y, leader.radius * 1.6, 0, Math.PI * 2);
-            ctx2d.fillStyle = leader.color;
-            ctx2d.shadowColor = "rgba(56, 189, 248, 1.0)";
-            ctx2d.shadowBlur = 22;
-            ctx2d.fill();
-            ctx2d.restore();
-
-            // Agents
-            ctx2d.save();
-            ctx2d.shadowColor = "rgba(148, 163, 184, 0.9)";
-            ctx2d.shadowBlur = 10;
-            let totalSpeed = 0;
-            for (const a of agents) {
-                const p = worldToScreen(a.x, a.y);
-
-                const speed = Math.hypot(a.vx, a.vy);
-                totalSpeed += speed;
-                const streakLen = Math.min(26, 6 + speed * 10);
-                const dirX = (a.vx / (speed || 1)) * streakLen * cam.zoom;
-                const dirY = (a.vy / (speed || 1)) * streakLen * cam.zoom;
-
-                const heatColor = speedToColor(speed, params.maxSpeed);
-
-                ctx2d.beginPath();
-                ctx2d.moveTo(p.x - dirX, p.y - dirY);
-                ctx2d.lineTo(p.x, p.y);
-                ctx2d.strokeStyle = heatColor;
-                ctx2d.lineWidth = 1.2;
-                ctx2d.stroke();
-
-                ctx2d.beginPath();
-                ctx2d.arc(p.x, p.y, a.radius * cam.zoom, 0, Math.PI * 2);
-                ctx2d.fillStyle = heatColor;
-                ctx2d.fill();
-
-                ctx2d.lineWidth = 1;
-                ctx2d.strokeStyle = "rgba(15, 23, 42, 0.95)";
-                ctx2d.stroke();
-            }
-            ctx2d.restore();
-
-            // -----------------------------
-            // TIER 3 TACTICAL HUD
-            // -----------------------------
-            const avgSpeed = totalSpeed / agents.length;
-            const aggression = Math.min(1, avgSpeed / params.maxSpeed);
-
-            const hudPadding = 10;
-            const hudWidth = 230;
-            const hudHeight = 110;
-            const hudX = r.width - hudWidth - hudPadding;
-            const hudY = hudPadding;
-
-            ctx2d.save();
-            ctx2d.fillStyle = "rgba(15, 23, 42, 0.88)";
-            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.9)";
-            ctx2d.lineWidth = 1;
-            ctx2d.beginPath();
-            ctx2d.roundRect(hudX, hudY, hudWidth, hudHeight, 8);
-            ctx2d.fill();
-            ctx2d.stroke();
-
-            ctx2d.clip();
-
-            ctx2d.fillStyle = "rgba(30, 64, 175, 0.35)";
-            ctx2d.fillRect(hudX, hudY, hudWidth, 22);
-
-            ctx2d.fillStyle = "rgba(191, 219, 254, 0.95)";
-            ctx2d.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
-            ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO TACTICAL HUD — TIER 3", hudX + 8, hudY + 5);
-
-            const textYBase = hudY + 26;
-            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
-            ctx2d.fillText(`Formation: ${formationState.mode}`, hudX + 8, textYBase);
-            ctx2d.fillText(`Agents: ${agents.length}`, hudX + 8, textYBase + 14);
-            ctx2d.fillText(`Last tick: ${hudState.lastTick}`, hudX + 8, textYBase + 28);
-
-            // Aggression meter
-            const barX = hudX + 8;
-            const barY = textYBase + 46;
-            const barW = hudWidth - 16;
-            const barH = 10;
-
-            ctx2d.fillStyle = "rgba(30, 64, 175, 0.6)";
-            ctx2d.fillRect(barX, barY, barW, barH);
-
-            const agW = barW * aggression;
-            const agGrad = ctx2d.createLinearGradient(barX, barY, barX + barW, barY);
-            agGrad.addColorStop(0, "rgba(56, 189, 248, 0.9)");
-            agGrad.addColorStop(1, "rgba(248, 250, 252, 0.95)");
-            ctx2d.fillStyle = agGrad;
-            ctx2d.fillRect(barX, barY, agW, barH);
-
-            ctx2d.strokeStyle = "rgba(15, 23, 42, 0.9)";
-            ctx2d.strokeRect(barX, barY, barW, barH);
-
-            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
-            ctx2d.fillText("Aggression", barX, barY - 12);
-
-            // Mini-map inset (swarm footprint)
-            const miniW = hudWidth - 16;
-            const miniH = 32;
-            const miniX = hudX + 8;
-            const miniY = barY + 22;
-
-            ctx2d.fillStyle = "rgba(15, 23, 42, 0.95)";
-            ctx2d.fillRect(miniX, miniY, miniW, miniH);
-            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.9)";
-            ctx2d.strokeRect(miniX, miniY, miniW, miniH);
-
-            const spanX = Math.max(40, maxX - minX);
-            const spanY = Math.max(40, maxY - minY);
-            const scale = Math.min(miniW / spanX, miniH / spanY) * 0.9;
-
-            const centerMiniX = miniX + miniW / 2;
-            const centerMiniY = miniY + miniH / 2;
-
-            ctx2d.fillStyle = "rgba(56, 189, 248, 0.9)";
-            for (const a of agents) {
-                const nx = (a.x - cx) * scale;
-                const ny = (a.y - cy) * scale;
-                const px = centerMiniX + nx;
-                const py = centerMiniY + ny;
-                ctx2d.fillRect(px - 1, py - 1, 2, 2);
-            }
-
-            ctx2d.fillStyle = "rgba(248, 250, 252, 0.95)";
-            const lnx = (leader.x - cx) * scale;
-            const lny = (leader.y - cy) * scale;
-            ctx2d.fillRect(centerMiniX + lnx - 2, centerMiniY + lny - 2, 4, 4);
-
-            ctx2d.restore();
-
-            // Debug overlay (small, since HUD exists)
-            ctx2d.save();
-            ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
-            ctx2d.font = "10px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
-            ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO VISUAL LAYER v2.4.0 — B2‑X / T1+T2 / FORM / HUD", 10, 8);
-            ctx2d.restore();
-        }
-
-        // LOOP
-        function loop(now) {
-            const dt = now - lastTime;
-            lastTime = now;
-
-            update(dt);
-            draw();
-
-            ctx.state.rafId = requestAnimationFrame(loop);
-        }
-
-        ctx.state.rafId = requestAnimationFrame(loop);
-
-        core.set(`${ns}.status`, "running");
-        core.set(`${ns}.agentCount`, AGENT_COUNT);
-    },
-
-    tick(tickData, core, ctx) {
-        const ns = ctx.meta.namespace;
-        core.set(`${ns}.lastTick`, tickData.count ?? null);
-        core.set(`${ns}.lastUpdate`, tickData.time ?? null);
-
-        if (!ctx.state) ctx.state = {};
-        if (!ctx.state.hud) ctx.state.hud = { lastTick: 0, lastUpdate: 0 };
-        ctx.state.hud.lastTick = tickData.count ?? 0;
-        ctx.state.hud.lastUpdate = tickData.time ?? 0;
-    },
-
-    destroy(core, ctx) {
-        const ns = ctx.meta.namespace;
-
-        if (ctx.state && ctx.state.rafId) {
-            cancelAnimationFrame(ctx.state.rafId);
-            ctx.state.rafId = null;
-        }
-
-        if (ctx.state && ctx.state.resizeHandler) {
-            window.removeEventListener("resize", ctx.state.resizeHandler);
-            ctx.state.resizeHandler = null;
-        }
-
-        if (ctx.state && ctx.state.keyHandler) {
-            window.removeEventListener("keydown", ctx.state.keyHandler);
-            ctx.state.keyHandler = null;
-        }
-
-        core.set(`${ns}.status`, "stopped");
-    },
-
-    reload(core, ctx) {
-        const ns = ctx.meta.namespace;
-        core.set(`${ns}.status`, "reloaded");
-    }
+// HALO Tactical HUD — Simulation + Renderer
+// v2.5 — Unbounded float simulation space, 150 agents
+
+// CONFIG
+const HALO_CONFIG = {
+  agentCount: 150,
+  maxSpeed: 0.12,
+  neighborRadius: 2.5,
+  separationRadius: 0.8,
+  cohesionFactor: 0.0025,
+  alignmentFactor: 0.04,
+  separationFactor: 0.06,
+  jitterFactor: 0.02,
+  drag: 0.98,
 };
+
+// INTERNAL STATE
+let agents = [];
+let tickCounter = 0;
+let lastUpdate = null;
+let lastMs = 0;
+let minMs = Infinity;
+let maxMs = 0;
+let totalMs = 0;
+let ticks = 0;
+
+// Canvas + rendering state
+let canvas = null;
+let ctx = null;
+let lastCanvasWidth = 0;
+let lastCanvasHeight = 0;
+
+// Simple seeded RNG for stable-ish behavior
+let rngSeed = 1337;
+function rand() {
+  rngSeed = (rngSeed * 1664525 + 1013904223) >>> 0;
+  return rngSeed / 0xffffffff;
+}
+
+// Initialize agents in a small cluster around origin
+function initAgents() {
+  agents = [];
+  for (let i = 0; i < HALO_CONFIG.agentCount; i++) {
+    const angle = rand() * Math.PI * 2;
+    const radius = 3 + rand() * 3;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    const vx = (rand() - 0.5) * 0.05;
+    const vy = (rand() - 0.5) * 0.05;
+    agents.push({ x, y, vx, vy });
+  }
+}
+
+// Boids-lite update
+function updateAgents(deltaMs) {
+  const dt = deltaMs || 16.67;
+  const dtScale = dt / 16.67;
+
+  const {
+    neighborRadius,
+    separationRadius,
+    cohesionFactor,
+    alignmentFactor,
+    separationFactor,
+    jitterFactor,
+    drag,
+    maxSpeed,
+  } = HALO_CONFIG;
+
+  const neighborRadiusSq = neighborRadius * neighborRadius;
+  const separationRadiusSq = separationRadius * separationRadius;
+
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i];
+
+    let count = 0;
+    let avgX = 0;
+    let avgY = 0;
+    let avgVx = 0;
+    let avgVy = 0;
+    let sepX = 0;
+    let sepY = 0;
+
+    for (let j = 0; j < agents.length; j++) {
+      if (i === j) continue;
+      const b = agents[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq < neighborRadiusSq) {
+        count++;
+        avgX += b.x;
+        avgY += b.y;
+        avgVx += b.vx;
+        avgVy += b.vy;
+
+        if (distSq < separationRadiusSq && distSq > 0.0001) {
+          const inv = 1 / distSq;
+          sepX -= dx * inv;
+          sepY -= dy * inv;
+        }
+      }
+    }
+
+    if (count > 0) {
+      const invCount = 1 / count;
+
+      // Cohesion: move toward center of neighbors
+      const centerX = avgX * invCount;
+      const centerY = avgY * invCount;
+      a.vx += (centerX - a.x) * cohesionFactor * dtScale;
+      a.vy += (centerY - a.y) * cohesionFactor * dtScale;
+
+      // Alignment: match average velocity
+      const alignVx = avgVx * invCount;
+      const alignVy = avgVy * invCount;
+      a.vx += (alignVx - a.vx) * alignmentFactor * dtScale;
+      a.vy += (alignVy - a.vy) * alignmentFactor * dtScale;
+
+      // Separation: avoid crowding
+      a.vx += sepX * separationFactor * dtScale;
+      a.vy += sepY * separationFactor * dtScale;
+    }
+
+    // Jitter
+    a.vx += (rand() - 0.5) * jitterFactor * dtScale;
+    a.vy += (rand() - 0.5) * jitterFactor * dtScale;
+
+    // Drag
+    a.vx *= Math.pow(drag, dtScale);
+    a.vy *= Math.pow(drag, dtScale);
+
+    // Clamp speed
+    const speedSq = a.vx * a.vx + a.vy * a.vy;
+    const maxSpeedSq = maxSpeed * maxSpeed;
+    if (speedSq > maxSpeedSq) {
+      const s = maxSpeed / Math.sqrt(speedSq);
+      a.vx *= s;
+      a.vy *= s;
+    }
+
+    // Integrate position (unbounded float space)
+    a.x += a.vx * dtScale;
+    a.y += a.vy * dtScale;
+  }
+}
+
+// Canvas helpers
+function ensureCanvas() {
+  if (!canvas) {
+    canvas = document.getElementById("halo-canvas");
+    if (!canvas) return;
+    ctx = canvas.getContext("2d");
+  }
+  if (!canvas || !ctx) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(1, Math.floor(rect.width));
+  const height = Math.max(1, Math.floor(rect.height));
+
+  if (width !== lastCanvasWidth || height !== lastCanvasHeight) {
+    lastCanvasWidth = width;
+    lastCanvasHeight = height;
+    canvas.width = width;
+    canvas.height = height;
+  }
+}
+
+function renderAgentsToCanvas() {
+  if (!canvas || !ctx) return;
+  const width = canvas.width;
+  const height = canvas.height;
+  if (!width || !height) return;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Compute bounds in sim space for auto-fit
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const a of agents) {
+    if (a.x < minX) minX = a.x;
+    if (a.x > maxX) maxX = a.x;
+    if (a.y < minY) minY = a.y;
+    if (a.y > maxY) maxY = a.y;
+  }
+
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+    return;
+  }
+
+  const padding = 0.4;
+  const spanX = (maxX - minX) || 1;
+  const spanY = (maxY - minY) || 1;
+
+  const scaleX = (width * (1 - padding)) / spanX;
+  const scaleY = (height * (1 - padding)) / spanY;
+  const scale = Math.min(scaleX, scaleY);
+
+  const offsetX = width * 0.5 - ((minX + maxX) * 0.5) * scale;
+  const offsetY = height * 0.5 - ((minY + maxY) * 0.5) * scale;
+
+  // Background glow
+  const gradient = ctx.createRadialGradient(
+    width * 0.5,
+    height * 0.5,
+    0,
+    width * 0.5,
+    height * 0.5,
+    Math.max(width, height) * 0.6
+  );
+  gradient.addColorStop(0, "rgba(123, 92, 255, 0.18)");
+  gradient.addColorStop(1, "rgba(5, 7, 11, 1)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // Draw agents
+  ctx.lineWidth = 1;
+  for (const a of agents) {
+    const sx = a.x * scale + offsetX;
+    const sy = a.y * scale + offsetY;
+
+    const speed = Math.sqrt(a.vx * a.vx + a.vy * a.vy) || 0.0001;
+    const dirX = a.vx / speed;
+    const dirY = a.vy / speed;
+
+    const len = 7;
+    const tailLen = 4;
+
+    const hx = sx + dirX * len;
+    const hy = sy + dirY * len;
+    const tx = sx - dirX * tailLen;
+    const ty = sy - dirY * tailLen;
+
+    // Tail
+    ctx.strokeStyle = "rgba(63, 213, 255, 0.35)";
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+
+    // Head
+    ctx.strokeStyle = "rgba(197, 189, 255, 0.9)";
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(hx, hy);
+    ctx.stroke();
+
+    // Core dot
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// PUBLIC MODULE API
+export const meta = {
+  name: "HALO Tactical HUD Renderer",
+  namespace: "halo.renderer",
+  capabilities: ["sim", "render", "halo"],
+};
+
+export const hooks = {
+  tick: true,
+  mount: true,
+  unmount: true,
+};
+
+export function mount(registry) {
+  initAgents();
+  ensureCanvas();
+
+  registry["halo.status"] = "online";
+  registry["halo.agentCount"] = agents.length;
+  registry["halo.lastTick"] = 0;
+  registry["halo.lastUpdate"] = new Date().toISOString();
+
+  registry["modprofiler.halo-renderer.lastMs"] = 0;
+  registry["modprofiler.halo-renderer.minMs"] = 0;
+  registry["modprofiler.halo-renderer.maxMs"] = 0;
+  registry["modprofiler.halo-renderer.avgMs"] = 0;
+  registry["modprofiler.halo-renderer.ticks"] = 0;
+}
+
+export function unmount(registry) {
+  registry["halo.status"] = "offline";
+}
+
+export function tick(registry, deltaMs) {
+  const start = performance.now();
+
+  if (!agents || agents.length === 0) {
+    initAgents();
+  }
+
+  ensureCanvas();
+  updateAgents(deltaMs);
+  renderAgentsToCanvas();
+
+  tickCounter++;
+  lastUpdate = new Date().toISOString();
+
+  // Write HALO registry data
+  registry["halo.status"] = "online";
+  registry["halo.lastTick"] = tickCounter;
+  registry["halo.lastUpdate"] = lastUpdate;
+  registry["halo.agentCount"] = agents.length;
+  registry["halo.agents"] = agents;
+
+  // Profiling
+  const end = performance.now();
+  const elapsed = end - start;
+  lastMs = elapsed;
+  ticks++;
+  totalMs += elapsed;
+  if (elapsed < minMs) minMs = elapsed;
+  if (elapsed > maxMs) maxMs = elapsed;
+
+  registry["modprofiler.halo-renderer.lastMs"] = lastMs;
+  registry["modprofiler.halo-renderer.minMs"] = isFinite(minMs) ? minMs : lastMs;
+  registry["modprofiler.halo-renderer.maxMs"] = maxMs;
+  registry["modprofiler.halo-renderer.avgMs"] = totalMs / ticks;
+  registry["modprofiler.halo-renderer.ticks"] = ticks;
+}
