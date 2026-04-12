@@ -89,21 +89,20 @@
       display: inline-block;
       margin-right: 8px;
     }
-    .tl-tick {
-      color: #93c5fd;
-      min-width: 60px;
+    .tl-tick { color: #93c5fd; min-width: 60px; }
+    .tl-time { color: #a5b4fc; min-width: 80px; }
+    .tl-dur  { color: #fbbf24; min-width: 70px; }
+    .tl-reg  { color: #9ca3af; }
+
+    /* HALO Panel Styling */
+    #haloBox div {
+      font-size: 13px;
+      margin: 3px 0;
     }
-    .tl-time {
-      color: #a5b4fc;
-      min-width: 80px;
-    }
-    .tl-dur {
-      color: #fbbf24;
-      min-width: 70px;
-    }
-    .tl-reg {
-      color: #9ca3af;
-    }
+    #haloStatus { color: #93c5fd; }
+    #haloAgents { color: #4ade80; }
+    #haloTick   { color: #fbbf24; }
+    #haloUpdate { color: #a5b4fc; }
   </style>
 </head>
 <body>
@@ -167,11 +166,19 @@
       <ul id="timelineList"></ul>
     </div>
 
+    <!-- HALO PANEL -->
+    <div class="metric-box" id="haloBox">
+      <h2>HALO Renderer</h2>
+      <div>Status: <span id="haloStatus">–</span></div>
+      <div>Agents: <span id="haloAgents">–</span></div>
+      <div>Last Tick: <span id="haloTick">–</span></div>
+      <div>Last Update: <span id="haloUpdate">–</span></div>
+    </div>
+
   </div>
 </div>
 
 <script>
-/* Pull snapshot from engine */
 function getRegistrySnapshot() {
   return window.APEXCORE_SNAPSHOT || null;
 }
@@ -222,7 +229,6 @@ function updateTimeline(snap) {
 
   if (!timeline || !Array.isArray(timeline.events)) return;
 
-  // Show most recent first, limit to last 20
   const events = [...timeline.events].slice(-20).reverse();
 
   for (const ev of events) {
@@ -255,19 +261,25 @@ function updateTimeline(snap) {
   }
 }
 
+/* HALO Panel */
+function updateHALO(snap) {
+  document.getElementById("haloStatus").textContent = snap.halo?.status ?? "–";
+  document.getElementById("haloAgents").textContent = snap.halo?.agentCount ?? "–";
+  document.getElementById("haloTick").textContent = snap.halo?.lastTick ?? "–";
+  document.getElementById("haloUpdate").textContent = snap.halo?.lastUpdate ?? "–";
+}
+
 /* Update UI */
 function updateUI() {
   const snap = getRegistrySnapshot();
   if (!snap) return;
 
-  // Global metrics
   document.getElementById("ticks").textContent = snap.profiler?.ticks ?? "–";
   document.getElementById("last").textContent = snap.profiler?.lastTickDuration?.toFixed(2) ?? "–";
   document.getElementById("min").textContent = snap.profiler?.minMs?.toFixed(2) ?? "–";
   document.getElementById("max").textContent = snap.profiler?.maxMs?.toFixed(2) ?? "–";
   document.getElementById("avg").textContent = snap.profiler?.avgMs?.toFixed(2) ?? "–";
 
-  // Module table
   const table = document.getElementById("moduleTable");
   table.innerHTML = "";
 
@@ -283,11 +295,9 @@ function updateUI() {
     table.appendChild(row);
   }
 
-  // Registry Diff Panel
   updateRegistryDiff(snap);
-
-  // Timeline Panel
   updateTimeline(snap);
+  updateHALO(snap);
 }
 
 setInterval(updateUI, 300);
