@@ -222,6 +222,20 @@
                 </div>
             </div>
         </div>
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>Registry Diff Viewer</h2>
+                    <pre id="regDiffView">Waiting for tick...</pre>
+                </div>
+            </div>
+            <div class="col">
+                <div class="panel">
+                    <h2>Event Timeline</h2>
+                    <pre id="timelineView">Waiting for tick...</pre>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -234,6 +248,8 @@
     import { ExampleModule } from "./example-module.js";
     import { ModuleInspector } from "./module-inspector.js";
     import { TickProfiler } from "./tick-profiler.js";
+    import { RegistryDiffViewer } from "./registry-diff-viewer.js";
+    import { EventTimelineVisualizer } from "./event-timeline-visualizer.js";
 
     // Tabs
     const tabButtons = document.querySelectorAll(".tab-button");
@@ -259,6 +275,12 @@
 
     APEXCORE.register(TickProfiler);
     APEXCORE.mount("tick-profiler");
+
+    APEXCORE.register(RegistryDiffViewer);
+    APEXCORE.mount("registry-diff-viewer");
+
+    APEXCORE.register(EventTimelineVisualizer);
+    APEXCORE.mount("event-timeline-visualizer");
 
     // Wire subsystems
     APEXOPS.init(APEXCORE, ENGINE, {
@@ -327,6 +349,34 @@
             `Avg: ${avgMs != null ? avgMs.toFixed(3) + " ms" : "n/a"}`;
     }
 
+    // Registry Diff Viewer
+    function refreshRegDiffView() {
+        const viewEl = document.getElementById("regDiffView");
+        const diff = APEXCORE.get("regdiff.diff");
+        const status = APEXCORE.get("regdiff.status");
+
+        if (!status || !diff) {
+            viewEl.textContent = "Registry Diff Viewer not ready.";
+            return;
+        }
+
+        viewEl.textContent = JSON.stringify(diff, null, 2);
+    }
+
+    // Event Timeline
+    function refreshTimelineView() {
+        const viewEl = document.getElementById("timelineView");
+        const status = APEXCORE.get("timeline.status");
+        const events = APEXCORE.get("timeline.events");
+
+        if (!status || !events) {
+            viewEl.textContent = "Event Timeline not ready.";
+            return;
+        }
+
+        viewEl.textContent = JSON.stringify(events, null, 2);
+    }
+
     // Tick listener
     APEXCORE.onTick(() => {
         APEXOPS.refreshViews();
@@ -334,11 +384,15 @@
         refreshCoreSnapshot();
         refreshModuleInspector();
         refreshProfilerView();
+        refreshRegDiffView();
+        refreshTimelineView();
     });
 
     refreshCoreSnapshot();
     refreshModuleInspector();
     refreshProfilerView();
+    refreshRegDiffView();
+    refreshTimelineView();
 </script>
 </body>
 </html>
