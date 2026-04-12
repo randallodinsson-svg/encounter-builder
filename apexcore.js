@@ -1,9 +1,8 @@
-// APEXCORE v3.5 — Core + Module API v1.0
+// APEXCORE v3.6 — Core + Module API v1.0 + Per‑Module Tick Instrumentation
 
 export const APEXCORE = (() => {
-    // Internal stores
     const registry = new Map();
-    const modules = new Map(); // name -> { def, meta, state, mounted }
+    const modules = new Map();
     const tickListeners = new Set();
 
     function log(...args) {
@@ -13,49 +12,27 @@ export const APEXCORE = (() => {
     // -----------------------------
     // Registry API
     // -----------------------------
-    function set(key, value) {
-        registry.set(key, value);
-    }
-
-    function get(key) {
-        return registry.get(key);
-    }
-
-    function del(key) {
-        registry.delete(key);
-    }
+    function set(key, value) { registry.set(key, value); }
+    function get(key) { return registry.get(key); }
+    function del(key) { registry.delete(key); }
 
     // -----------------------------
     // Module API v1.0
     // -----------------------------
-    /**
-     * register(name, moduleDef)
-     * register(moduleDef) // uses moduleDef.meta.name or moduleDef.name
-     */
     function register(nameOrModule, maybeModule) {
-        let def;
-        let meta = {};
-        let name;
+        let def, meta = {}, name;
 
         if (typeof nameOrModule === "string") {
             name = nameOrModule;
             def = maybeModule;
-            if (!def || typeof def !== "object") {
-                log("register() failed — invalid module for name:", name);
-                return;
-            }
             meta = def.meta || {};
             if (!meta.name) meta.name = name;
         } else {
             def = nameOrModule;
-            if (!def || typeof def !== "object") {
-                log("register() failed — invalid module object");
-                return;
-            }
             meta = def.meta || {};
             name = meta.name || def.name;
             if (!name) {
-                log("register() failed — module missing meta.name or export name");
+                log("register() failed — module missing name");
                 return;
             }
             if (!meta.name) meta.name = name;
@@ -66,37 +43,28 @@ export const APEXCORE = (() => {
             return;
         }
 
-        const record = {
+        modules.set(name, {
             def,
             meta,
-            state: {},   // per‑module mutable state bag
-            mounted: false
-        };
+            state: {},
+            mounted: false,
+            perf: { count: 0, total: 0, min: null, max: null, last: null }
+        });
 
-        modules.set(name, record);
         log("Module registered:", name);
     }
 
     function mount(name) {
         const record = modules.get(name);
-        if (!record) {
-            log("mount() failed — unknown module:", name);
-            return;
-        }
-        if (record.mounted) {
-            log("mount() skipped — already mounted:", name);
-            return;
-        }
+        if (!record) return log("mount() failed — unknown:", name);
+        if (record.mounted) return;
 
         const { def, meta, state } = record;
         const ctx = { name, meta, state };
 
         if (typeof def.init === "function") {
-            try {
-                def.init(api, ctx);
-            } catch (err) {
-                console.error("[APEXCORE] init() error in module:", name, err);
-            }
+            try { def.init(api, ctx); }
+            catch (err) { console.error("[APEXCORE] init error:", name, err); }
         }
 
         record.mounted = true;
@@ -105,24 +73,14 @@ export const APEXCORE = (() => {
 
     function unmount(name) {
         const record = modules.get(name);
-        if (!record) {
-            log("unmount() failed — unknown module:", name);
-            return;
-        }
-        if (!record.mounted) {
-            log("unmount() skipped — not mounted:", name);
-            return;
-        }
+        if (!record || !record.mounted) return;
 
         const { def, meta, state } = record;
         const ctx = { name, meta, state };
 
         if (typeof def.destroy === "function") {
-            try {
-                def.destroy(api, ctx);
-            } catch (err) {
-                console.error("[APEXCORE] destroy() error in module:", name, err);
-            }
+            try { def.destroy(api, ctx); }
+            catch (err) { console.error("[APEXCORE] destroy error:", name, err); }
         }
 
         record.mounted = false;
@@ -131,138 +89,94 @@ export const APEXCORE = (() => {
 
     function reload(name) {
         const record = modules.get(name);
-        if (!record) {
-            log("reload() failed — unknown module:", name);
-            return;
-        }
+        if (!record) return;
 
         const { def, meta, state } = record;
         const ctx = { name, meta, state };
 
         if (typeof def.reload === "function") {
-            try {
-                def.reload(api, ctx);
-                log("Module reloaded:", name);
-            } catch (err) {
-                console.error("[APEXCORE] reload() error in module:", name, err);
-            }
-        } else {
-            log("reload() skipped — no reload() on module:", name);
+            try { def.reload(api, ctx); }
+            catch (err) { console.error("[APEXCORE] reload error:", name, err); }
         }
     }
 
-    function listModules() {
-        return Array.from(modules.keys());
-    }
-
-    function listMountedModules() {
-        return Array.from(modules.entries())
-            .filter(([, rec]) => rec.mounted)
-            .map(([name]) => name);
-    }
+    function listModules() { return [...modules.keys()]; }
+    function listMountedModules() { return [...modules.entries()].filter(([_, r]) => r.mounted).map(([n]) => n); }
 
     function getModuleInfo(name) {
-        const record = modules.get(name);
-        if (!record) return null;
-        const { meta, mounted, def } = record;
+        const r = modules.get(name);
+        if (!r) return null;
         return {
             name,
-            meta,
-            mounted,
-            hasInit: typeof def.init === "function",
-            hasTick: typeof def.tick === "function",
-            hasDestroy: typeof def.destroy === "function",
-            hasReload: typeof def.reload === "function"
+            meta: r.meta,
+            mounted: r.mounted,
+            perf: r.perf,
+            hasInit: typeof r.def.init === "function",
+            hasTick: typeof r.def.tick === "function",
+            hasDestroy: typeof r.def.destroy === "function",
+            hasReload: typeof r.def.reload === "function"
         };
     }
 
     // -----------------------------
-    // Tick pipeline
+    // Tick pipeline (now instrumented)
     // -----------------------------
     function runTick(tickData) {
-        // Modules
         for (const [name, record] of modules.entries()) {
             if (!record.mounted) continue;
-            const { def, meta, state } = record;
+            const { def, meta, state, perf } = record;
+
             if (typeof def.tick === "function") {
                 const ctx = { name, meta, state };
-                try {
-                    def.tick(tickData, api, ctx);
-                } catch (err) {
-                    console.error("[APEXCORE] tick error in module:", name, err);
-                }
+
+                const start = performance.now();
+                try { def.tick(tickData, api, ctx); }
+                catch (err) { console.error("[APEXCORE] tick error:", name, err); }
+                const end = performance.now();
+
+                const duration = end - start;
+                perf.last = duration;
+                perf.count += 1;
+                perf.total += duration;
+                perf.min = perf.min === null ? duration : Math.min(perf.min, duration);
+                perf.max = perf.max === null ? duration : Math.max(perf.max, duration);
+
+                // Write to registry for PerModuleProfiler
+                const ns = `modprofiler.${name}`;
+                set(`${ns}.lastMs`, duration);
+                set(`${ns}.minMs`, perf.min);
+                set(`${ns}.maxMs`, perf.max);
+                set(`${ns}.avgMs`, perf.total / perf.count);
+                set(`${ns}.ticks`, perf.count);
             }
         }
 
-        // Listeners
         for (const cb of tickListeners) {
-            try {
-                cb(tickData);
-            } catch (err) {
-                console.error("[APEXCORE] tick listener error:", err);
-            }
+            try { cb(tickData); }
+            catch (err) { console.error("[APEXCORE] tick listener error:", err); }
         }
     }
 
-    function onTick(cb) {
-        tickListeners.add(cb);
-    }
-
-    function offTick(cb) {
-        tickListeners.delete(cb);
-    }
+    function onTick(cb) { tickListeners.add(cb); }
+    function offTick(cb) { tickListeners.delete(cb); }
 
     // -----------------------------
-    // Debug / snapshot
+    // Debug snapshot
     // -----------------------------
     function debugSnapshot() {
-        const regObj = Object.fromEntries(registry.entries());
-        const moduleInfos = {};
-        for (const [name, record] of modules.entries()) {
-            moduleInfos[name] = {
-                meta: record.meta,
-                mounted: record.mounted
-            };
-        }
         return {
-            registry: regObj,
-            modules: Object.keys(moduleInfos),
-            mounted: listMountedModules(),
-            moduleInfo: moduleInfos
+            registry: Object.fromEntries(registry.entries()),
+            modules: listModules(),
+            mounted: listMountedModules()
         };
-    }
-
-    // -----------------------------
-    // Init
-    // -----------------------------
-    function init() {
-        log("init()");
     }
 
     const api = {
-        // lifecycle
-        init,
-
-        // registry
-        set,
-        get,
-        delete: del,
-
-        // modules
-        register,
-        mount,
-        unmount,
-        reload,
-        listModules,
-        listMountedModules,
-        getModuleInfo,
-
-        // ticks
-        runTick,
-        onTick,
-        offTick,
-
-        // debug
+        init: () => log("init()"),
+        set, get, delete: del,
+        register, mount, unmount, reload,
+        listModules, listMountedModules, getModuleInfo,
+        runTick, onTick, offTick,
         debugSnapshot
     };
 
