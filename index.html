@@ -2,20 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXOPS · APEXCORE Control Surface</title>
+  <title>APEXOPS · HALO Swarm Console</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
-      --bg: #050608;
-      --bg-alt: #0b0d10;
-      --panel-bg: #10131a;
-      --panel-border: #1c2230;
+      --bg: #020617;
+      --bg-alt: #020617;
+      --panel-bg: #020617;
+      --panel-border: #111827;
       --accent: #4fd1c5;
       --accent-soft: rgba(79, 209, 197, 0.2);
       --accent-strong: rgba(79, 209, 197, 0.6);
       --text: #e5e7eb;
       --text-soft: #9ca3af;
-      --danger: #f97373;
       --halo: #60a5fa;
       --mono: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -46,7 +45,7 @@
       width: 100%;
       height: 100vh;
       overflow: hidden;
-      background: linear-gradient(135deg, #020617 0, #020617 40%, #020617 100%);
+      background: #020617;
     }
 
     /* SIDEBAR */
@@ -143,14 +142,6 @@
       color: var(--text-soft);
     }
 
-    .apexops-sidebar-section-title {
-      margin-top: 10px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: #6b7280;
-    }
-
     .apexops-sidebar-footer {
       margin-top: auto;
       font-size: 10px;
@@ -159,13 +150,15 @@
       padding-top: 8px;
     }
 
-    /* MAIN AREA */
+    /* MAIN */
     .apexops-main {
       flex: 1;
       display: flex;
       flex-direction: column;
       padding: 14px 16px;
       gap: 10px;
+      min-width: 0;
+      min-height: 0;
     }
 
     .apexops-header {
@@ -196,7 +189,7 @@
     .apexops-header-right {
       display: flex;
       align-items: center;
-      gap: 10px;
+gap: 10px;
       font-size: 11px;
       color: var(--text-soft);
     }
@@ -225,7 +218,7 @@
       min-height: 0;
       border-radius: 10px;
       border: 1px solid #111827;
-      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      background: #020617;
       padding: 10px;
     }
 
@@ -312,7 +305,7 @@
       min-height: 0;
       border-radius: 8px;
       border: 1px solid #111827;
-      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      background: #020617;
       padding: 8px;
       display: flex;
       flex-direction: column;
@@ -362,7 +355,7 @@
     .halo-hud-card {
       border-radius: 8px;
       border: 1px solid #111827;
-      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      background: #020617;
       padding: 8px;
       display: flex;
       flex-direction: column;
@@ -373,7 +366,7 @@
     .halo-hud-label {
       font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.16em;
+ letter-spacing: 0.16em;
       color: #6b7280;
     }
 
@@ -388,43 +381,12 @@
       color: #6b7280;
     }
 
-    .metric-card {
-      border-radius: 8px;
-      border: 1px solid #111827;
-      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 11px;
-    }
-
-    .metric-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .metric-card-title {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text);
-    }
-
-    .metric-card-footer {
-      font-size: 10px;
-      color: #6b7280;
-    }
-
-    /* HALO CANVAS PANEL */
     .halo-canvas-wrapper {
       flex: 1;
       min-height: 0;
       border-radius: 10px;
       border: 1px solid #111827;
-      background: radial-gradient(circle at top, #020617 0, #020617 40%, #020617 100%);
+      background: #020617;
       padding: 8px;
       display: flex;
       flex-direction: column;
@@ -458,20 +420,16 @@
       background: radial-gradient(circle at center, #0b1120 0, #020617 55%);
     }
 
-    /* SCROLLBARS */
-    .panel-block-body::-webkit-scrollbar,
-    pre::-webkit-scrollbar {
+    .panel-block-body::-webkit-scrollbar {
       width: 6px;
       height: 6px;
     }
 
-    .panel-block-body::-webkit-scrollbar-track,
-    pre::-webkit-scrollbar-track {
+    .panel-block-body::-webkit-scrollbar-track {
       background: #020617;
     }
 
-    .panel-block-body::-webkit-scrollbar-thumb,
-    pre::-webkit-scrollbar-thumb {
+    .panel-block-body::-webkit-scrollbar-thumb {
       background: #1f2937;
       border-radius: 999px;
     }
@@ -482,42 +440,23 @@
     <!-- SIDEBAR -->
     <aside class="apexops-sidebar">
       <div class="apexops-logo">
-        <div>
-          APEXCORE <span>APEXOPS</span>
-        </div>
-        <div class="apexops-badge">CONTROL SURFACE</div>
+        <div>APEXCORE <span>APEXOPS</span></div>
+        <div class="apexops-badge">CONTROL</div>
       </div>
 
-      <div class="apexops-sidebar-section-title">Panels</div>
       <nav id="apexops-nav" class="apexops-nav">
         <button data-panel="panel-registry" class="active">
           <div class="apexops-nav-label">
             <span class="apexops-nav-title">Registry</span>
-            <span class="apexops-nav-sub">Live module registry snapshot</span>
+            <span class="apexops-nav-sub">Live module registry</span>
           </div>
           <span class="apexops-nav-tag">core.registry</span>
-        </button>
-
-        <button data-panel="panel-diff">
-          <div class="apexops-nav-label">
-            <span class="apexops-nav-title">Diff</span>
-            <span class="apexops-nav-sub">State changes over time</span>
-          </div>
-          <span class="apexops-nav-tag">core.diff</span>
-        </button>
-
-        <button data-panel="panel-timeline">
-          <div class="apexops-nav-label">
-            <span class="apexops-nav-title">Timeline</span>
-            <span class="apexops-nav-sub">Event stream visualization</span>
-          </div>
-          <span class="apexops-nav-tag">core.timeline</span>
         </button>
 
         <button data-panel="panel-profiler">
           <div class="apexops-nav-label">
             <span class="apexops-nav-title">Profiler</span>
-            <span class="apexops-nav-sub">Module cost + engine ticks</span>
+            <span class="apexops-nav-sub">Engine + modules</span>
           </div>
           <span class="apexops-nav-tag">core.profiler</span>
         </button>
@@ -525,7 +464,7 @@
         <button data-panel="panel-halo">
           <div class="apexops-nav-label">
             <span class="apexops-nav-title">HALO HUD</span>
-            <span class="apexops-nav-sub">Swarm renderer + metrics</span>
+            <span class="apexops-nav-sub">Swarm renderer</span>
           </div>
           <span class="apexops-nav-tag">halo-renderer</span>
         </button>
@@ -533,7 +472,7 @@
 
       <div class="apexops-sidebar-footer">
         <div>ENGINE: <span id="engine-status">AUTO · 1000ms</span></div>
-        <div>MODULES: APEXCORE, HALO, PROFILER, DIFF, TIMELINE</div>
+        <div>MODULES: APEXCORE, HALO</div>
       </div>
     </aside>
 
@@ -542,12 +481,11 @@
       <header class="apexops-header">
         <div class="apexops-header-left">
           <div class="apexops-title">APEXCORE · OPERATIONS</div>
-          <div class="apexops-subtitle">Unified control surface for ENGINE + modules</div>
+          <div class="apexops-subtitle">Simple swarm baseline — visibility first</div>
         </div>
         <div class="apexops-header-right">
           <span class="apexops-tag">ENGINE: TICKING</span>
-          <span class="apexops-tag">HALO: RENDERER</span>
-          <span class="apexops-tag">MODE: LIVE</span>
+          <span class="apexops-tag">HALO: SIMPLE SWARM</span>
         </div>
       </header>
 
@@ -558,10 +496,10 @@
             <div class="panel-header">
               <div class="panel-header-left">
                 <div class="panel-title">Registry</div>
-                <div class="panel-subtitle">Live snapshot of APEXCORE module registry</div>
+                <div class="panel-subtitle">APEXCORE.api.dump()</div>
               </div>
               <div class="panel-header-right">
-                <span class="tag">core.registry</span>
+                <span class="tag">read-only</span>
               </div>
             </div>
             <div class="panel-body">
@@ -570,69 +508,10 @@
                   <div class="panel-block-header">
                     <div>
                       <span class="panel-block-title">Registry dump</span>
-                      <span class="panel-block-sub">APEXCORE.api.dump()</span>
+                      <span class="panel-block-sub">Live snapshot</span>
                     </div>
-                    <span class="tag">read-only</span>
                   </div>
                   <div id="registry-container" class="panel-block-body">
-                    <!-- Filled by UI script -->
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- DIFF PANEL -->
-          <section id="panel-diff" class="apexops-panel">
-            <div class="panel-header">
-              <div class="panel-header-left">
-                <div class="panel-title">Diff viewer</div>
-                <div class="panel-subtitle">State changes between ticks</div>
-              </div>
-              <div class="panel-header-right">
-                <span class="tag">core.diff</span>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="panel-column">
-                <div class="panel-block">
-                  <div class="panel-block-header">
-                    <div>
-                      <span class="panel-block-title">Registry diff</span>
-                      <span class="panel-block-sub">APEXCORE.api.getDiff()</span>
-                    </div>
-                    <span class="tag">delta</span>
-                  </div>
-                  <div id="diff-container" class="panel-block-body">
-                    <!-- Filled by UI script -->
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- TIMELINE PANEL -->
-          <section id="panel-timeline" class="apexops-panel">
-            <div class="panel-header">
-              <div class="panel-header-left">
-                <div class="panel-title">Event timeline</div>
-                <div class="panel-subtitle">Chronological event stream</div>
-              </div>
-              <div class="panel-header-right">
-                <span class="tag">core.timeline</span>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="panel-column">
-                <div class="panel-block">
-                  <div class="panel-block-header">
-                    <div>
-                      <span class="panel-block-title">Timeline</span>
-                      <span class="panel-block-sub">APEXCORE.api.getTimeline()</span>
-                    </div>
-                    <span class="tag">events</span>
-                  </div>
-                  <div id="timeline-container" class="panel-block-body">
                     <!-- Filled by UI script -->
                   </div>
                 </div>
@@ -645,21 +524,20 @@
             <div class="panel-header">
               <div class="panel-header-left">
                 <div class="panel-title">Profiler</div>
-                <div class="panel-subtitle">Module + engine cost metrics</div>
+                <div class="panel-subtitle">Engine + module cost</div>
               </div>
               <div class="panel-header-right">
-                <span class="tag">core.profiler</span>
+                <span class="tag">metrics</span>
               </div>
             </div>
             <div class="panel-body">
               <div class="panel-column">
                 <div class="panel-block">
-                  <div class="panel-block-header">
+<div class="panel-block-header">
                     <div>
                       <span class="panel-block-title">Profiler snapshot</span>
                       <span class="panel-block-sub">APEXCORE.api.get("profiler")</span>
                     </div>
-                    <span class="tag">metrics</span>
                   </div>
                   <div id="profiler-container" class="panel-block-body">
                     <!-- Filled by UI script -->
@@ -669,12 +547,12 @@
             </div>
           </section>
 
-          <!-- HALO HUD PANEL -->
+          <!-- HALO PANEL -->
           <section id="panel-halo" class="apexops-panel">
             <div class="panel-header">
               <div class="panel-header-left">
                 <div class="panel-title">HALO HUD</div>
-                <div class="panel-subtitle">Swarm renderer status + metrics</div>
+                <div class="panel-subtitle">Simple swarm renderer</div>
               </div>
               <div class="panel-header-right">
                 <span class="tag halo">halo-renderer</span>
@@ -686,43 +564,24 @@
                   <div class="halo-hud-card">
                     <div class="halo-hud-label">Agents</div>
                     <div class="halo-hud-value" id="halo-agent-count">—</div>
-                    <div class="halo-hud-meta">Total active swimmers in HALO</div>
+                    <div class="halo-hud-meta">Total active agents</div>
                   </div>
                   <div class="halo-hud-card">
                     <div class="halo-hud-label">Formation</div>
                     <div class="halo-hud-value" id="halo-formation">—</div>
-                    <div class="halo-hud-meta">Current formation mode</div>
-                  </div>
-                  <div class="halo-hud-card">
-                    <div class="halo-hud-label">Engine tick</div>
-                    <div class="halo-hud-value" id="halo-last-tick">—</div>
-                    <div class="halo-hud-meta">Last engine tick timestamp</div>
+                    <div class="halo-hud-meta">Current mode</div>
                   </div>
                   <div class="halo-hud-card">
                     <div class="halo-hud-label">Last update</div>
                     <div class="halo-hud-value" id="halo-last-update">—</div>
-                    <div class="halo-hud-meta">Last HALO state update</div>
-                  </div>
-                  <div class="metric-card">
-                    <div class="metric-card-header">
-                      <span class="metric-card-title">Renderer cost</span>
-                      <span class="tag halo">modprofiler.halo-renderer</span>
-                    </div>
-                    <div class="metric-card-footer">
-                      last:
-                      <span id="halo-prof-lastMs">—</span> ·
-                      min: <span id="halo-prof-minMs">—</span> ·
-                      max: <span id="halo-prof-maxMs">—</span> ·
-                      avg: <span id="halo-prof-avgMs">—</span> ·
-                      ticks: <span id="halo-prof-ticks">—</span>
-                    </div>
+                    <div class="halo-hud-meta">HALO timestamp</div>
                   </div>
                 </div>
               </div>
               <div class="panel-column">
                 <div class="halo-canvas-wrapper">
                   <div class="halo-canvas-header">
-                    <div>HALO renderer</div>
+                    <div>HALO canvas</div>
                     <div class="tag halo">canvas</div>
                   </div>
                   <div class="halo-canvas-body">
@@ -737,17 +596,12 @@
     </main>
   </div>
 
-  <!-- ENGINE + MODULES (ES MODULE STACK) -->
+  <!-- ENGINE + CORE + HALO -->
   <script type="module" src="engine.js"></script>
   <script type="module" src="apexcore.js"></script>
-  <script type="module" src="example-module.js"></script>
-  <script type="module" src="module-inspector.js"></script>
-  <script type="module" src="tick-profiler.js"></script>
-  <script type="module" src="registry-diff-viewer.js"></script>
-  <script type="module" src="event-timeline-visualizer.js"></script>
   <script type="module" src="halo-renderer.js"></script>
 
-  <!-- BOOTSTRAP: start ENGINE so HALO ticks -->
+  <!-- BOOTSTRAP -->
   <script type="module">
     import { APEXCORE } from "./apexcore.js";
     import { ENGINE } from "./engine.js";
@@ -756,165 +610,86 @@
     ENGINE.start();
 
     console.log("[BOOT] APEXCORE + ENGINE initialized, auto-tick started.");
+  </script>
+
+  <!-- APEXOPS UI SCRIPT -->
   <script>
-/* ============================================================================
-   APEXOPS UI SCRIPT — UPDATED VERSION
-   Fixes:
-   - HALO panel activation now forces canvas resize
-   - HALO canvas guaranteed to render when panel becomes visible
-   - Full panel switching + registry/diff/timeline/profiler/HALO HUD
-   ============================================================================ */
+  (function () {
+    console.log("[APEXOPS] UI script loaded.");
 
-(function () {
-  console.log("[APEXOPS] UI script loaded.");
+    const nav = document.getElementById("apexops-nav");
+    const panels = document.querySelectorAll(".apexops-panel");
 
-  // ---------------------------------------------------------------------------
-  // DOM LOOKUPS
-  // ---------------------------------------------------------------------------
-  const nav = document.getElementById("apexops-nav");
-  const panels = document.querySelectorAll(".apexops-panel");
+    const regContainer = document.getElementById("registry-container");
+    const profilerContainer = document.getElementById("profiler-container");
 
-  const regContainer = document.getElementById("registry-container");
-  const diffContainer = document.getElementById("diff-container");
-  const timelineContainer = document.getElementById("timeline-container");
-  const profilerContainer = document.getElementById("profiler-container");
+    const haloAgentCount = document.getElementById("halo-agent-count");
+    const haloFormation = document.getElementById("halo-formation");
+    const haloLastUpdate = document.getElementById("halo-last-update");
 
-  const haloAgentCount = document.getElementById("halo-agent-count");
-  const haloFormation = document.getElementById("halo-formation");
-  const haloLastTick = document.getElementById("halo-last-tick");
-  const haloLastUpdate = document.getElementById("halo-last-update");
+    function showPanel(id) {
+      panels.forEach(p => p.classList.remove("active"));
+      const target = document.getElementById(id);
+      if (target) target.classList.add("active");
 
-  const haloProfLast = document.getElementById("halo-prof-lastMs");
-  const haloProfMin = document.getElementById("halo-prof-minMs");
-  const haloProfMax = document.getElementById("halo-prof-maxMs");
-  const haloProfAvg = document.getElementById("halo-prof-avgMs");
-  const haloProfTicks = document.getElementById("halo-prof-ticks");
+      nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
+      const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
+      if (activeBtn) activeBtn.classList.add("active");
 
-  // ---------------------------------------------------------------------------
-  // PANEL SWITCHING (WITH HALO FIX)
-  // ---------------------------------------------------------------------------
-  function showPanel(id) {
-    panels.forEach(p => p.classList.remove("active"));
-    const target = document.getElementById(id);
-    if (target) target.classList.add("active");
-
-    nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
-    const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
-    if (activeBtn) activeBtn.classList.add("active");
-
-    // ⭐ HALO PANEL ACTIVATION FIX ⭐
-    if (id === "panel-halo") {
-      if (window.HALO_RENDERER && HALO_RENDERER.__forceResize) {
-        console.log("[APEXOPS] HALO panel activated → forcing canvas resize");
-        HALO_RENDERER.__forceResize();
+      if (id === "panel-halo") {
+        if (window.HALO_RENDERER && HALO_RENDERER.__forceResize) {
+          console.log("[APEXOPS] HALO panel activated → forcing canvas resize");
+          HALO_RENDERER.__forceResize();
+        }
       }
     }
-  }
 
-  nav.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-panel]");
-    if (!btn) return;
-    const panel = btn.getAttribute("data-panel");
-    showPanel(panel);
-  });
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-panel]");
+      if (!btn) return;
+      const panel = btn.getAttribute("data-panel");
+      showPanel(panel);
+    });
 
-  // ---------------------------------------------------------------------------
-  // REGISTRY RENDERING
-  // ---------------------------------------------------------------------------
-  function renderRegistry() {
-    if (!window.APEXCORE || !regContainer) return;
-    try {
-      const reg = APEXCORE.api.dump();
-      regContainer.textContent = JSON.stringify(reg, null, 2);
-    } catch (err) {
-      regContainer.textContent = "// registry error: " + err.message;
+    function renderRegistry() {
+      if (!window.APEXCORE || !regContainer) return;
+      try {
+        const reg = APEXCORE.api.dump();
+        regContainer.textContent = JSON.stringify(reg, null, 2);
+      } catch (err) {
+        regContainer.textContent = "// registry error: " + err.message;
+      }
     }
-  }
 
-  // ---------------------------------------------------------------------------
-  // DIFF VIEWER RENDERING
-  // ---------------------------------------------------------------------------
-  function renderDiff() {
-    if (!window.APEXCORE || !diffContainer) return;
-    try {
-      const diff = APEXCORE.api.getDiff ? APEXCORE.api.getDiff() : {};
-      diffContainer.textContent = JSON.stringify(diff, null, 2);
-    } catch (err) {
-      diffContainer.textContent = "// diff error: " + err.message;
+    function renderProfiler() {
+      if (!window.APEXCORE || !profilerContainer) return;
+      try {
+        const prof = APEXCORE.api.get("profiler") || {};
+        profilerContainer.textContent = JSON.stringify(prof, null, 2);
+      } catch (err) {
+        profilerContainer.textContent = "// profiler error: " + err.message;
+      }
     }
-  }
 
-  // ---------------------------------------------------------------------------
-  // TIMELINE RENDERING
-  // ---------------------------------------------------------------------------
-  function renderTimeline() {
-    if (!window.APEXCORE || !timelineContainer) return;
-    try {
-      const events = APEXCORE.api.getTimeline ? APEXCORE.api.getTimeline() : [];
-      timelineContainer.textContent = JSON.stringify(events, null, 2);
-    } catch (err) {
-      timelineContainer.textContent = "// timeline error: " + err.message;
+    function renderHaloHUD() {
+      if (!window.APEXCORE) return;
+      try {
+        haloAgentCount.textContent = APEXCORE.api.get("halo.agents") ?? "—";
+        haloFormation.textContent = APEXCORE.api.get("halo.formation") ?? "—";
+        haloLastUpdate.textContent = APEXCORE.api.get("halo.lastUpdate") ?? "—";
+      } catch (err) {
+        // non-fatal
+      }
     }
-  }
 
-  // ---------------------------------------------------------------------------
-  // PROFILER RENDERING
-  // ---------------------------------------------------------------------------
-  function renderProfiler() {
-    if (!window.APEXCORE || !profilerContainer) return;
-    try {
-      const prof = APEXCORE.api.get ? APEXCORE.api.get("profiler") : {};
-      profilerContainer.textContent = JSON.stringify(prof, null, 2);
-    } catch (err) {
-      profilerContainer.textContent = "// profiler error: " + err.message;
-    }
-  }
+    setInterval(() => {
+      renderRegistry();
+      renderProfiler();
+      renderHaloHUD();
+    }, 250);
 
-  // ---------------------------------------------------------------------------
-  // HALO HUD RENDERING
-  // ---------------------------------------------------------------------------
-  function renderHaloHUD() {
-    if (!window.APEXCORE) return;
-
-    try {
-      haloAgentCount.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("halo.agents")) ?? "—";
-      haloFormation.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("halo.formation")) ?? "—";
-      haloLastTick.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("engine.lastTick")) ?? "—";
-      haloLastUpdate.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("halo.lastUpdate")) ?? "—";
-
-      haloProfLast.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.lastMs")) ?? "—";
-      haloProfMin.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.minMs")) ?? "—";
-      haloProfMax.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.maxMs")) ?? "—";
-      haloProfAvg.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.avgMs")) ?? "—";
-      haloProfTicks.textContent =
-        (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.ticks")) ?? "—";
-    } catch (err) {
-      // HUD errors are non-fatal
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // MAIN UI LOOP
-  // ---------------------------------------------------------------------------
-  setInterval(() => {
-    renderRegistry();
-    renderDiff();
-    renderTimeline();
-    renderProfiler();
-    renderHaloHUD();
-  }, 200);
-
-  console.log("[APEXOPS] UI initialized.");
-})();
-</script>
-
+    console.log("[APEXOPS] UI initialized.");
+  })();
+  </script>
 </body>
 </html>
