@@ -101,7 +101,7 @@
             color: #e5e7eb;
             border: 1px solid #111827;
             padding: 6px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
             font-size: 11px;
             resize: vertical;
             min-height: 120px;
@@ -118,7 +118,7 @@
 <body>
 <header>
     <h1>APEXCORE v3.5</h1>
-    <span>Single‑Page Console • OPS • SIM • AI • CORE</span>
+    <span>Single‑Page Console • OPS • SIM • AI • CORE • MODULES</span>
 </header>
 
 <div class="tabs">
@@ -209,8 +209,8 @@
     <!-- MODULES TAB -->
     <div class="tab-panel" id="tab-modules">
         <div class="panel">
-            <h2>Module Detail</h2>
-            <pre id="modulesDetail"></pre>
+            <h2>Module Inspector</h2>
+            <pre id="modulesDetail">Waiting for tick...</pre>
         </div>
     </div>
 </div>
@@ -222,6 +222,7 @@
     import { APEXSIM } from "./apexsim.js";
     import { APEXAI } from "./apexai.js";
     import { ExampleModule } from "./example-module.js";
+    import { ModuleInspector } from "./module-inspector.js";
 
     // Tabs
     const tabButtons = document.querySelectorAll(".tab-button");
@@ -238,9 +239,12 @@
     APEXCORE.init();
     ENGINE.init(APEXCORE);
 
-    // Register and mount example module
-    APEXCORE.register("example", ExampleModule);
+    // Register and mount modules
+    APEXCORE.register(ExampleModule);
     APEXCORE.mount("example");
+
+    APEXCORE.register(ModuleInspector);
+    APEXCORE.mount("module-inspector");
 
     // Wire subsystems
     APEXOPS.init(APEXCORE, ENGINE, {
@@ -269,12 +273,30 @@
         const snapshotEl = document.getElementById("coreSnapshot");
         snapshotEl.textContent = JSON.stringify(APEXCORE.debugSnapshot(), null, 2);
     }
+
+    // MODULES tab inspector
+    function refreshModuleInspector() {
+        const detailEl = document.getElementById("modulesDetail");
+        const snapshot = APEXCORE.get("modinspector.modules");
+
+        if (!snapshot) {
+            detailEl.textContent = "Module Inspector not ready.";
+            return;
+        }
+
+        detailEl.textContent = JSON.stringify(snapshot, null, 2);
+    }
+
+    // Tick listener
     APEXCORE.onTick(() => {
         APEXOPS.refreshViews();
         APEXSIM.refresh();
         refreshCoreSnapshot();
+        refreshModuleInspector();
     });
+
     refreshCoreSnapshot();
+    refreshModuleInspector();
 </script>
 </body>
 </html>
