@@ -17,12 +17,8 @@ export const ExampleModule = {
         // Update registry safely
         core.set("example.status", `tick @ ${tickData.time}`);
 
-        // Optional: do something with tickData.random
-        const r = tickData.random;
-        core.set("example.random", r);
-
-        // Log something lightweight
-        // console.log("ExampleModule.tick() executed.");
+        // Optional: store random value
+        core.set("example.random", tickData.random);
     },
 
     // Called when module is unmounted
