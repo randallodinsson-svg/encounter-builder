@@ -1,17 +1,25 @@
 // HALO Tactical HUD — Simulation + Renderer
-// v2.5 — Unbounded float simulation space, 150 agents
+// v2.6 — Tier-2 behaviors: flocking modes, formations, aggression, orbiting
+// Simulation space: unbounded float, 150 agents
 
 // CONFIG
 const HALO_CONFIG = {
   agentCount: 150,
-  maxSpeed: 0.12,
-  neighborRadius: 2.5,
+  maxSpeed: 0.14,
+  neighborRadius: 2.6,
   separationRadius: 0.8,
   cohesionFactor: 0.0025,
   alignmentFactor: 0.04,
   separationFactor: 0.06,
   jitterFactor: 0.02,
   drag: 0.98,
+
+  // Tier-2 behavior tuning
+  orbitRadius: 8,
+  orbitStrength: 0.015,
+  aggroStrength: 0.02,
+  ringRadius: 10,
+  ringTightness: 0.03,
 };
 
 // INTERNAL STATE
@@ -29,6 +37,10 @@ let canvas = null;
 let ctx = null;
 let lastCanvasWidth = 0;
 let lastCanvasHeight = 0;
+
+// Mode state
+let currentMode = "SWARM"; // "SWARM" | "ORBIT" | "AGGRO" | "RING"
+let aggroTarget = { x: 0, y: 0 };
 
 // Simple seeded RNG for stable-ish behavior
 let rngSeed = 1337;
@@ -51,8 +63,8 @@ function initAgents() {
   }
 }
 
-// Boids-lite update
-function updateAgents(deltaMs) {
+// Base Boids-lite update + Tier-2 behavior overlays
+function updateAgents(deltaMs, mode) {
   const dt = deltaMs || 16.67;
   const dtScale = dt / 16.67;
 
@@ -65,6 +77,11 @@ function updateAgents(deltaMs) {
     jitterFactor,
     drag,
     maxSpeed,
+    orbitRadius,
+    orbitStrength,
+    aggroStrength,
+    ringRadius,
+    ringTightness,
   } = HALO_CONFIG;
 
   const neighborRadiusSq = neighborRadius * neighborRadius;
@@ -121,6 +138,42 @@ function updateAgents(deltaMs) {
       // Separation: avoid crowding
       a.vx += sepX * separationFactor * dtScale;
       a.vy += sepY * separationFactor * dtScale;
+    }
+
+    // Tier-2 overlays by mode
+    if (mode === "ORBIT") {
+      // Orbit around origin in a loose ring
+      const dx = a.x;
+      const dy = a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+
+      // Pull toward orbit radius
+      const radialError = dist - orbitRadius;
+      const pull = -radialError * orbitStrength * dtScale;
+      a.vx += (dx / dist) * pull;
+      a.vy += (dy / dist) * pull;
+
+      // Tangential component for orbiting
+      const tx = -dy / dist;
+      const ty = dx / dist;
+      const tangential = orbitStrength * dtScale;
+      a.vx += tx * tangential;
+      a.vy += ty * tangential;
+    } else if (mode === "AGGRO") {
+      // Aggressive pull toward a shared target
+      const dx = aggroTarget.x - a.x;
+      const dy = aggroTarget.y - a.y;
+      a.vx += dx * aggroStrength * dtScale;
+      a.vy += dy * aggroStrength * dtScale;
+    } else if (mode === "RING") {
+      // Try to sit on a ring of fixed radius
+      const dx = a.x;
+      const dy = a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+      const radialError = dist - ringRadius;
+      const pull = -radialError * ringTightness * dtScale;
+      a.vx += (dx / dist) * pull;
+      a.vy += (dy / dist) * pull;
     }
 
     // Jitter
@@ -261,7 +314,7 @@ function renderAgentsToCanvas() {
 export const meta = {
   name: "HALO Tactical HUD Renderer",
   namespace: "halo.renderer",
-  capabilities: ["sim", "render", "halo"],
+  capabilities: ["sim", "render", "halo", "tier2"],
 };
 
 export const hooks = {
@@ -274,10 +327,14 @@ export function mount(registry) {
   initAgents();
   ensureCanvas();
 
+  currentMode = registry["halo.mode"] || "SWARM";
+  aggroTarget = { x: 0, y: 0 };
+
   registry["halo.status"] = "online";
   registry["halo.agentCount"] = agents.length;
   registry["halo.lastTick"] = 0;
   registry["halo.lastUpdate"] = new Date().toISOString();
+  registry["halo.mode"] = currentMode;
 
   registry["modprofiler.halo-renderer.lastMs"] = 0;
   registry["modprofiler.halo-renderer.minMs"] = 0;
@@ -297,8 +354,21 @@ export function tick(registry, deltaMs) {
     initAgents();
   }
 
+  // Read mode from registry if present
+  const requestedMode = registry["halo.mode"];
+  if (typeof requestedMode === "string" && requestedMode.length > 0) {
+    currentMode = requestedMode.toUpperCase();
+  }
+
+  // Optional: allow external modules to set an aggro target
+  const extTarget = registry["halo.aggroTarget"];
+  if (extTarget && typeof extTarget.x === "number" && typeof extTarget.y === "number") {
+    aggroTarget.x = extTarget.x;
+    aggroTarget.y = extTarget.y;
+  }
+
   ensureCanvas();
-  updateAgents(deltaMs);
+  updateAgents(deltaMs, currentMode);
   renderAgentsToCanvas();
 
   tickCounter++;
@@ -310,6 +380,7 @@ export function tick(registry, deltaMs) {
   registry["halo.lastUpdate"] = lastUpdate;
   registry["halo.agentCount"] = agents.length;
   registry["halo.agents"] = agents;
+  registry["halo.mode"] = currentMode;
 
   // Profiling
   const end = performance.now();
