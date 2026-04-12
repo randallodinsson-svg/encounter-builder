@@ -1,72 +1,68 @@
-// ENGINE — tick driver for APEXCORE
+// engine.js
+// Simple tick engine that calls registered modules.
 
 export const ENGINE = (() => {
-    let core = null;
-    let intervalId = null;
-    let intervalMs = 1000;
-    let tickCount = 0;
+  let apexcore = null;
+  let intervalId = null;
+  let tickMs = 1000;
+  let lastTick = 0;
 
-    function init(coreRef) {
-        core = coreRef;
-        console.log("[ENGINE] init()");
-    }
+  function init(core) {
+    apexcore = core;
+    console.log("[ENGINE] init()");
+  }
 
-    function setIntervalMs(ms) {
-        intervalMs = ms;
-        if (intervalId) {
-            stop();
-            start();
+  function tickOnce() {
+    const now = performance.now();
+    const dt = lastTick ? (now - lastTick) : tickMs;
+    lastTick = now;
+
+    if (apexcore && apexcore._modules) {
+      for (const mod of apexcore._modules) {
+        if (mod && typeof mod.tick === "function") {
+          const t0 = performance.now();
+          mod.tick(dt);
+          const t1 = performance.now();
+
+          const prof = apexcore._profiler;
+          const id = mod.id || "unknown";
+          const cost = t1 - t0;
+
+          if (!prof.modules[id]) {
+            prof.modules[id] = { lastMs: 0, minMs: cost, maxMs: cost, totalMs: 0, ticks: 0 };
+          }
+          const m = prof.modules[id];
+          m.lastMs = cost;
+          m.minMs = Math.min(m.minMs, cost);
+          m.maxMs = Math.max(m.maxMs, cost);
+          m.totalMs += cost;
+          m.ticks += 1;
         }
-    }
-    function runSingleTick() {
-        if (!core) return;
-
-        const start = performance.now();
-
-        const tickData = {
-            time: start,
-            count: ++tickCount,
-            random: Math.random()
-        };
-
-        core.runTick(tickData);
-
-        const end = performance.now();
-        const duration = end - start;
-
-        // CRITICAL: Feed duration to TickProfiler
-        core.set("profiler.lastTickDuration", duration);
-
-        // ⭐ NEW: Export live snapshot for APEXOPS UI
-        // This makes apexops.html update automatically.
-        if (typeof window !== "undefined") {
-            window.APEXCORE_SNAPSHOT = core.getSnapshot();
-        }
-    }
-    function start() {
-        if (!core) return;
-        if (intervalId) return;
-        intervalId = setInterval(runSingleTick, intervalMs);
-        console.log("[ENGINE] auto‑tick started @", intervalMs, "ms");
+      }
     }
 
-    function stop() {
-        if (!intervalId) return;
-        clearInterval(intervalId);
-        intervalId = null;
-        console.log("[ENGINE] auto‑tick stopped");
+    if (apexcore && apexcore.api && apexcore.api.set) {
+      apexcore.api.set("engine.lastTick", now.toFixed(0));
+      apexcore.api.set("profiler", apexcore._profiler);
     }
+  }
 
-    function isRunning() {
-        return !!intervalId;
-    }
+  function start() {
+    if (intervalId) return;
+    intervalId = setInterval(tickOnce, tickMs);
+    console.log("[ENGINE] auto-tick started @", tickMs, "ms");
+  }
 
-    return {
-        init,
-        setIntervalMs,
-        runSingleTick,
-        start,
-        stop,
-        isRunning
-    };
+  function stop() {
+    if (!intervalId) return;
+    clearInterval(intervalId);
+    intervalId = null;
+    console.log("[ENGINE] auto-tick stopped");
+  }
+
+  return {
+    init,
+    start,
+    stop,
+  };
 })();
