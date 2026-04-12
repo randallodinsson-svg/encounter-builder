@@ -5,58 +5,525 @@
   <title>APEXCORE Console</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Your full CSS stays exactly the same -->
   <style>
-    /* … YOUR ENTIRE CSS FROM BEFORE … */
-  </style>
-</head>
+    /* ===========================
+       GLOBAL + LAYOUT + SIDEBAR
+       =========================== */
 
-<body>
-  <div class="apexops-root">
+    :root {
+      --bg: #05070b;
+      --bg-elevated: #0b0f18;
+      --bg-elevated-soft: #101624;
+      --border-subtle: #1b2233;
+      --accent: #3fd5ff;
+      --accent-soft: rgba(63, 213, 255, 0.12);
+      --accent-strong: #5cf2ff;
+      --accent-warm: #ffb347;
+      --text-main: #f5f7ff;
+      --text-soft: #a5b0c8;
+      --text-muted: #6b7488;
+      --danger: #ff4b6a;
+      --success: #4cd964;
+      --warning: #ffd75c;
+      --halo: #7b5cff;
+      --radius-lg: 10px;
+      --radius-md: 8px;
+      --radius-sm: 6px;
+      --shadow-soft: 0 0 40px rgba(0, 0, 0, 0.65);
+      --shadow-subtle: 0 0 24px rgba(0, 0, 0, 0.5);
+      --sidebar-width: 260px;
+      --transition-fast: 0.16s ease-out;
+    }
 
-    <!-- SIDEBAR -->
-    <!-- … your full sidebar HTML unchanged … -->
+    * {
+      box-sizing: border-box;
+    }
 
-    <!-- MAIN AREA -->
-    <!-- … your full main header and panels unchanged … -->
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, #151b2b 0, #05070b 55%);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+    }
 
-    <!-- HALO PANEL (with canvas included) -->
-    <!-- … your HALO panel HTML unchanged except for this canvas … -->
-    <canvas
-      id="halo-canvas"
-      width="900"
-      height="600"
-      style="
-        width: 100%;
-        height: 260px;
-        background: transparent;
-        display: block;
-        border-radius: 8px;
-        border: 1px solid rgba(26, 36, 60, 0.9);
-        margin-bottom: 8px;
-      "
-    ></canvas>
+    body {
+      display: flex;
+      min-height: 100vh;
+      overflow: hidden;
+    }
 
-  </div> <!-- end apexops-root -->
+    .apexops-root {
+      display: flex;
+      width: 100%;
+      height: 100vh;
+      color: var(--text-main);
+    }
 
-  <!-- ⭐ ALL MODULE SCRIPTS NOW LOAD AS ES MODULES ⭐ -->
-  <script type="module" src="engine.js"></script>
-  <script type="module" src="apexcore.js"></script>
+    .apexops-sidebar {
+      width: var(--sidebar-width);
+      background: linear-gradient(180deg, #05070b 0, #05070b 40%, #05070b 100%);
+      border-right: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      padding: 18px 16px 16px;
+      position: relative;
+      z-index: 2;
+    }
 
-  <!-- CORE MODULES -->
-  <script type="module" src="example-module.js"></script>
-  <script type="module" src="module-inspector.js"></script>
-  <script type="module" src="tick-profiler.js"></script>
-  <script type="module" src="registry-diff-viewer.js"></script>
-  <script type="module" src="event-timeline-visualizer.js"></script>
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
 
-  <!-- HALO RENDERER -->
-  <script type="module" src="halo-renderer.js"></script>
+    .sidebar-brand-mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #3fd5ff 0, #0b0f18 55%);
+      box-shadow: 0 0 18px rgba(63, 213, 255, 0.6);
+      position: relative;
+      overflow: hidden;
+    }
 
-  <!-- UI WIRING SCRIPT (unchanged) -->
-  <script>
-    /* … your entire APEXOPS_UI script exactly as before … */
-  </script>
+    .sidebar-brand-mark::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: inherit;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.7);
+    }
 
-</body>
-</html>
+    .sidebar-brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-brand-title {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .sidebar-brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .sidebar-divider {
+      height: 1px;
+      background: radial-gradient(circle at left, rgba(63, 213, 255, 0.7), transparent 55%);
+      opacity: 0.7;
+      margin-bottom: 10px;
+    }
+
+    .sidebar-section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+      margin: 10px 4px 6px;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: var(--radius-md);
+      color: var(--text-soft);
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: transparent;
+      transition: background var(--transition-fast), border-color var(--transition-fast),
+        color var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .sidebar-nav-item:hover {
+      background: rgba(15, 22, 40, 0.9);
+      border-color: rgba(63, 213, 255, 0.25);
+      color: var(--text-main);
+      transform: translateX(1px);
+    }
+
+    .sidebar-nav-item.active {
+      background: radial-gradient(circle at left, rgba(63, 213, 255, 0.18), #0b0f18);
+      border-color: rgba(63, 213, 255, 0.7);
+      color: var(--accent-strong);
+      box-shadow: 0 0 18px rgba(63, 213, 255, 0.35);
+    }
+
+    .sidebar-nav-item-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-nav-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: radial-gradient(circle at 30% 20%, rgba(63, 213, 255, 0.9), rgba(63, 213, 255, 0.1));
+      box-shadow: 0 0 10px rgba(63, 213, 255, 0.5);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .sidebar-nav-icon::after {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border-radius: inherit;
+      border: 1px solid rgba(5, 7, 11, 0.9);
+    }
+
+    .sidebar-nav-label {
+      font-size: 12px;
+    }
+
+    .sidebar-nav-meta {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .sidebar-nav-pill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(63, 213, 255, 0.4);
+      background: rgba(63, 213, 255, 0.08);
+      color: var(--accent-strong);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .sidebar-nav-pill.warm {
+      border-color: rgba(255, 183, 71, 0.5);
+      background: rgba(255, 183, 71, 0.08);
+      color: var(--accent-warm);
+    }
+
+    .sidebar-nav-pill.halo {
+      border-color: rgba(123, 92, 255, 0.6);
+      background: rgba(123, 92, 255, 0.12);
+      color: var(--halo);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid rgba(21, 30, 50, 0.9);
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sidebar-footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-footer-pill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(111, 255, 190, 0.5);
+      background: rgba(111, 255, 190, 0.08);
+      color: var(--success);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    /* ===========================
+       MAIN AREA + PANELS
+       =========================== */
+
+    .apexops-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 18px 18px;
+      overflow: hidden;
+    }
+
+    .apexops-main-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 10px;
+    }
+
+    .apexops-main-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .apexops-main-title {
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .apexops-main-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .apexops-main-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(76, 217, 100, 0.5);
+      background: rgba(76, 217, 100, 0.08);
+      color: var(--success);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 10px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #6fffbe, #1b3b2b);
+      box-shadow: 0 0 10px rgba(111, 255, 190, 0.7);
+    }
+
+    .apexops-main-body {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .apexops-panel-stack {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .apexops-panel {
+      flex: 1;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top left, rgba(63, 213, 255, 0.08), #05070b);
+      border: 1px solid rgba(26, 36, 60, 0.95);
+      box-shadow: var(--shadow-subtle);
+      padding: 10px 11px 11px;
+      display: none;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .apexops-panel.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .apexops-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+
+    .apexops-panel-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .apexops-panel-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-soft);
+    }
+
+    .apexops-panel-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .apexops-panel-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .apexops-panel-pill {
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(63, 213, 255, 0.4);
+      background: rgba(63, 213, 255, 0.08);
+      color: var(--accent-strong);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .apexops-panel-pill.alt {
+      border-color: rgba(255, 183, 71, 0.5);
+      background: rgba(255, 183, 71, 0.08);
+      color: var(--accent-warm);
+    }
+
+    .apexops-panel-pill.halo {
+      border-color: rgba(123, 92, 255, 0.7);
+      background: rgba(123, 92, 255, 0.12);
+      color: var(--halo);
+    }
+
+    .apexops-panel-body {
+      flex: 1;
+      border-radius: var(--radius-md);
+      background: radial-gradient(circle at top, rgba(10, 16, 30, 0.9), #05070b);
+      border: 1px solid rgba(18, 26, 44, 0.95);
+      padding: 8px 9px;
+      overflow: auto;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .metric-card {
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(10, 16, 30, 0.9), #05070b);
+      border: 1px solid rgba(26, 36, 60, 0.9);
+      padding: 7px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .metric-card-title {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .metric-card-value {
+      font-size: 12px;
+      color: var(--accent-strong);
+    }
+
+    .metric-card-footer {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .table th,
+    .table td {
+      padding: 4px 5px;
+      border-bottom: 1px solid rgba(26, 36, 60, 0.9);
+    }
+
+    .table th {
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 5px;
+      border-radius: 999px;
+      border: 1px solid rgba(63, 213, 255, 0.4);
+      background: rgba(63, 213, 255, 0.08);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent-strong);
+    }
+
+    .tag.muted {
+      border-color: rgba(107, 116, 136, 0.6);
+      background: rgba(107, 116, 136, 0.12);
+      color: var(--text-muted);
+    }
+
+    .tag.halo {
+      border-color: rgba(123, 92, 255, 0.7);
+      background: rgba(123, 92, 255, 0.12);
+      color: var(--halo);
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0;
+    }
+
+    .timeline-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #3fd5ff, #101624);
+      box-shadow: 0 0 10px rgba(63, 213, 255, 0.7);
+      flex-shrink: 0;
+    }
+
+    .timeline-meta {
+      font-size
