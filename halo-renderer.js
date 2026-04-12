@@ -1,12 +1,13 @@
 // HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm
-// Tier 1 + Tier 2 Tactical Overlays (Soft-Medium Cinematic Grid, Blue→Cyan→White heat-tint)
+// Tier 1 + Tier 2 Tactical Overlays + Formation System (SWARM, RING, SPEAR, ORBIT, SCATTER)
+// Control: 1=SWARM, 2=RING, 3=SPEAR, 4=ORBIT, 5=SCATTER
 
 export const HaloRenderer = {
     meta: {
         name: "halo-renderer",
-        version: "2.2.0",
+        version: "2.3.0",
         author: "VECTORCORE",
-        description: "Extreme-aggression tactical swarm with flocking, camera, trails, and Tier 1+2 tactical overlays.",
+        description: "Extreme-aggression tactical swarm with flocking, camera, trails, Tier 1+2 overlays, and formation modes.",
         namespace: "halo",
         capabilities: ["render", "sim", "ops"]
     },
@@ -56,6 +57,34 @@ export const HaloRenderer = {
             y: center.y,
             zoom: 1.0
         };
+
+        // Formation state
+        ctx.state.formation = {
+            mode: "SWARM",          // SWARM, RING, SPEAR, ORBIT, SCATTER
+            lastMode: "SWARM",
+            t: 0                     // transition factor 0..1
+        };
+
+        // Keyboard controls for formations
+        function handleKeyDown(e) {
+            const f = ctx.state.formation;
+            let newMode = null;
+            switch (e.key) {
+                case "1": newMode = "SWARM"; break;
+                case "2": newMode = "RING"; break;
+                case "3": newMode = "SPEAR"; break;
+                case "4": newMode = "ORBIT"; break;
+                case "5": newMode = "SCATTER"; break;
+                default: break;
+            }
+            if (newMode && newMode !== f.mode) {
+                f.lastMode = f.mode;
+                f.mode = newMode;
+                f.t = 0; // restart transition
+            }
+        }
+        ctx.state.keyHandler = handleKeyDown;
+        window.addEventListener("keydown", handleKeyDown);
 
         // Random helper
         function randRange(min, max) {
@@ -230,27 +259,125 @@ export const HaloRenderer = {
             return { steer, leaderForce };
         }
 
+        // Formation forces
+        function computeFormationForce(agent, centroid, leader, params, formationState) {
+            const mode = formationState.mode;
+            const lastMode = formationState.lastMode;
+            const t = Math.min(1, formationState.t);
+            const blend = t; // simple linear blend between lastMode and mode
+
+            // Helper to get per-mode force
+            function modeForce(m) {
+                const fx = { x: 0, y: 0 };
+
+                const dxC = agent.x - centroid.x;
+                const dyC = agent.y - centroid.y;
+                const distC = Math.hypot(dxC, dyC) || 1;
+
+                const dxL = agent.x - leader.x;
+                const dyL = agent.y - leader.y;
+                const distL = Math.hypot(dxL, dyL) || 1;
+
+                const leaderDir = Math.atan2(leader.vy, leader.vx) || 0;
+                const dirX = Math.cos(leaderDir);
+                const dirY = Math.sin(leaderDir);
+
+                switch (m) {
+                    case "SWARM":
+                        // No extra force; pure flocking
+                        break;
+
+                    case "RING": {
+                        const targetRadius = 160;
+                        const targetX = centroid.x + (dxC / distC) * targetRadius;
+                        const targetY = centroid.y + (dyC / distC) * targetRadius;
+                        fx.x += (targetX - agent.x) * 0.015;
+                        fx.y += (targetY - agent.y) * 0.015;
+                        break;
+                    }
+
+                    case "SPEAR": {
+                        // Pull agents toward a line in leader direction through centroid
+                        const relX = agent.x - centroid.x;
+                        const relY = agent.y - centroid.y;
+                        const proj = relX * dirX + relY * dirY;
+                        const targetX = centroid.x + dirX * proj;
+                        const targetY = centroid.y + dirY * proj;
+                        fx.x += (targetX - agent.x) * 0.02;
+                        fx.y += (targetY - agent.y) * 0.02;
+                        break;
+                    }
+
+                    case "ORBIT": {
+                        const orbitRadius = 90;
+                        const targetX = leader.x + (dxL / distL) * orbitRadius;
+                        const targetY = leader.y + (dyL / distL) * orbitRadius;
+                        fx.x += (targetX - agent.x) * 0.02;
+                        fx.y += (targetY - agent.y) * 0.02;
+                        break;
+                    }
+
+                    case "SCATTER": {
+                        // Push outward from centroid, reduce cohesion feel
+                        const pushStrength = 0.03;
+                        fx.x += (dxC / distC) * pushStrength * 200;
+                        fx.y += (dyC / distC) * pushStrength * 200;
+                        break;
+                    }
+                }
+
+                return fx;
+            }
+
+            const fLast = modeForce(lastMode);
+            const fNew = modeForce(mode);
+
+            // Blend between last and new mode for smooth transitions
+            return {
+                x: fLast.x * (1 - blend) + fNew.x * blend,
+                y: fLast.y * (1 - blend) + fNew.y * blend
+            };
+        }
+
         // UPDATE
         function update(dt) {
-            const t = performance.now() * 0.001;
+            const tNow = performance.now() * 0.001;
             const cam = ctx.state.camera;
+            const formationState = ctx.state.formation;
+
+            // Advance formation transition
+            if (formationState.t < 1) {
+                formationState.t += dt * 0.0008; // transition speed
+                if (formationState.t > 1) formationState.t = 1;
+            }
 
             // Leader orbit
             const orbitRadius = 110;
             const orbitSpeed = 0.95;
-            leader.x = center.x + Math.cos(t * orbitSpeed) * orbitRadius;
-            leader.y = center.y + Math.sin(t * orbitSpeed) * orbitRadius;
+            leader.x = center.x + Math.cos(tNow * orbitSpeed) * orbitRadius;
+            leader.y = center.y + Math.sin(tNow * orbitSpeed) * orbitRadius;
 
             // Camera follow
             const camFollow = 0.10;
             cam.x += (leader.x - cam.x) * camFollow;
             cam.y += (leader.y - cam.y) * camFollow;
 
+            // Swarm centroid (for formations)
+            let cx = 0, cy = 0;
+            for (const a of agents) {
+                cx += a.x;
+                cy += a.y;
+            }
+            cx /= agents.length;
+            cy /= agents.length;
+            const centroid = { x: cx, y: cy };
+
             const dtScale = dt * 0.06;
 
             for (const a of agents) {
                 const { steer, leaderForce } = computeFlockingForces(a, agents, leader, params);
 
+                // Base flocking
                 a.vx += steer.sep.x * params.weightSeparation;
                 a.vy += steer.sep.y * params.weightSeparation;
 
@@ -263,13 +390,21 @@ export const HaloRenderer = {
                 a.vx += leaderForce.x;
                 a.vy += leaderForce.y;
 
+                // Formation shaping
+                const fForm = computeFormationForce(a, centroid, leader, params, formationState);
+                a.vx += fForm.x;
+                a.vy += fForm.y;
+
+                // Wander
                 a.vx += (Math.random() - 0.5) * params.wanderStrength;
                 a.vy += (Math.random() - 0.5) * params.wanderStrength;
 
+                // Damping + clamp
                 a.vx *= params.damping;
                 a.vy *= params.damping;
                 clampVelocity(a, params.maxSpeed);
 
+                // Integrate
                 a.x += a.vx * dtScale;
                 a.y += a.vy * dtScale;
             }
@@ -279,6 +414,7 @@ export const HaloRenderer = {
         function draw() {
             const r = container.getBoundingClientRect();
             const cam = ctx.state.camera;
+            const formationState = ctx.state.formation;
 
             // Motion trails
             ctx2d.save();
@@ -308,19 +444,15 @@ export const HaloRenderer = {
 
             const gridSpacingBase = 64;
             const spacing = gridSpacingBase * cam.zoom;
-            const startX = 0;
-            const startY = 0;
 
-            // Vertical lines
-            for (let x = startX; x <= r.width; x += spacing) {
+            for (let x = 0; x <= r.width; x += spacing) {
                 ctx2d.beginPath();
                 ctx2d.moveTo(x, 0);
                 ctx2d.lineTo(x, r.height);
                 ctx2d.stroke();
             }
 
-            // Horizontal lines
-            for (let y = startY; y <= r.height; y += spacing) {
+            for (let y = 0; y <= r.height; y += spacing) {
                 ctx2d.beginPath();
                 ctx2d.moveTo(0, y);
                 ctx2d.lineTo(r.width, y);
@@ -333,7 +465,7 @@ export const HaloRenderer = {
             // TIER 1 + TIER 2 TACTICAL OVERLAYS
             // -----------------------------
 
-            // Swarm centroid
+            // Swarm centroid + bounds
             let cx = 0, cy = 0;
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             for (const a of agents) {
@@ -381,7 +513,7 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 3. Velocity Vectors (Tier 1)
+            // 3. Velocity Vectors (Tier 1, heat-tinted)
             ctx2d.save();
             ctx2d.lineWidth = 1;
             for (const a of agents) {
@@ -392,7 +524,8 @@ export const HaloRenderer = {
                 const dirX = (a.vx / (speed || 1)) * len;
                 const dirY = (a.vy / (speed || 1)) * len;
 
-                ctx2d.strokeStyle = speedToColor(speed, params.maxSpeed).replace("0.98", "0.65");
+                const col = speedToColor(speed, params.maxSpeed).replace("0.98", "0.65");
+                ctx2d.strokeStyle = col;
                 ctx2d.beginPath();
                 ctx2d.moveTo(p.x, p.y);
                 ctx2d.lineTo(p.x + dirX, p.y + dirY);
@@ -547,9 +680,11 @@ export const HaloRenderer = {
             ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
             ctx2d.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
             ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO VISUAL LAYER v2.2.0 — B2‑X + TIER 1+2 OVERLAYS", 10, 8);
+            ctx2d.fillText("HALO VISUAL LAYER v2.3.0 — B2‑X + TIER 1+2 + FORMATIONS", 10, 8);
             ctx2d.fillText(`Agents: ${agents.length}`, 10, 24);
             ctx2d.fillText(`Zoom: ${cam.zoom.toFixed(2)}`, 10, 40);
+            ctx2d.fillText(`Formation: ${formationState.mode}`, 10, 56);
+            ctx2d.fillText("1=SWARM 2=RING 3=SPEAR 4=ORBIT 5=SCATTER", 10, 72);
             ctx2d.restore();
         }
 
@@ -587,6 +722,11 @@ export const HaloRenderer = {
         if (ctx.state && ctx.state.resizeHandler) {
             window.removeEventListener("resize", ctx.state.resizeHandler);
             ctx.state.resizeHandler = null;
+        }
+
+        if (ctx.state && ctx.state.keyHandler) {
+            window.removeEventListener("keydown", ctx.state.keyHandler);
+            ctx.state.keyHandler = null;
         }
 
         core.set(`${ns}.status`, "stopped");
