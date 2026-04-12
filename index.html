@@ -1,99 +1,280 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>APEXCORE Platform — System Hub</title>
-
+    <meta charset="UTF-8">
+    <title>APEXCORE v3.5 — Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
             margin: 0;
-            background: #0b0e13;
-            color: #e6eef7;
-            font-family: system-ui, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #050608;
+            color: #e5e7eb;
         }
-
         header {
-            background: #11161d;
-            padding: 20px;
-            border-bottom: 1px solid #1f2732;
-            font-size: 22px;
-            font-weight: 600;
-        }
-
-        #container {
-            flex: 1;
+            padding: 12px 16px;
+            background: #0b0d10;
+            border-bottom: 1px solid #111827;
             display: flex;
-            overflow: hidden;
+            justify-content: space-between;
+            align-items: center;
         }
-
-        #sidebar {
-            width: 260px;
-            background: #11161d;
-            border-right: 1px solid #1f2732;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
+        header h1 {
+            margin: 0;
+            font-size: 16px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #9ca3af;
         }
-
-        .nav-btn {
-            width: 100%;
-            padding: 12px;
-            margin: 6px 0;
-            background: #1e90ff;
-            border: none;
-            color: white;
-            font-size: 15px;
-            border-radius: 4px;
+        header span {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #111827;
+            background: #050608;
+        }
+        .tab-button {
+            padding: 10px 16px;
             cursor: pointer;
-            text-align: left;
+            font-size: 13px;
+            border: none;
+            background: transparent;
+            color: #9ca3af;
+            border-right: 1px solid #111827;
         }
-
-        .nav-btn:hover {
-            background: #3aa0ff;
+        .tab-button.active {
+            background: #111827;
+            color: #f9fafb;
         }
-
-        #main {
+        .tab-content {
+            padding: 12px 16px;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        .row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .col {
             flex: 1;
-            padding: 20px;
-            overflow-y: auto;
+            min-width: 0;
+        }
+        .panel {
+            border: 1px solid #111827;
+            background: #020617;
+            padding: 8px;
+            font-size: 12px;
+        }
+        .panel h2 {
+            margin: 0 0 6px 0;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+        }
+        button {
+            font-size: 12px;
+            padding: 4px 8px;
+            background: #111827;
+            color: #e5e7eb;
+            border: 1px solid #1f2937;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        pre, textarea {
+            width: 100%;
             box-sizing: border-box;
-            background: #05070a;
-            font-family: Consolas, monospace;
-            white-space: pre-wrap;
-            border-left: 1px solid #1f2732;
+            background: #020617;
+            color: #e5e7eb;
+            border: 1px solid #111827;
+            padding: 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 11px;
+            resize: vertical;
+            min-height: 120px;
+        }
+        textarea {
+            min-height: 80px;
+        }
+        .small {
+            font-size: 11px;
+            color: #6b7280;
         }
     </style>
 </head>
-
 <body>
+<header>
+    <h1>APEXCORE v3.5</h1>
+    <span>Single‑Page Console • OPS • SIM • AI • CORE</span>
+</header>
 
-<header>APEXCORE Platform — System Hub</header>
-
-<div id="container">
-
-    <div id="sidebar">
-        <button class="nav-btn" onclick="go('core-shell.html')">APEXCORE — System Shell</button>
-        <button class="nav-btn" onclick="go('apexai.html')">APEXAI — Scenario Engine</button>
-        <button class="nav-btn" onclick="go('apexsim.html')">APEXSIM — Simulation Engine</button>
-        <button class="nav-btn" onclick="go('apexops.html')">APEXOPS — Runtime Inspector</button>
-    </div>
-
-    <div id="main">
-        APEXCORE Platform initialized.
-        <br><br>
-        Select a module from the left to begin.
-    </div>
-
+<div class="tabs">
+    <button class="tab-button active" data-tab="ops">OPS</button>
+    <button class="tab-button" data-tab="sim">SIM</button>
+    <button class="tab-button" data-tab="ai">AI</button>
+    <button class="tab-button" data-tab="core">CORE</button>
+    <button class="tab-button" data-tab="modules">MODULES</button>
 </div>
 
-<script>
-    function go(page) {
-        window.location.href = page;
-    }
-</script>
+<div class="tab-content">
+    <!-- OPS TAB -->
+    <div class="tab-panel active" id="tab-ops">
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>Tick Control</h2>
+                    <div style="margin-bottom:6px;">
+                        <button id="runTickBtn">Run Tick</button>
+                        <button id="startAutoBtn">Start Auto‑Tick</button>
+                        <button id="stopAutoBtn" disabled>Stop Auto‑Tick</button>
+                    </div>
+                    <div class="small">Auto‑Tick Interval</div>
+                    <input type="range" id="autoInterval" min="100" max="2000" step="100" value="1000">
+                    <div class="small"><span id="autoIntervalLabel">1000</span> ms</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="panel">
+                    <h2>OPS Log</h2>
+                    <pre id="opsLog">APEXOPS ready.</pre>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>Registry Snapshot</h2>
+                    <pre id="registryView"></pre>
+                </div>
+            </div>
+            <div class="col">
+                <div class="panel">
+                    <h2>Mounted Modules</h2>
+                    <pre id="modulesView"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- SIM TAB -->
+    <div class="tab-panel" id="tab-sim">
+        <div class="panel">
+            <h2>Simulation Status</h2>
+            <pre id="simStatus">SIM idle.</pre>
+        </div>
+    </div>
+
+    <!-- AI TAB -->
+    <div class="tab-panel" id="tab-ai">
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>Prompt</h2>
+                    <textarea id="aiInput" placeholder="Type a prompt..."></textarea>
+                    <div style="margin-top:6px;">
+                        <button id="aiSendBtn">Send</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="panel">
+                    <h2>AI Console</h2>
+                    <pre id="aiOutput">APEXAI ready.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CORE TAB -->
+    <div class="tab-panel" id="tab-core">
+        <div class="panel">
+            <h2>Core Snapshot</h2>
+            <pre id="coreSnapshot"></pre>
+        </div>
+    </div>
+
+    <!-- MODULES TAB -->
+    <div class="tab-panel" id="tab-modules">
+        <div class="panel">
+            <h2>Module Detail</h2>
+            <pre id="modulesDetail"></pre>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { APEXCORE } from "./apexcore.js";
+    import { ENGINE } from "./engine.js";
+    import { APEXOPS } from "./apexops.js";
+    import { APEXSIM } from "./apexsim.js";
+    import { APEXAI } from "./apexai.js";
+    import { ExampleModule } from "./example-module.js";
+
+    // Tabs
+    const tabButtons = document.querySelectorAll(".tab-button");
+    const tabPanels = document.querySelectorAll(".tab-panel");
+    tabButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const tab = btn.dataset.tab;
+            tabButtons.forEach(b => b.classList.toggle("active", b === btn));
+            tabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + tab));
+        });
+    });
+
+    // Init core + engine
+    APEXCORE.init();
+    ENGINE.init(APEXCORE);
+
+    // Register and mount example module
+    APEXCORE.register("example", ExampleModule);
+    APEXCORE.mount("example");
+
+    // Wire subsystems
+    APEXOPS.init(APEXCORE, ENGINE, {
+        logEl: document.getElementById("opsLog"),
+        registryEl: document.getElementById("registryView"),
+        modulesEl: document.getElementById("modulesView"),
+        runTickBtn: document.getElementById("runTickBtn"),
+        startAutoBtn: document.getElementById("startAutoBtn"),
+        stopAutoBtn: document.getElementById("stopAutoBtn"),
+        autoInterval: document.getElementById("autoInterval"),
+        autoIntervalLabel: document.getElementById("autoIntervalLabel")
+    });
+
+    APEXSIM.init(APEXCORE, {
+        statusEl: document.getElementById("simStatus")
+    });
+
+    APEXAI.init(APEXCORE, {
+        inputEl: document.getElementById("aiInput"),
+        sendBtn: document.getElementById("aiSendBtn"),
+        outputEl: document.getElementById("aiOutput")
+    });
+
+    // CORE tab snapshot
+    function refreshCoreSnapshot() {
+        const snapshotEl = document.getElementById("coreSnapshot");
+        snapshotEl.textContent = JSON.stringify(APEXCORE.debugSnapshot(), null, 2);
+    }
+    APEXCORE.onTick(() => {
+        APEXOPS.refreshViews();
+        APEXSIM.refresh();
+        refreshCoreSnapshot();
+    });
+    refreshCoreSnapshot();
+</script>
 </body>
 </html>
