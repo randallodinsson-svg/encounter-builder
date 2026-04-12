@@ -1,695 +1,101 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>APEXOPS · HALO Swarm Console</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root {
-      --bg: #020617;
-      --bg-alt: #020617;
-      --panel-bg: #020617;
-      --panel-border: #111827;
-      --accent: #4fd1c5;
-      --accent-soft: rgba(79, 209, 197, 0.2);
-      --accent-strong: rgba(79, 209, 197, 0.6);
-      --text: #e5e7eb;
-      --text-soft: #9ca3af;
-      --halo: #60a5fa;
-      --mono: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: radial-gradient(circle at top, #111827 0, #020617 55%);
-      color: var(--text);
-      font-family: var(--sans);
-    }
-
-    body {
-      display: flex;
-      align-items: stretch;
-      justify-content: stretch;
-    }
-
-    .apexops-root {
-      display: flex;
-      flex-direction: row;
-      width: 100%;
-      height: 100vh;
-      overflow: hidden;
-      background: #020617;
-    }
-
-    /* SIDEBAR */
-    .apexops-sidebar {
-      width: 260px;
-      background: radial-gradient(circle at top left, #111827 0, #020617 55%);
-      border-right: 1px solid #111827;
-      display: flex;
-      flex-direction: column;
-      padding: 16px 14px;
-      gap: 16px;
-    }
-
-    .apexops-logo {
-      font-size: 13px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--text-soft);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .apexops-logo span {
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .apexops-badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid var(--panel-border);
-      background: rgba(15, 23, 42, 0.9);
-      color: var(--text-soft);
-    }
-
-    .apexops-nav {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 8px;
-    }
-
-    .apexops-nav button {
-      width: 100%;
-      text-align: left;
-      padding: 8px 10px;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text-soft);
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-    }
-
-    .apexops-nav button:hover {
-      background: rgba(15, 23, 42, 0.9);
-      border-color: #111827;
-      color: var(--text);
-    }
-
-    .apexops-nav button.active {
-      background: rgba(15, 23, 42, 0.95);
-      border-color: var(--accent-strong);
-      color: var(--accent);
-    }
-
-    .apexops-nav-label {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .apexops-nav-title {
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .apexops-nav-sub {
-      font-size: 10px;
-      color: var(--text-soft);
-    }
-
-    .apexops-nav-tag {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid #1f2937;
-      background: rgba(15, 23, 42, 0.9);
-      color: var(--text-soft);
-    }
-
-    .apexops-sidebar-footer {
-      margin-top: auto;
-      font-size: 10px;
-      color: #4b5563;
-      border-top: 1px solid #111827;
-      padding-top: 8px;
-    }
-
-    /* MAIN */
-    .apexops-main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 14px 16px;
-      gap: 10px;
-      min-width: 0;
-      min-height: 0;
-    }
-
-    .apexops-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .apexops-header-left {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .apexops-title {
-      font-size: 14px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--text-soft);
-    }
-
-    .apexops-subtitle {
-      font-size: 11px;
-      color: #6b7280;
-    }
-
-    .apexops-header-right {
-      display: flex;
-      align-items: center;
-gap: 10px;
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .apexops-tag {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid #1f2937;
-      background: rgba(15, 23, 42, 0.9);
-      color: var(--text-soft);
-    }
-
-    .apexops-main-body {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-height: 0;
-    }
-
-    .apexops-panels {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      border-radius: 10px;
-      border: 1px solid #111827;
-      background: #020617;
-      padding: 10px;
-    }
-
-    .apexops-panel {
-      display: none;
-      height: 100%;
-    }
-
-    .apexops-panel.active {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      height: 100%;
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-soft);
-      border-bottom: 1px solid #111827;
-      padding-bottom: 6px;
-    }
-
-    .panel-header-left {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .panel-title {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text);
-    }
-
-    .panel-subtitle {
-      font-size: 11px;
-      color: #6b7280;
-    }
-
-    .panel-header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10px;
-    }
-
-    .tag {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid #1f2937;
-      background: rgba(15, 23, 42, 0.9);
-      color: var(--text-soft);
-    }
-
-    .tag.halo {
-      border-color: rgba(96, 165, 250, 0.6);
-      color: #bfdbfe;
-      background: rgba(15, 23, 42, 0.9);
-    }
-
-    .panel-body {
-      flex: 1;
-      min-height: 0;
-      display: flex;
-      gap: 10px;
-      margin-top: 6px;
-    }
-
-    .panel-column {
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .panel-block {
-      flex: 1;
-      min-height: 0;
-      border-radius: 8px;
-      border: 1px solid #111827;
-      background: #020617;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .panel-block-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .panel-block-title {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--text);
-    }
-
-    .panel-block-sub {
-      font-size: 10px;
-      color: #6b7280;
-    }
-
-    .panel-block-body {
-      flex: 1;
-      min-height: 0;
-      border-radius: 6px;
-      border: 1px solid #111827;
-      background: #020617;
-      padding: 6px;
-      overflow: auto;
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-soft);
-      white-space: pre;
-    }
-
-    /* HALO HUD */
-    .halo-hud-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .halo-hud-card {
-      border-radius: 8px;
-      border: 1px solid #111827;
-      background: #020617;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 11px;
-    }
-
-    .halo-hud-label {
-      font-size: 10px;
-      text-transform: uppercase;
- letter-spacing: 0.16em;
-      color: #6b7280;
-    }
-
-    .halo-hud-value {
-      font-size: 13px;
-      font-weight: 500;
-      color: #e5e7eb;
-    }
-
-    .halo-hud-meta {
-      font-size: 10px;
-      color: #6b7280;
-    }
-
-    .halo-canvas-wrapper {
-      flex: 1;
-      min-height: 0;
-      border-radius: 10px;
-      border: 1px solid #111827;
-      background: #020617;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .halo-canvas-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .halo-canvas-body {
-      flex: 1;
-      min-height: 0;
-      border-radius: 8px;
-      border: 1px solid #111827;
-      background: #020617;
-      display: flex;
-      align-items: stretch;
-      justify-content: stretch;
-      overflow: hidden;
-    }
-
-    #halo-canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      background: radial-gradient(circle at center, #0b1120 0, #020617 55%);
-    }
-
-    .panel-block-body::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    .panel-block-body::-webkit-scrollbar-track {
-      background: #020617;
-    }
-
-    .panel-block-body::-webkit-scrollbar-thumb {
-      background: #1f2937;
-      border-radius: 999px;
-    }
-  </style>
-</head>
-<body>
-  <div class="apexops-root">
-    <!-- SIDEBAR -->
-    <aside class="apexops-sidebar">
-      <div class="apexops-logo">
-        <div>APEXCORE <span>APEXOPS</span></div>
-        <div class="apexops-badge">CONTROL</div>
-      </div>
-
-      <nav id="apexops-nav" class="apexops-nav">
-        <button data-panel="panel-registry" class="active">
-          <div class="apexops-nav-label">
-            <span class="apexops-nav-title">Registry</span>
-            <span class="apexops-nav-sub">Live module registry</span>
-          </div>
-          <span class="apexops-nav-tag">core.registry</span>
-        </button>
-
-        <button data-panel="panel-profiler">
-          <div class="apexops-nav-label">
-            <span class="apexops-nav-title">Profiler</span>
-            <span class="apexops-nav-sub">Engine + modules</span>
-          </div>
-          <span class="apexops-nav-tag">core.profiler</span>
-        </button>
-
-        <button data-panel="panel-halo">
-          <div class="apexops-nav-label">
-            <span class="apexops-nav-title">HALO HUD</span>
-            <span class="apexops-nav-sub">Swarm renderer</span>
-          </div>
-          <span class="apexops-nav-tag">halo-renderer</span>
-        </button>
-      </nav>
-
-      <div class="apexops-sidebar-footer">
-        <div>ENGINE: <span id="engine-status">AUTO · 1000ms</span></div>
-        <div>MODULES: APEXCORE, HALO</div>
-      </div>
-    </aside>
-
-    <!-- MAIN -->
-    <main class="apexops-main">
-      <header class="apexops-header">
-        <div class="apexops-header-left">
-          <div class="apexops-title">APEXCORE · OPERATIONS</div>
-          <div class="apexops-subtitle">Simple swarm baseline — visibility first</div>
-        </div>
-        <div class="apexops-header-right">
-          <span class="apexops-tag">ENGINE: TICKING</span>
-          <span class="apexops-tag">HALO: SIMPLE SWARM</span>
-        </div>
-      </header>
-
-      <section class="apexops-main-body">
-        <section class="apexops-panels">
-          <!-- REGISTRY PANEL -->
-          <section id="panel-registry" class="apexops-panel active">
-            <div class="panel-header">
-              <div class="panel-header-left">
-                <div class="panel-title">Registry</div>
-                <div class="panel-subtitle">APEXCORE.api.dump()</div>
-              </div>
-              <div class="panel-header-right">
-                <span class="tag">read-only</span>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="panel-column">
-                <div class="panel-block">
-                  <div class="panel-block-header">
-                    <div>
-                      <span class="panel-block-title">Registry dump</span>
-                      <span class="panel-block-sub">Live snapshot</span>
-                    </div>
-                  </div>
-                  <div id="registry-container" class="panel-block-body">
-                    <!-- Filled by UI script -->
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- PROFILER PANEL -->
-          <section id="panel-profiler" class="apexops-panel">
-            <div class="panel-header">
-              <div class="panel-header-left">
-                <div class="panel-title">Profiler</div>
-                <div class="panel-subtitle">Engine + module cost</div>
-              </div>
-              <div class="panel-header-right">
-                <span class="tag">metrics</span>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="panel-column">
-                <div class="panel-block">
-<div class="panel-block-header">
-                    <div>
-                      <span class="panel-block-title">Profiler snapshot</span>
-                      <span class="panel-block-sub">APEXCORE.api.get("profiler")</span>
-                    </div>
-                  </div>
-                  <div id="profiler-container" class="panel-block-body">
-                    <!-- Filled by UI script -->
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- HALO PANEL -->
-          <section id="panel-halo" class="apexops-panel">
-            <div class="panel-header">
-              <div class="panel-header-left">
-                <div class="panel-title">HALO HUD</div>
-                <div class="panel-subtitle">Simple swarm renderer</div>
-              </div>
-              <div class="panel-header-right">
-                <span class="tag halo">halo-renderer</span>
-              </div>
-            </div>
-            <div class="panel-body">
-              <div class="panel-column">
-                <div class="halo-hud-grid">
-                  <div class="halo-hud-card">
-                    <div class="halo-hud-label">Agents</div>
-                    <div class="halo-hud-value" id="halo-agent-count">—</div>
-                    <div class="halo-hud-meta">Total active agents</div>
-                  </div>
-                  <div class="halo-hud-card">
-                    <div class="halo-hud-label">Formation</div>
-                    <div class="halo-hud-value" id="halo-formation">—</div>
-                    <div class="halo-hud-meta">Current mode</div>
-                  </div>
-                  <div class="halo-hud-card">
-                    <div class="halo-hud-label">Last update</div>
-                    <div class="halo-hud-value" id="halo-last-update">—</div>
-                    <div class="halo-hud-meta">HALO timestamp</div>
-                  </div>
-                </div>
-              </div>
-              <div class="panel-column">
-                <div class="halo-canvas-wrapper">
-                  <div class="halo-canvas-header">
-                    <div>HALO canvas</div>
-                    <div class="tag halo">canvas</div>
-                  </div>
-                  <div class="halo-canvas-body">
-                    <canvas id="halo-canvas"></canvas>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </section>
-      </section>
-    </main>
-  </div>
-
-  <!-- ENGINE + CORE + HALO -->
-  <script type="module" src="engine.js"></script>
-  <script type="module" src="apexcore.js"></script>
-  <script type="module" src="halo-renderer.js"></script>
-
-  <!-- BOOTSTRAP -->
-  <script type="module">
-    import { APEXCORE } from "./apexcore.js";
-    import { ENGINE } from "./engine.js";
-
-    ENGINE.init(APEXCORE);
-    ENGINE.start();
-
-    console.log("[BOOT] APEXCORE + ENGINE initialized, auto-tick started.");
-  </script>
-
-  <!-- APEXOPS UI SCRIPT -->
-  <script>
-  (function () {
-    console.log("[APEXOPS] UI script loaded.");
-
-    const nav = document.getElementById("apexops-nav");
-    const panels = document.querySelectorAll(".apexops-panel");
-
-    const regContainer = document.getElementById("registry-container");
-    const profilerContainer = document.getElementById("profiler-container");
-
-    const haloAgentCount = document.getElementById("halo-agent-count");
-    const haloFormation = document.getElementById("halo-formation");
-    const haloLastUpdate = document.getElementById("halo-last-update");
-
-    function showPanel(id) {
-      panels.forEach(p => p.classList.remove("active"));
-      const target = document.getElementById(id);
-      if (target) target.classList.add("active");
-
-      nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
-      const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
-      if (activeBtn) activeBtn.classList.add("active");
-
-      if (id === "panel-halo") {
-        if (window.HALO_RENDERER && HALO_RENDERER.__forceResize) {
-          console.log("[APEXOPS] HALO panel activated → forcing canvas resize");
-          HALO_RENDERER.__forceResize();
-        }
+<script>
+(function () {
+  console.log("[APEXOPS] UI script loaded.");
+
+  const nav = document.getElementById("apexops-nav");
+  const panels = document.querySelectorAll(".apexops-panel");
+
+  const regContainer = document.getElementById("registry-container");
+  const profilerContainer = document.getElementById("profiler-container");
+
+  const haloAgentCount = document.getElementById("halo-agent-count");
+  const haloFormation = document.getElementById("halo-formation");
+  const haloLastUpdate = document.getElementById("halo-last-update");
+
+  // NEW: Manual formation buttons
+  const btnRing = document.getElementById("halo-btn-ring");
+  const btnDisk = document.getElementById("halo-btn-disk");
+  const btnLane = document.getElementById("halo-btn-lane");
+
+  function showPanel(id) {
+    panels.forEach(p => p.classList.remove("active"));
+    const target = document.getElementById(id);
+    if (target) target.classList.add("active");
+
+    nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
+    if (activeBtn) activeBtn.classList.add("active");
+
+    if (id === "panel-halo") {
+      if (window.HALO_RENDERER && HALO_RENDERER.__forceResize) {
+        console.log("[APEXOPS] HALO panel activated → forcing canvas resize");
+        HALO_RENDERER.__forceResize();
       }
     }
+  }
 
-    nav.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-panel]");
-      if (!btn) return;
-      const panel = btn.getAttribute("data-panel");
-      showPanel(panel);
+  nav.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-panel]");
+    if (!btn) return;
+    const panel = btn.getAttribute("data-panel");
+    showPanel(panel);
+  });
+
+  // NEW: Manual formation control wiring
+  function bindFormationButtons() {
+    if (!window.HALO_RENDERER) return;
+
+    btnRing.addEventListener("click", () => {
+      HALO_RENDERER.setFormation("ring");
     });
 
-    function renderRegistry() {
-      if (!window.APEXCORE || !regContainer) return;
-      try {
-        const reg = APEXCORE.api.dump();
-        regContainer.textContent = JSON.stringify(reg, null, 2);
-      } catch (err) {
-        regContainer.textContent = "// registry error: " + err.message;
-      }
+    btnDisk.addEventListener("click", () => {
+      HALO_RENDERER.setFormation("disk");
+    });
+
+    btnLane.addEventListener("click", () => {
+      HALO_RENDERER.setFormation("lane");
+    });
+  }
+
+  // Delay binding until renderer is mounted
+  setTimeout(bindFormationButtons, 200);
+
+  function renderRegistry() {
+    if (!window.APEXCORE || !regContainer) return;
+    try {
+      const reg = APEXCORE.api.dump();
+      regContainer.textContent = JSON.stringify(reg, null, 2);
+    } catch (err) {
+      regContainer.textContent = "// registry error: " + err.message;
     }
+  }
 
-    function renderProfiler() {
-      if (!window.APEXCORE || !profilerContainer) return;
-      try {
-        const prof = APEXCORE.api.get("profiler") || {};
-        profilerContainer.textContent = JSON.stringify(prof, null, 2);
-      } catch (err) {
-        profilerContainer.textContent = "// profiler error: " + err.message;
-      }
+  function renderProfiler() {
+    if (!window.APEXCORE || !profilerContainer) return;
+    try {
+      const prof = APEXCORE.api.get("profiler") || {};
+      profilerContainer.textContent = JSON.stringify(prof, null, 2);
+    } catch (err) {
+      profilerContainer.textContent = "// profiler error: " + err.message;
     }
+  }
 
-    function renderHaloHUD() {
-      if (!window.APEXCORE) return;
-      try {
-        haloAgentCount.textContent = APEXCORE.api.get("halo.agents") ?? "—";
-        haloFormation.textContent = APEXCORE.api.get("halo.formation") ?? "—";
-        haloLastUpdate.textContent = APEXCORE.api.get("halo.lastUpdate") ?? "—";
-      } catch (err) {
-        // non-fatal
-      }
-    }
+  function renderHaloHUD() {
+    if (!window.APEXCORE) return;
+    try {
+      haloAgentCount.textContent = APEXCORE.api.get("halo.agents") ?? "—";
+      haloFormation.textContent = APEXCORE.api.get("halo.formation") ?? "—";
+      haloLastUpdate.textContent = APEXCORE.api.get("halo.lastUpdate") ?? "—";
+    } catch (err) {}
+  }
 
-    setInterval(() => {
-      renderRegistry();
-      renderProfiler();
-      renderHaloHUD();
-    }, 250);
+  setInterval(() => {
+    renderRegistry();
+    renderProfiler();
+    renderHaloHUD();
+  }, 250);
 
-    console.log("[APEXOPS] UI initialized.");
-  })();
-  </script>
-</body>
-</html>
+  console.log("[APEXOPS] UI initialized.");
+})();
+</script>
