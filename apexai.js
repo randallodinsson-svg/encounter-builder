@@ -1,30 +1,27 @@
-export const APEXAI = {
+// APEXAI — lightweight echo/transform console
 
-    generateScenario() {
-        return {
-            id: crypto.randomUUID(),
-            title: "Generated Scenario",
-            difficulty: "Medium",
-            environment: "Forest",
-            enemies: [
-                { type: "Goblin", count: 3 },
-                { type: "Wolf", count: 1 }
-            ],
-            rewards: {
-                xp: 120,
-                loot: ["Herbs", "Wolf Pelt"]
-            },
-            timestamp: Date.now()
-        };
-    },
+export const APEXAI = (() => {
+    let core = null;
+    let ui = null;
 
-    evaluateScenario() {
-        return {
-            score: 78,
-            dangerLevel: "Moderate",
-            recommendedPartyLevel: 3,
-            notes: "Encounter is balanced for a small party."
-        };
+    function init(coreRef, uiRefs) {
+        core = coreRef;
+        ui = uiRefs;
+        ui.sendBtn.addEventListener("click", onSend);
     }
 
-};
+    function onSend() {
+        const text = ui.inputEl.value.trim();
+        if (!text) return;
+        const ts = new Date().toISOString();
+        const response = `[${ts}] APEXAI processed:\n${text}\n\n(Stubbed local AI console)`;
+        ui.outputEl.textContent += "\n\n" + response;
+        ui.inputEl.value = "";
+        core.set("ai.lastPrompt", text);
+        core.set("ai.lastResponse", response);
+    }
+
+    return {
+        init
+    };
+})();
