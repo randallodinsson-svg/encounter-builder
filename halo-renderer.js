@@ -1,5 +1,5 @@
 // halo-renderer.js
-// Corrected formation renderer — full pixel‑space math, no distortion, no flipping.
+// Formation renderer with manual controls + pixel-space geometry.
 
 export const HALO_RENDERER = (() => {
   const MODULE_ID = "halo-renderer";
@@ -14,13 +14,13 @@ export const HALO_RENDERER = (() => {
   let lastUpdate = 0;
 
   const formations = ["ring", "disk", "lane"];
-  let currentFormationIndex = 0;
-  let lastFormationChange = 0;
-  const formationIntervalMs = 10000; // 10 seconds
+  let currentFormation = "ring";
 
-  // ------------------------------------------------------------
-  // AGENTS
-  // ------------------------------------------------------------
+  // Auto-cycle disabled when user manually selects a formation
+  let autoCycleEnabled = true;
+  let lastFormationChange = 0;
+  const formationIntervalMs = 10000;
+
   function createAgents(count) {
     const list = [];
     for (let i = 0; i < count; i++) {
@@ -34,9 +34,6 @@ export const HALO_RENDERER = (() => {
     return list;
   }
 
-  // ------------------------------------------------------------
-  // CANVAS RESIZE
-  // ------------------------------------------------------------
   function resizeCanvas() {
     if (!canvas || !ctx) return;
 
@@ -53,15 +50,7 @@ export const HALO_RENDERER = (() => {
 
     console.log("[HALO] resizeCanvas()", width, height, "dpr:", dpr);
 
-    // Recompute formation targets after resize
-    updateFormationTargets(getCurrentFormation());
-  }
-
-  // ------------------------------------------------------------
-  // FORMATIONS
-  // ------------------------------------------------------------
-  function getCurrentFormation() {
-    return formations[currentFormationIndex] || "ring";
+    updateFormationTargets(currentFormation);
   }
 
   function updateFormationTargets(formation) {
@@ -94,14 +83,8 @@ export const HALO_RENDERER = (() => {
         const x1 = cx + minDim * 0.4;
         a.targetPx = x0 + (x1 - x0) * t;
         a.targetPy = cy;
-
-      } else {
-        // fallback
-        a.targetPx = cx;
-        a.targetPy = cy;
       }
 
-      // Snap initial positions
       if (a.px === 0 && a.py === 0) {
         a.px = a.targetPx;
         a.py = a.targetPy;
@@ -109,32 +92,28 @@ export const HALO_RENDERER = (() => {
     }
   }
 
-  function maybeCycleFormation() {
+  function maybeAutoCycle() {
+    if (!autoCycleEnabled) return;
+
     const now = performance.now();
     if (!lastFormationChange) {
       lastFormationChange = now;
       return;
     }
     if (now - lastFormationChange >= formationIntervalMs) {
-      currentFormationIndex = (currentFormationIndex + 1) % formations.length;
+      const idx = formations.indexOf(currentFormation);
+      const next = formations[(idx + 1) % formations.length];
+      setFormation(next, false);
       lastFormationChange = now;
-
-      const f = getCurrentFormation();
-      console.log("[HALO] formation changed →", f);
-      updateFormationTargets(f);
     }
   }
 
-  // ------------------------------------------------------------
-  // UPDATE + DRAW
-  // ------------------------------------------------------------
   function updateAgents(dt) {
     const lerp = 0.002 * dt;
     for (const a of agents) {
       a.px += (a.targetPx - a.px) * lerp;
       a.py += (a.targetPy - a.py) * lerp;
 
-      // tiny noise for life
       a.px += (Math.random() - 0.5) * 0.1;
       a.py += (Math.random() - 0.5) * 0.1;
     }
@@ -181,29 +160,33 @@ export const HALO_RENDERER = (() => {
     drawAgents();
   }
 
-  // ------------------------------------------------------------
-  // ENGINE TICK
-  // ------------------------------------------------------------
   function tick(dtMs) {
     const dt = dtMs || 16;
 
-    maybeCycleFormation();
+    maybeAutoCycle();
     updateAgents(dt);
     draw(dt);
 
     lastUpdate = performance.now();
-    const formation = getCurrentFormation();
 
     if (window.APEXCORE && APEXCORE.api && APEXCORE.api.set) {
       APEXCORE.api.set("halo.agents", agents.length);
-      APEXCORE.api.set("halo.formation", formation);
+      APEXCORE.api.set("halo.formation", currentFormation);
       APEXCORE.api.set("halo.lastUpdate", lastUpdate.toFixed(0));
     }
   }
 
-  // ------------------------------------------------------------
-  // INIT
-  // ------------------------------------------------------------
+  function setFormation(mode, disableAuto = true) {
+    if (!formations.includes(mode)) return;
+
+    currentFormation = mode;
+    updateFormationTargets(mode);
+
+    if (disableAuto) autoCycleEnabled = false;
+
+    console.log("[HALO] manual formation →", mode);
+  }
+
   function init(apexcore) {
     console.log("[HALO] init() starting…");
 
@@ -218,11 +201,11 @@ export const HALO_RENDERER = (() => {
 
     lastUpdate = performance.now();
     lastFormationChange = performance.now();
-    updateFormationTargets(getCurrentFormation());
+    updateFormationTargets(currentFormation);
 
     if (apexcore && apexcore.api && apexcore.api.set) {
       apexcore.api.set("halo.agents", agents.length);
-      apexcore.api.set("halo.formation", getCurrentFormation());
+      apexcore.api.set("halo.formation", currentFormation);
       apexcore.api.set("halo.lastUpdate", lastUpdate.toFixed(0));
     }
 
@@ -231,9 +214,6 @@ export const HALO_RENDERER = (() => {
     console.log("[HALO] init() complete — agents:", agents.length);
   }
 
-  // ------------------------------------------------------------
-  // UI HOOK
-  // ------------------------------------------------------------
   function __forceResize() {
     resizeCanvas();
   }
@@ -243,10 +223,10 @@ export const HALO_RENDERER = (() => {
     init,
     tick,
     __forceResize,
+    setFormation,
   };
 })();
 
-// Register with APEXCORE
 if (window.APEXCORE && APEXCORE.register && APEXCORE.mount) {
   APEXCORE.register(HALO_RENDERER.id, HALO_RENDERER);
   APEXCORE.mount(HALO_RENDERER.id);
