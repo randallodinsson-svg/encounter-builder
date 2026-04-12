@@ -1,243 +1,81 @@
-/* ============================================================
-   APEXOPS — Modern Diagnostics Engine (Option B, aligned to APEXCORE v3.5)
-============================================================ */
+// APEXOPS — diagnostics + controls
 
 export const APEXOPS = (() => {
+    let core = null;
+    let engine = null;
+    let ui = null;
 
-    /* ============================================================
-       INTERNAL STATE
-    ============================================================ */
-
-    let CORE = null;
-
-    const coreLogs = [];
-    const coreErrors = [];
-    const lifecycleHistory = [];
-
-    const registryKeys = [];
-    const registryValues = {};
-
-    /* ============================================================
-       HELPERS TO READ APEXCORE v3.5
-    ============================================================ */
-
-    function getMountedModulesList() {
-        if (!CORE || !CORE.state || !CORE.state.moduleStatus) return [];
-        return Object.keys(CORE.state.moduleStatus)
-            .filter(name => CORE.state.moduleStatus[name] === "mounted");
+    function log(msg) {
+        if (!ui || !ui.logEl) return;
+        ui.logEl.textContent += "\n" + msg;
+        ui.logEl.scrollTop = ui.logEl.scrollHeight;
     }
 
-    function getRegistrySource() {
-        if (!CORE || !CORE.state) return {};
-        return CORE.state.registry || {};
+    function refreshRegistry() {
+        if (!ui || !ui.registryEl || !core) return;
+        ui.registryEl.textContent = JSON.stringify(core.debugSnapshot().registry, null, 2);
     }
 
-    function getEventNamesSource() {
-        if (!CORE || !CORE.state) return [];
-        return Object.keys(CORE.state.events || {});
+    function refreshModules() {
+        if (!ui || !ui.modulesEl || !core) return;
+        const snap = core.debugSnapshot();
+        ui.modulesEl.textContent =
+            "Modules:\n" + snap.modules.join(", ") +
+            "\n\nMounted:\n" + snap.mounted.join(", ");
     }
 
-    function getCoreLogsSource() {
-        if (CORE && typeof CORE.getLogs === "function") {
-            return CORE.getLogs();
-        }
-        if (CORE && CORE.state) {
-            return CORE.state.logs || [];
-        }
-        return [];
+    function refreshViews() {
+        refreshRegistry();
+        refreshModules();
     }
 
-    function getCoreErrorsSource() {
-        if (CORE && typeof CORE.getErrors === "function") {
-            return CORE.getErrors();
-        }
-        if (CORE && CORE.state && CORE.state.diagnostics) {
-            return CORE.state.diagnostics.errors || [];
-        }
-        return [];
-    }
+    function wireButtons() {
+        const {
+            runTickBtn,
+            startAutoBtn,
+            stopAutoBtn,
+            autoInterval,
+            autoIntervalLabel
+        } = ui;
 
-    function getLifecycleSource() {
-        if (CORE && typeof CORE.getLifecycleHistory === "function") {
-            return CORE.getLifecycleHistory();
-        }
-        if (CORE && CORE.state && CORE.state.diagnostics) {
-            return CORE.state.diagnostics.lifecycleHistory || [];
-        }
-        return [];
-    }
+        runTickBtn.addEventListener("click", () => {
+            engine.runSingleTick();
+            log("[OPS] Manual tick executed.");
+            refreshViews();
+        });
 
-    /* ============================================================
-       LOGGING + ERROR CAPTURE
-    ============================================================ */
+        startAutoBtn.addEventListener("click", () => {
+            engine.start();
+            startAutoBtn.disabled = true;
+            stopAutoBtn.disabled = false;
+            log("[OPS] Auto‑tick started.");
+        });
 
-    function hookConsole() {
-        const originalLog = console.log;
-        const originalError = console.error;
+        stopAutoBtn.addEventListener("click", () => {
+            engine.stop();
+            startAutoBtn.disabled = false;
+            stopAutoBtn.disabled = true;
+            log("[OPS] Auto‑tick stopped.");
+        });
 
-        console.log = (...args) => {
-            coreLogs.push(args.join(" "));
-            originalLog(...args);
-        };
-
-        console.error = (...args) => {
-            coreErrors.push({
-                timestamp: Date.now(),
-                context: "console.error",
-                error: args.join(" ")
-            });
-            originalError(...args);
-        };
-    }
-
-    /* ============================================================
-       LIFECYCLE TRACKING (OPS-SIDE)
-    ============================================================ */
-
-    function trackLifecycle(type, name) {
-        lifecycleHistory.push({
-            timestamp: Date.now(),
-            type,
-            name
+        autoInterval.addEventListener("input", () => {
+            const ms = Number(autoInterval.value);
+            autoIntervalLabel.textContent = ms;
+            engine.setIntervalMs(ms);
         });
     }
 
-    /* ============================================================
-       REGISTRY TRACKING
-    ============================================================ */
-
-    function captureRegistrySnapshot() {
-        const src = getRegistrySource();
-
-        registryKeys.length = 0;
-        registryKeys.push(...Object.keys(src));
-
-        for (const key of registryKeys) {
-            registryValues[key] = src[key];
-        }
-    }
-
-    /* ============================================================
-       MODULE STATUS
-    ============================================================ */
-
-    function getModuleStatus() {
-        if (!CORE || !CORE.state) return {};
-
-        const out = {};
-        const statusMap = CORE.state.moduleStatus || {};
-        const modulesMap = CORE.state.modules || {};
-
-        for (const name of Object.keys(statusMap)) {
-            out[name] = {
-                mounted: statusMap[name] === "mounted",
-                hasTick: typeof modulesMap[name]?.tick === "function"
-            };
-        }
-
-        return out;
-    }
-
-    /* ============================================================
-       RUNTIME INSPECTION
-    ============================================================ */
-
-    function inspectRuntime(tick) {
-        return {
-            tick,
-            mountedModules: getMountedModulesList(),
-            registry: { ...registryValues }
-        };
-    }
-
-    /* ============================================================
-       PUBLIC API
-    ============================================================ */
-
-    function init(core) {
-        CORE = core;
-        hookConsole();
-        captureRegistrySnapshot();
-    }
-
-    function attachEventHooks() {
-        if (!CORE) return;
-
-        const originalMount = CORE.mount;
-        const originalUnmount = CORE.unmount;
-        const originalReload = CORE.reload;
-
-        CORE.mount = (name) => {
-            trackLifecycle("mount", name);
-            const result = originalMount.call(CORE, name);
-            captureRegistrySnapshot();
-            return result;
-        };
-
-        CORE.unmount = (name) => {
-            trackLifecycle("unmount", name);
-            const result = originalUnmount.call(CORE, name);
-            captureRegistrySnapshot();
-            return result;
-        };
-
-        CORE.reload = (name) => {
-            trackLifecycle("reload", name);
-            const result = originalReload.call(CORE, name);
-            captureRegistrySnapshot();
-            return result;
-        };
-    }
-
-    function getCoreLogs() {
-        return getCoreLogsSource();
-    }
-
-    function getCoreErrors() {
-        return getCoreErrorsSource();
-    }
-
-    function getLifecycleHistory() {
-        // Merge OPS-side lifecycle with CORE-side lifecycle for richer view
-        return [
-            ...getLifecycleSource(),
-            ...lifecycleHistory
-        ];
-    }
-
-    function getRegistryKeys() {
-        captureRegistrySnapshot();
-        return registryKeys;
-    }
-
-    function getRegistryValues() {
-        captureRegistrySnapshot();
-        return registryValues;
-    }
-
-    function getCoreSnapshot() {
-        const mountedModules = getMountedModulesList();
-        const registry = getRegistrySource();
-        const eventNames = getEventNamesSource();
-
-        return {
-            mountedModules,
-            registry: { ...registry },
-            eventNames
-        };
+    function init(coreRef, engineRef, uiRefs) {
+        core = coreRef;
+        engine = engineRef;
+        ui = uiRefs;
+        log("[OPS] Initialized.");
+        wireButtons();
+        refreshViews();
     }
 
     return {
         init,
-        attachEventHooks,
-        inspectRuntime,
-        getCoreLogs,
-        getCoreErrors,
-        getLifecycleHistory,
-        getModuleStatus,
-        getRegistryKeys,
-        getRegistryValues,
-        getCoreSnapshot
+        refreshViews
     };
-
 })();
