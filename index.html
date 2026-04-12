@@ -130,7 +130,7 @@
       height: 1px;
       background: radial-gradient(circle at left, rgba(63, 213, 255, 0.7), transparent 55%);
       opacity: 0.7;
-      margin-bottom: 10px;
+ margin-bottom: 10px;
     }
 
     /* Sidebar sections */
@@ -365,7 +365,7 @@
       border: 1px solid rgba(26, 36, 60, 0.95);
       box-shadow: var(--shadow-subtle);
       padding: 10px 11px 11px;
-      display: none;
+display: none;
       min-height: 0;
       overflow: hidden;
     }
@@ -423,6 +423,12 @@
       border-color: rgba(255, 183, 71, 0.5);
       background: rgba(255, 183, 71, 0.08);
       color: var(--accent-warm);
+    }
+
+    .apexops-panel-pill.halo {
+      border-color: rgba(123, 92, 255, 0.7);
+      background: rgba(123, 92, 255, 0.12);
+      color: var(--halo);
     }
 
     .apexops-panel-body {
@@ -550,13 +556,67 @@
     .timeline-meta strong {
       color: var(--accent-strong);
       font-weight: 500;
+    }
+
+    /* HALO banner */
+
+    .halo-banner {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(123, 92, 255, 0.7);
+      background: radial-gradient(circle at top left, rgba(123, 92, 255, 0.18), #05070b);
+      padding: 8px 9px;
+      margin-bottom: 8px;
+    }
+
+    .halo-banner-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+
+    .halo-banner-title {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--halo);
+    }
+
+    .halo-banner-body {
+      display: flex;
+      gap: 12px;
+      font-size: 10px;
+    }
+
+    .halo-banner-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .halo-banner-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 9px;
+    }
+
+    .halo-banner-value {
+      color: var(--text-soft);
+    }
+
+    .halo-banner-value.halo {
+      color: var(--halo);
+    }
+  </style>
 </head>
 <body>
   <div class="apexops-root">
-      <!-- NAVIGATION SIDEBAR -->
+    <!-- NAVIGATION SIDEBAR -->
     <aside class="apexops-sidebar">
       <div class="sidebar-brand">
-        <div class="sidebar-brand-mark"></div>
+<div class="sidebar-brand-mark"></div>
         <div class="sidebar-brand-text">
           <div class="sidebar-brand-title">APEXOPS</div>
           <div class="sidebar-brand-subtitle">Diagnostics console · v3.5</div>
@@ -652,7 +712,8 @@
         </div>
       </div>
     </aside>
-        <!-- MAIN AREA -->
+
+    <!-- MAIN AREA -->
     <main class="apexops-main">
       <header class="apexops-main-header">
         <div class="apexops-main-title-block">
@@ -733,7 +794,7 @@
               <div class="apexops-panel-title-block">
                 <div class="apexops-panel-title">Registry Diff Viewer</div>
                 <div class="apexops-panel-subtitle">
-                  Per-tick registry deltas from <code>regdiff.diff</code>.
+Per-tick registry deltas from <code>regdiff.diff</code>.
                 </div>
               </div>
               <div class="apexops-panel-meta">
@@ -875,7 +936,7 @@
           <!-- HALO PANEL -->
           <section class="apexops-panel" id="panel-halo">
             <div class="apexops-panel-header">
-              <div class="apexops-panel-title-block">
+<div class="apexops-panel-title-block">
                 <div class="apexops-panel-title">HALO Tactical HUD</div>
                 <div class="apexops-panel-subtitle">
                   Swarm sim status from <code>halo.*</code> and <code>modprofiler.halo-renderer.*</code>.
@@ -919,7 +980,23 @@
                 </div>
               </div>
 
-              <div style="margin-top: 8px;" class="grid-two">
+              <!-- HALO CANVAS: SWARM RENDER TARGET -->
+              <canvas
+                id="halo-canvas"
+                width="900"
+                height="600"
+                style="
+                  width: 100%;
+                  height: 260px;
+                  background: transparent;
+                  display: block;
+                  border-radius: 8px;
+                  border: 1px solid rgba(26, 36, 60, 0.9);
+                  margin-bottom: 8px;
+                "
+              ></canvas>
+
+              <div style="margin-top: 0;" class="grid-two">
                 <div class="metric-card">
                   <div class="metric-card-header">
                     <span class="metric-card-title">HALO tick</span>
@@ -952,6 +1029,7 @@
         </div>
       </section>
     </main>
+
     <!-- ENGINE + MODULE STACK -->
     <script src="engine.js"></script>
     <script src="apexcore.js"></script>
@@ -971,12 +1049,10 @@
       import { ENGINE } from "./engine.js";
       import { APEXCORE } from "./apexcore.js";
 
-      // Initialize engine with APEXCORE
       ENGINE.init(APEXCORE);
-
-      // Start ticking
       ENGINE.start();
     </script>
+
     <!-- APEXOPS UI WIRING -->
     <script>
       (function () {
@@ -1007,7 +1083,6 @@
           });
         }
 
-        // Safe getter
         function safeGet(obj, path, fallback = undefined) {
           try {
             return path.split(".").reduce((o, k) => (o ? o[k] : undefined), obj) ??
@@ -1017,7 +1092,6 @@
           }
         }
 
-        // Main renderer
         function renderFromRegistry(reg) {
           if (!reg) return;
 
@@ -1087,7 +1161,7 @@
           const regdiffTable = document.querySelector("#regdiff-table tbody");
           const addedCountEl = document.getElementById("regdiff-added-count");
           const removedCountEl = document.getElementById("regdiff-removed-count");
-          const changedCountEl = document.getElementById("regdiff-changed-count");
+ const changedCountEl = document.getElementById("regdiff-changed-count");
 
           if (regdiff && regdiffTable) {
             regdiffTable.innerHTML = "";
@@ -1264,13 +1338,11 @@
           }
         }
 
-        // Expose UI renderer
         window.APEXOPS_UI = {
           renderFromRegistry,
         };
       })();
     </script>
-  </div> <!-- end .apexops-root -->
+  </div>
 </body>
 </html>
-
