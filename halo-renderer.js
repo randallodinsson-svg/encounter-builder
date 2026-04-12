@@ -1,7 +1,7 @@
 // halo-renderer.js
-// HALO swarm renderer — canvas + agents + APEXCORE integration
+// Simple HALO swarm renderer — visibility-first baseline.
 
-const HALO_RENDERER = (() => {
+export const HALO_RENDERER = (() => {
   const MODULE_ID = "halo-renderer";
 
   let canvas = null;
@@ -13,22 +13,21 @@ const HALO_RENDERER = (() => {
   let agents = [];
   let lastUpdate = 0;
 
-  // Simple agent model
   function createAgents(count) {
     const list = [];
     for (let i = 0; i < count; i++) {
       list.push({
         x: Math.random(),
         y: Math.random(),
-        vx: (Math.random() - 0.5) * 0.002,
-        vy: (Math.random() - 0.5) * 0.002,
+        vx: (Math.random() - 0.5) * 0.0005,
+        vy: (Math.random() - 0.5) * 0.0005,
       });
     }
     return list;
   }
 
   function resizeCanvas() {
-    if (!canvas) return;
+    if (!canvas || !ctx) return;
 
     const rect = canvas.getBoundingClientRect();
     width = rect.width || 640;
@@ -38,18 +37,18 @@ const HALO_RENDERER = (() => {
     canvas.width = width * dpr;
     canvas.height = height * dpr;
 
-    // Reset transform and apply DPR scaling once
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
+
+    console.log("[HALO] resizeCanvas()", width, height, "dpr:", dpr);
   }
 
   function updateAgents(dt) {
-    const speedScale = 1;
+    const speedScale = dt;
     for (const a of agents) {
-      a.x += a.vx * dt * speedScale;
-      a.y += a.vy * dt * speedScale;
+      a.x += a.vx * speedScale;
+      a.y += a.vy * speedScale;
 
-      // Wrap around edges
       if (a.x < 0) a.x += 1;
       if (a.x > 1) a.x -= 1;
       if (a.y < 0) a.y += 1;
@@ -82,8 +81,6 @@ const HALO_RENDERER = (() => {
     const radius = Math.min(width, height) * 0.4;
 
     ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
-    ctx.strokeStyle = "rgba(37, 99, 235, 0.4)";
-    ctx.lineWidth = 0.5;
 
     for (const a of agents) {
       const angle = a.x * Math.PI * 2;
@@ -103,7 +100,6 @@ const HALO_RENDERER = (() => {
   function draw(dt) {
     if (!ctx || width === 0 || height === 0) return;
 
-    // IMPORTANT: reset transform each frame, then re-apply DPR scaling
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
 
@@ -111,7 +107,6 @@ const HALO_RENDERER = (() => {
     drawAgents();
   }
 
-  // Main tick entry from ENGINE
   function tick(dtMs) {
     const dt = dtMs || 16;
     updateAgents(dt);
@@ -121,7 +116,7 @@ const HALO_RENDERER = (() => {
 
     if (window.APEXCORE && APEXCORE.api && APEXCORE.api.set) {
       APEXCORE.api.set("halo.agents", agents.length);
-      APEXCORE.api.set("halo.formation", "swarm-ring");
+      APEXCORE.api.set("halo.formation", "simple-swarm");
       APEXCORE.api.set("halo.lastUpdate", lastUpdate.toFixed(0));
     }
   }
@@ -149,22 +144,29 @@ const HALO_RENDERER = (() => {
 
     if (apexcore && apexcore.api && apexcore.api.set) {
       apexcore.api.set("halo.agents", agents.length);
-      apexcore.api.set("halo.formation", "swarm-ring");
+      apexcore.api.set("halo.formation", "simple-swarm");
       apexcore.api.set("halo.lastUpdate", lastUpdate.toFixed(0));
     }
 
     console.log("[HALO] init() complete — agents:", agents.length);
   }
 
+  // expose resize hook for UI
+  function __forceResize() {
+    resizeCanvas();
+  }
+
   return {
     id: MODULE_ID,
     init,
     tick,
+    __forceResize,
   };
 })();
 
-// Register with APEXCORE if available
-if (window.APEXCORE && APEXCORE.register) {
+// Register with APEXCORE if available (after module load)
+if (window.APEXCORE && APEXCORE.register && APEXCORE.mount) {
   APEXCORE.register(HALO_RENDERER.id, HALO_RENDERER);
-  console.log("[APEXCORE] Module registered: halo-renderer");
+  APEXCORE.mount(HALO_RENDERER.id);
 }
+window.HALO_RENDERER = HALO_RENDERER;
