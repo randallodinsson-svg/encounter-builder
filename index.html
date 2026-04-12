@@ -113,6 +113,21 @@
             font-size: 11px;
             color: #6b7280;
         }
+
+        /* HALO CREW VISUAL AREA */
+        #haloContainer {
+            width: 100%;
+            height: 260px;
+            border: 1px solid #111827;
+            background: #020617;
+            overflow: hidden;
+            position: relative;
+        }
+        #haloCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -171,9 +186,25 @@
 
     <!-- SIM TAB -->
     <div class="tab-panel" id="tab-sim">
-        <div class="panel">
-            <h2>Simulation Status</h2>
-            <pre id="simStatus">SIM idle.</pre>
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>Simulation Status</h2>
+                    <pre id="simStatus">SIM idle.</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- HALO CREW VISUAL RENDERER -->
+        <div class="row">
+            <div class="col">
+                <div class="panel">
+                    <h2>HALO Crew</h2>
+                    <div id="haloContainer">
+                        <canvas id="haloCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -250,6 +281,7 @@
     import { TickProfiler } from "./tick-profiler.js";
     import { RegistryDiffViewer } from "./registry-diff-viewer.js";
     import { EventTimelineVisualizer } from "./event-timeline-visualizer.js";
+    import { HaloRenderer } from "./halo-renderer.js";
 
     // Tabs
     const tabButtons = document.querySelectorAll(".tab-button");
@@ -281,6 +313,9 @@
 
     APEXCORE.register(EventTimelineVisualizer);
     APEXCORE.mount("event-timeline-visualizer");
+
+    APEXCORE.register(HaloRenderer);
+    APEXCORE.mount("halo-renderer");
 
     // Wire subsystems
     APEXOPS.init(APEXCORE, ENGINE, {
