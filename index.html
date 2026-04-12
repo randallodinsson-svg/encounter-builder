@@ -141,7 +141,7 @@
     <button class="tab-button" data-tab="sim">SIM</button>
     <button class="tab-button" data-tab="ai">AI</button>
     <button class="tab-button" data-tab="core">CORE</button>
-    <button class="tab-button" data-tab="modules">MODULES</button>
+        <button class="tab-button" data-tab="modules">MODULES</button>
 </div>
 
 <div class="tab-content">
@@ -201,7 +201,7 @@
                 <div class="panel">
                     <h2>HALO Crew</h2>
                     <div id="haloContainer">
-                      <canvas id="haloCanvas"></canvas>
+                        <canvas id="haloCanvas"></canvas>
                     </div>
                 </div>
             </div>
@@ -292,7 +292,7 @@
             tabButtons.forEach(b => b.classList.toggle("active", b === btn));
             tabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + tab));
 
-            // HALO RESIZE FIX — ensures canvas renders correctly when SIM tab is opened
+            // HALO RESIZE FIX
             if (tab === "sim") {
                 const canvas = document.getElementById("haloCanvas");
                 const container = document.getElementById("haloContainer");
@@ -341,7 +341,7 @@
         stopAutoBtn: document.getElementById("stopAutoBtn"),
         autoInterval: document.getElementById("autoInterval"),
         autoIntervalLabel: document.getElementById("autoIntervalLabel")
-            });
+    });
 
     APEXSIM.init(APEXCORE, {
         statusEl: document.getElementById("simStatus")
@@ -402,7 +402,7 @@
     function refreshRegDiffView() {
         const viewEl = document.getElementById("regDiffView");
         const diff = APEXCORE.get("regdiff.diff");
-        the status = APEXCORE.get("regdiff.status");
+        const status = APEXCORE.get("regdiff.status");
 
         if (!status || !diff) {
             viewEl.textContent = "Registry Diff Viewer not ready.";
