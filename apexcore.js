@@ -117,9 +117,8 @@ export const APEXCORE = (() => {
             hasReload: typeof r.def.reload === "function"
         };
     }
-
     // -----------------------------
-    // Tick pipeline (now instrumented)
+    // Tick pipeline (instrumented)
     // -----------------------------
     function runTick(tickData) {
         for (const [name, record] of modules.entries()) {
@@ -171,13 +170,20 @@ export const APEXCORE = (() => {
         };
     }
 
+    // -----------------------------
+    // ⭐ NEW: Full snapshot for APEXOPS
+    // -----------------------------
+    function getSnapshot() {
+        return Object.fromEntries(registry.entries());
+    }
     const api = {
         init: () => log("init()"),
         set, get, delete: del,
         register, mount, unmount, reload,
         listModules, listMountedModules, getModuleInfo,
         runTick, onTick, offTick,
-        debugSnapshot
+        debugSnapshot,
+        getSnapshot   // ⭐ REQUIRED FOR APEXOPS
     };
 
     return api;
