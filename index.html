@@ -611,70 +611,69 @@
       color: var(--text-muted);
     }
 
-    /* HALO canvas */
+    /* HALO canvas viewport */
 
-    .halo-canvas-shell {
-      margin-top: 8px;
+    .halo-viewport {
       border-radius: var(--radius-md);
-      border: 1px solid rgba(123, 92, 255, 0.6);
-      background: radial-gradient(circle at top, rgba(10, 8, 30, 0.9), #05070b);
-      box-shadow: 0 0 24px rgba(123, 92, 255, 0.35);
+      background: radial-gradient(circle at top, rgba(10, 16, 30, 0.95), #05070b);
+      border: 1px solid rgba(40, 32, 80, 0.95);
+      box-shadow: 0 0 26px rgba(123, 92, 255, 0.35);
       padding: 6px;
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-height: 220px;
     }
 
-    .halo-canvas-header {
+    .halo-viewport-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: baseline;
       font-size: 10px;
-      color: var(--text-muted);
+      color: var(--text-soft);
     }
 
-    .halo-canvas-title {
+    .halo-viewport-title {
       text-transform: uppercase;
       letter-spacing: 0.14em;
       color: var(--halo);
     }
 
-    .halo-canvas-meta {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    .halo-canvas-wrapper {
-      position: relative;
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      background: radial-gradient(circle at center, #101624, #05070b);
-      border: 1px solid rgba(26, 36, 60, 0.9);
-      min-height: 180px;
-    }
-
-    #halo-canvas {
-      display: block;
-      width: 100%;
-      height: 220px;
-    }
-
-    .halo-canvas-overlay {
-      position: absolute;
-      inset: 4px 6px;
-      pointer-events: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+    .halo-viewport-meta {
       font-size: 9px;
       color: var(--text-muted);
     }
 
-    .halo-canvas-overlay span {
-      background: linear-gradient(135deg, rgba(5, 7, 11, 0.9), rgba(10, 16, 30, 0.9));
-      padding: 2px 5px;
+    .halo-viewport-canvas-wrap {
+      position: relative;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: radial-gradient(circle at center, rgba(123, 92, 255, 0.25), #05070b);
+      border: 1px solid rgba(123, 92, 255, 0.6);
+      flex: 1;
+      min-height: 180px;
+    }
+
+    #halo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: radial-gradient(circle at center, rgba(5, 7, 11, 0.9), #020308);
+    }
+
+    .halo-viewport-overlay-label {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: rgba(197, 189, 255, 0.9);
+      background: rgba(5, 7, 11, 0.7);
+      padding: 2px 6px;
       border-radius: 999px;
-      border: 1px solid rgba(63, 213, 255, 0.25);
+      border: 1px solid rgba(123, 92, 255, 0.7);
+      backdrop-filter: blur(4px);
     }
 
     @media (max-width: 900px) {
@@ -684,6 +683,9 @@
       .apexops-main {
         padding-left: 12px;
         padding-right: 12px;
+      }
+      .grid-two {
+        grid-template-columns: minmax(0, 1fr);
       }
     }
   </style>
@@ -1062,49 +1064,57 @@
                       On
                     </span>
                   </div>
-                </div>
-              </div>
-              <div style="margin-top: 8px;" class="grid-two">
-                <div class="metric-card">
-                  <div class="metric-card-header">
-                    <span class="metric-card-title">HALO tick</span>
-                    <span class="tag halo">halo.lastTick</span>
-                  </div>
-                  <div class="metric-card-value" id="halo-lastTick">—</div>
-                  <div class="metric-card-footer">
-                    Last update:
-                    <span id="halo-lastUpdate">—</span>
-                  </div>
-                </div>
-                <div class="metric-card">
-                  <div class="metric-card-header">
-                    <span class="metric-card-title">Renderer cost</span>
-                    <span class="tag halo">modprofiler.halo-renderer</span>
-                  </div>
-                  <div class="metric-card-footer">
-                    last:
-                    <span id="halo-prof-lastMs">—</span> ·
-                    min: <span id="halo-prof-minMs">—</span> ·
-                    max: <span id="halo-prof-maxMs">—</span> ·
-                    avg: <span id="halo-prof-avgMs">—</span> ·
-                    ticks: <span id="halo-prof-ticks">—</span>
+                  <div class="halo-banner-col">
+                    <span class="halo-banner-label">Sim space</span>
+                    <span class="halo-banner-value" id="halo-simspace">
+                      Unbounded float
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <!-- HALO CANVAS VIEWPORT -->
-              <div class="halo-canvas-shell">
-                <div class="halo-canvas-header">
-                  <span class="halo-canvas-title">HALO Swarm Viewport</span>
-                  <span class="halo-canvas-meta" id="halo-canvas-meta">
-                    awaiting agent data…
-                  </span>
+              <div style="margin-top: 8px;" class="grid-two">
+                <div>
+                  <div class="halo-viewport">
+                    <div class="halo-viewport-header">
+                      <span class="halo-viewport-title">HALO Canvas Renderer</span>
+                      <span class="halo-viewport-meta">
+                        Visual swarm viewport · simulation space (unbounded float)
+                      </span>
+                    </div>
+                    <div class="halo-viewport-canvas-wrap">
+                      <canvas id="halo-canvas"></canvas>
+                      <div class="halo-viewport-overlay-label">
+                        HALO · VISUAL SWARM
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="halo-canvas-wrapper">
-                  <canvas id="halo-canvas"></canvas>
-                  <div class="halo-canvas-overlay">
-                    <span id="halo-canvas-overlay-left">SIM SPACE</span>
-                    <span id="halo-canvas-overlay-right">AUTO-SCALED</span>
+                <div>
+                  <div class="metric-card" style="margin-bottom: 6px;">
+                    <div class="metric-card-header">
+                      <span class="metric-card-title">HALO tick</span>
+                      <span class="tag halo">halo.lastTick</span>
+                    </div>
+                    <div class="metric-card-value" id="halo-lastTick">—</div>
+                    <div class="metric-card-footer">
+                      Last update:
+                      <span id="halo-lastUpdate">—</span>
+                    </div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-card-header">
+                      <span class="metric-card-title">Renderer cost</span>
+                      <span class="tag halo">modprofiler.halo-renderer</span>
+                    </div>
+                    <div class="metric-card-footer">
+                      last:
+                      <span id="halo-prof-lastMs">—</span> ·
+                      min: <span id="halo-prof-minMs">—</span> ·
+                      max: <span id="halo-prof-maxMs">—</span> ·
+                      avg: <span id="halo-prof-avgMs">—</span> ·
+                      ticks: <span id="halo-prof-ticks">—</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1115,15 +1125,15 @@
     </main>
   </div>
 
-  <!-- ENGINE + MODULES (existing stack) -->
-  <script src="engine.js"></script>
-  <script src="apexcore.js"></script>
-  <script src="example-module.js"></script>
-  <script src="module-inspector.js"></script>
-  <script src="tick-profiler.js"></script>
-  <script src="registry-diff-viewer.js"></script>
-  <script src="event-timeline-visualizer.js"></script>
-  <script src="halo-renderer.js"></script>
+  <!-- ENGINE + MODULES (ES MODULE STACK) -->
+  <script type="module" src="engine.js"></script>
+  <script type="module" src="apexcore.js"></script>
+  <script type="module" src="example-module.js"></script>
+  <script type="module" src="module-inspector.js"></script>
+  <script type="module" src="tick-profiler.js"></script>
+  <script type="module" src="registry-diff-viewer.js"></script>
+  <script type="module" src="event-timeline-visualizer.js"></script>
+  <script type="module" src="halo-renderer.js"></script>
 
   <!-- APEXOPS UI WIRING -->
   <script>
@@ -1154,147 +1164,6 @@
           activatePanel(target);
         });
       }
-
-      // HALO canvas setup
-      const haloCanvas = document.getElementById("halo-canvas");
-      const haloCanvasMeta = document.getElementById("halo-canvas-meta");
-      const haloCanvasOverlayLeft = document.getElementById("halo-canvas-overlay-left");
-      const haloCanvasOverlayRight = document.getElementById("halo-canvas-overlay-right");
-      let haloCtx = null;
-
-      function ensureHaloCanvasSize() {
-        if (!haloCanvas) return;
-        const rect = haloCanvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        const width = Math.max(1, rect.width * dpr);
-        const height = Math.max(1, rect.height * dpr);
-        if (haloCanvas.width !== width || haloCanvas.height !== height) {
-          haloCanvas.width = width;
-          haloCanvas.height = height;
-        }
-        if (!haloCtx) {
-          haloCtx = haloCanvas.getContext("2d");
-        }
-      }
-
-      function drawHaloAgentsFromRegistry(reg) {
-        if (!haloCanvas) return;
-        ensureHaloCanvasSize();
-        if (!haloCtx) return;
-
-        const dpr = window.devicePixelRatio || 1;
-        const width = haloCanvas.width;
-        const height = haloCanvas.height;
-
-        haloCtx.setTransform(1, 0, 0, 1, 0, 0);
-        haloCtx.clearRect(0, 0, width, height);
-
-        // Background grid
-        haloCtx.fillStyle = "#05070b";
-        haloCtx.fillRect(0, 0, width, height);
-        haloCtx.strokeStyle = "rgba(63, 213, 255, 0.08)";
-        haloCtx.lineWidth = 1;
-        const gridStep = 40 * dpr;
-        for (let x = 0; x < width; x += gridStep) {
-          haloCtx.beginPath();
-          haloCtx.moveTo(x, 0);
-          haloCtx.lineTo(x, height);
-          haloCtx.stroke();
-        }
-        for (let y = 0; y < height; y += gridStep) {
-          haloCtx.beginPath();
-          haloCtx.moveTo(0, y);
-          haloCtx.lineTo(width, y);
-          haloCtx.stroke();
-        }
-
-        const agents = reg["halo.agents"] || [];
-        if (!Array.isArray(agents) || agents.length === 0) {
-          if (haloCanvasMeta) {
-            haloCanvasMeta.textContent = "no agent positions in registry (expected halo.agents[])";
-          }
-          return;
-        }
-
-        // Compute bounds in simulation space
-        let minX = Infinity, maxX = -Infinity;
-        let minY = Infinity, maxY = -Infinity;
-        agents.forEach((a) => {
-          const x = a && typeof a.x === "number" ? a.x : 0;
-          const y = a && typeof a.y === "number" ? a.y : 0;
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        });
-
-        if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
-          if (haloCanvasMeta) {
-            haloCanvasMeta.textContent = "invalid agent bounds";
-          }
-          return;
-        }
-
-        const padding = 40 * dpr;
-        const spanX = maxX - minX || 1;
-        const spanY = maxY - minY || 1;
-        const scaleX = (width - padding * 2) / spanX;
-        const scaleY = (height - padding * 2) / spanY;
-        const scale = Math.min(scaleX, scaleY);
-
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-
-        // Transform: sim space -> canvas
-        haloCtx.save();
-        haloCtx.translate(width / 2, height / 2);
-        haloCtx.scale(scale, -scale); // invert Y for visual
-        haloCtx.translate(-centerX, -centerY);
-
-        // Draw agents
-        agents.forEach((a) => {
-          if (!a) return;
-          const x = typeof a.x === "number" ? a.x : 0;
-          const y = typeof a.y === "number" ? a.y : 0;
-          const vx = typeof a.vx === "number" ? a.vx : 0;
-          const vy = typeof a.vy === "number" ? a.vy : 0;
-
-          // Agent body
-          haloCtx.beginPath();
-          haloCtx.fillStyle = "rgba(95, 242, 255, 0.95)";
-          haloCtx.arc(x, y, 0.06 * Math.max(spanX, spanY) / 20, 0, Math.PI * 2);
-          haloCtx.fill();
-
-          // Heading vector
-          const speed = Math.sqrt(vx * vx + vy * vy) || 1;
-          const dirX = vx / speed;
-          const dirY = vy / speed;
-          const len = 0.25 * Math.max(spanX, spanY) / 20;
-
-          haloCtx.beginPath();
-          haloCtx.strokeStyle = "rgba(123, 92, 255, 0.9)";
-          haloCtx.lineWidth = 0.02 * Math.max(spanX, spanY) / 20;
-          haloCtx.moveTo(x, y);
-          haloCtx.lineTo(x + dirX * len, y + dirY * len);
-          haloCtx.stroke();
-        });
-
-        haloCtx.restore();
-
-        if (haloCanvasMeta) {
-          haloCanvasMeta.textContent = `agents: ${agents.length} · sim-space auto-scaled`;
-        }
-        if (haloCanvasOverlayLeft) {
-          haloCanvasOverlayLeft.textContent = "SIM SPACE";
-        }
-        if (haloCanvasOverlayRight) {
-          haloCanvasOverlayRight.textContent = "AUTO-SCALED VIEW";
-        }
-      }
-
-      // Simple bridge: if APEXCORE exposes a registry snapshot, wire it in.
-      // This is intentionally minimal and non-invasive; you can replace with your
-      // existing update loop or hook into your tick bus.
 
       function safeGet(obj, path, fallback = undefined) {
         try {
@@ -1560,21 +1429,13 @@
           );
         }
 
-        // HALO canvas render
-        drawHaloAgentsFromRegistry(reg);
+        // Optional: if halo-renderer.js exposes a hook, it can attach to #halo-canvas itself.
       }
 
-      // If your engine exposes a global registry snapshot, you can call
-      // renderFromRegistry(snapshot) from your tick loop. For now we just
-      // expose it on window for easy wiring.
+      // Expose for engine tick loop
       window.APEXOPS_UI = {
         renderFromRegistry,
       };
-
-      window.addEventListener("resize", () => {
-        // Force a redraw on resize if you call renderFromRegistry again externally
-        ensureHaloCanvasSize();
-      });
     })();
   </script>
 </body>
