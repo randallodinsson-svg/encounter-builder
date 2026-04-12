@@ -1,5 +1,6 @@
 // halo-renderer.js
-// Simple HALO swarm renderer — visibility-first baseline.
+// HALO swarm renderer with simple formation control (ring, disk, lane)
+// Visibility-first, auto-cycling formations.
 
 export const HALO_RENDERER = (() => {
   const MODULE_ID = "halo-renderer";
@@ -13,14 +14,19 @@ export const HALO_RENDERER = (() => {
   let agents = [];
   let lastUpdate = 0;
 
+  const formations = ["ring", "disk", "lane"];
+  let currentFormationIndex = 0;
+  let lastFormationChange = 0;
+  const formationIntervalMs = 10000; // 10s per formation
+
   function createAgents(count) {
     const list = [];
     for (let i = 0; i < count; i++) {
       list.push({
-        x: Math.random(),
-        y: Math.random(),
-        vx: (Math.random() - 0.5) * 0.0005,
-        vy: (Math.random() - 0.5) * 0.0005,
+        px: 0,
+        py: 0,
+        targetPx: 0,
+        targetPy: 0,
       });
     }
     return list;
@@ -41,18 +47,85 @@ export const HALO_RENDERER = (() => {
     ctx.scale(dpr, dpr);
 
     console.log("[HALO] resizeCanvas()", width, height, "dpr:", dpr);
+
+    // Recompute formation targets on resize
+    updateFormationTargets(getCurrentFormation());
+  }
+
+  function getCurrentFormation() {
+    return formations[currentFormationIndex] || "ring";
+  }
+
+  function updateFormationTargets(formation) {
+    if (!agents.length || width === 0 || height === 0) return;
+
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const n = agents.length;
+    const minDim = Math.min(width, height);
+
+    for (let i = 0; i < n; i++) {
+      const a = agents[i];
+
+      if (formation === "ring") {
+        const angle = (i / n) * Math.PI * 2;
+        const r = minDim * 0.35;
+        a.targetPx = cx + Math.cos(angle) * r;
+        a.targetPy = cy + Math.sin(angle) * r;
+      } else if (formation === "disk") {
+        const angle = (i / n) * Math.PI * 2;
+        const radiusFactor = 0.15 + 0.35 * (i / n);
+        const r = minDim * radiusFactor;
+        a.targetPx = cx + Math.cos(angle) * r;
+        a.targetPy = cy + Math.sin(angle) * r;
+      } else if (formation === "lane") {
+        const t = i / (n - 1 || 1);
+        const margin = minDim * 0.1;
+        const x0 = cx - (minDim * 0.4);
+        const x1 = cx + (minDim * 0.4);
+        a.targetPx = x0 + (x1 - x0) * t;
+        a.targetPy = cy;
+      } else {
+        // fallback: small jitter around center
+        a.targetPx = cx + (Math.random() - 0.5) * minDim * 0.2;
+        a.targetPy = cy + (Math.random() - 0.5) * minDim * 0.2;
+      }
+
+      // If agent has no position yet, snap to target
+      if (a.px === 0 && a.py === 0) {
+        a.px = a.targetPx;
+        a.py = a.targetPy;
+      }
+    }
+  }
+
+  function maybeCycleFormation() {
+    const now = performance.now();
+    if (!lastFormationChange) {
+      lastFormationChange = now;
+      return;
+    }
+    if (now - lastFormationChange >= formationIntervalMs) {
+      currentFormationIndex = (currentFormationIndex + 1) % formations.length;
+      lastFormationChange = now;
+      const f = getCurrentFormation();
+      console.log("[HALO] formation changed →", f);
+      updateFormationTargets(f);
+    }
   }
 
   function updateAgents(dt) {
-    const speedScale = dt;
+    const lerp = 0.002 * dt; // smooth interpolation
     for (const a of agents) {
-      a.x += a.vx * speedScale;
-      a.y += a.vy * speedScale;
+      const dx = a.targetPx - a.px;
+      const dy = a.targetPy - a.py;
 
-      if (a.x < 0) a.x += 1;
-      if (a.x > 1) a.x -= 1;
-      if (a.y < 0) a.y += 1;
-      if (a.y > 1) a.y -= 1;
+      a.px += dx * lerp;
+      a.py += dy * lerp;
+
+      // tiny noise to keep it alive
+      a.px += (Math.random() - 0.5) * 0.1;
+      a.py += (Math.random() - 0.5) * 0.1;
     }
   }
 
@@ -76,21 +149,12 @@ export const HALO_RENDERER = (() => {
 
   function drawAgents() {
     ctx.save();
-    ctx.translate(width / 2, height / 2);
-
-    const radius = Math.min(width, height) * 0.4;
 
     ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
 
     for (const a of agents) {
-      const angle = a.x * Math.PI * 2;
-      const r = radius * (0.3 + a.y * 0.7);
-
-      const px = Math.cos(angle) * r;
-      const py = Math.sin(angle) * r;
-
       ctx.beginPath();
-      ctx.arc(px, py, 2.0, 0, Math.PI * 2);
+      ctx.arc(a.px, a.py, 2.0, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -109,14 +173,17 @@ export const HALO_RENDERER = (() => {
 
   function tick(dtMs) {
     const dt = dtMs || 16;
+
+    maybeCycleFormation();
     updateAgents(dt);
     draw(dt);
 
     lastUpdate = performance.now();
+    const formation = getCurrentFormation();
 
     if (window.APEXCORE && APEXCORE.api && APEXCORE.api.set) {
       APEXCORE.api.set("halo.agents", agents.length);
-      APEXCORE.api.set("halo.formation", "simple-swarm");
+      APEXCORE.api.set("halo.formation", formation);
       APEXCORE.api.set("halo.lastUpdate", lastUpdate.toFixed(0));
     }
   }
@@ -136,22 +203,24 @@ export const HALO_RENDERER = (() => {
       return;
     }
 
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
     agents = createAgents(120);
+    resizeCanvas();
+
     lastUpdate = performance.now();
+    lastFormationChange = performance.now();
+    updateFormationTargets(getCurrentFormation());
 
     if (apexcore && apexcore.api && apexcore.api.set) {
       apexcore.api.set("halo.agents", agents.length);
-      apexcore.api.set("halo.formation", "simple-swarm");
+      apexcore.api.set("halo.formation", getCurrentFormation());
       apexcore.api.set("halo.lastUpdate", lastUpdate.toFixed(0));
     }
+
+    window.addEventListener("resize", resizeCanvas);
 
     console.log("[HALO] init() complete — agents:", agents.length);
   }
 
-  // expose resize hook for UI
   function __forceResize() {
     resizeCanvas();
   }
