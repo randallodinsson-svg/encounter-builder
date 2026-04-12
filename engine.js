@@ -21,13 +21,22 @@ export const ENGINE = (() => {
 
     function runSingleTick() {
         if (!core) return;
-        const now = performance.now();
+
+        const start = performance.now();
+
         const tickData = {
-            time: now,
+            time: start,
             count: ++tickCount,
             random: Math.random()
         };
+
         core.runTick(tickData);
+
+        const end = performance.now();
+        const duration = end - start;
+
+        // CRITICAL: Feed duration to TickProfiler
+        core.set("profiler.lastTickDuration", duration);
     }
 
     function start() {
