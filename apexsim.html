@@ -1,113 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>APEXSIM — Simulation Engine</title>
-
-    <style>
-        body {
-            margin: 0;
-            background: #0b0e13;
-            color: #e6eef7;
-            font-family: system-ui, sans-serif;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        #sidebar {
-            width: 260px;
-            background: #11161d;
-            border-right: 1px solid #1f2732;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
-            margin: 6px 0;
-            background: #1e90ff;
-            border: none;
-            color: white;
-            font-size: 15px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #3aa0ff;
-        }
-
-        #main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #simOutput {
-            flex: 1;
-            background: #05070a;
-            padding: 12px;
-            box-sizing: border-box;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            border-top: 1px solid #1f2732;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <title>APEXSIM</title>
+    <meta http-equiv="refresh" content="0; url=index.html">
 </head>
-
 <body>
-
-    <div id="sidebar">
-        <h2>APEXSIM — Simulation Engine</h2>
-
-        <button id="btnInit">Initialize Simulation</button>
-        <button id="btnTick">Run Tick</button>
-        <button id="btnReset">Reset Simulation</button>
-        <button id="btnClear">Clear Output</button>
-    </div>
-
-    <div id="main">
-        <div id="simOutput">APEXSIM v4 ready.</div>
-    </div>
-
-    <script type="module">
-        import { APEXSIM } from "./apexsim.js";
-        import { APEXCORE } from "./apexcore.js";
-
-        const out = document.getElementById("simOutput");
-
-        function log(x) {
-            out.textContent += "\n" + x;
-            out.scrollTop = out.scrollHeight;
-        }
-
-        document.getElementById("btnInit").onclick = () => {
-            const result = APEXSIM.init();
-            log("SIM INIT:");
-            log(JSON.stringify(result, null, 2));
-        };
-
-        document.getElementById("btnTick").onclick = () => {
-            const tick = APEXSIM.tick();
-            log("SIM TICK:");
-            log(JSON.stringify(tick, null, 2));
-        };
-
-        document.getElementById("btnReset").onclick = () => {
-            const reset = APEXSIM.reset();
-            log("SIM RESET:");
-            log(JSON.stringify(reset, null, 2));
-        };
-
-        document.getElementById("btnClear").onclick = () => {
-            out.textContent = "APEXSIM v4 ready.";
-        };
-    </script>
-
+Redirecting to APEXCORE console…
 </body>
 </html>
