@@ -2,32 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXOPS — APEXCORE v3.5</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>APEXOPS · APEXCORE Control Surface</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
-      --bg: #05070b;
-      --bg-elevated: #0b0f18;
-      --bg-elevated-soft: #101624;
-      --border-subtle: #1b2233;
-      --accent: #3fd5ff;
-      --accent-soft: rgba(63, 213, 255, 0.12);
-      --accent-strong: #5cf2ff;
-      --accent-warm: #ffb347;
-      --text-main: #f5f7ff;
-      --text-soft: #a5b0c8;
-      --text-muted: #6b7488;
-      --danger: #ff4b6a;
-      --success: #4cd964;
-      --warning: #ffd75c;
-      --halo: #7b5cff;
-      --radius-lg: 10px;
-      --radius-md: 8px;
-      --radius-sm: 6px;
-      --shadow-soft: 0 0 40px rgba(0, 0, 0, 0.65);
-      --shadow-subtle: 0 0 24px rgba(0, 0, 0, 0.5);
-      --sidebar-width: 260px;
-      --transition-fast: 0.16s ease-out;
+      --bg: #050608;
+      --bg-alt: #0b0d10;
+      --panel-bg: #10131a;
+      --panel-border: #1c2230;
+      --accent: #4fd1c5;
+      --accent-soft: rgba(79, 209, 197, 0.2);
+      --accent-strong: rgba(79, 209, 197, 0.6);
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --danger: #f97373;
+      --halo: #60a5fa;
+      --mono: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     * {
@@ -38,1069 +29,679 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      background: radial-gradient(circle at top, #151b2b 0, #05070b 55%);
-      color: var(--text-main);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%);
+      color: var(--text);
+      font-family: var(--sans);
     }
 
     body {
       display: flex;
-      min-height: 100vh;
-      overflow: hidden;
+      align-items: stretch;
+      justify-content: stretch;
     }
-
-    /* Layout */
 
     .apexops-root {
       display: flex;
+      flex-direction: row;
       width: 100%;
       height: 100vh;
-      color: var(--text-main);
+      overflow: hidden;
+      background: linear-gradient(135deg, #020617 0, #020617 40%, #020617 100%);
     }
 
+    /* SIDEBAR */
     .apexops-sidebar {
-      width: var(--sidebar-width);
-      background: linear-gradient(180deg, #05070b 0, #05070b 40%, #05070b 100%);
-      border-right: 1px solid var(--border-subtle);
-      box-shadow: var(--shadow-soft);
+      width: 260px;
+      background: radial-gradient(circle at top left, #111827 0, #020617 55%);
+      border-right: 1px solid #111827;
       display: flex;
       flex-direction: column;
-      padding: 18px 16px 16px;
-      position: relative;
-      z-index: 2;
+      padding: 16px 14px;
+      gap: 16px;
     }
 
+    .apexops-logo {
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .apexops-logo span {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .apexops-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--panel-border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+    }
+
+    .apexops-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .apexops-nav button {
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-soft);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+
+    .apexops-nav button:hover {
+      background: rgba(15, 23, 42, 0.9);
+      border-color: #111827;
+      color: var(--text);
+    }
+
+    .apexops-nav button.active {
+      background: rgba(15, 23, 42, 0.95);
+      border-color: var(--accent-strong);
+      color: var(--accent);
+    }
+
+    .apexops-nav-label {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .apexops-nav-title {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .apexops-nav-sub {
+      font-size: 10px;
+      color: var(--text-soft);
+    }
+
+    .apexops-nav-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
+    }
+
+    .apexops-sidebar-section-title {
+      margin-top: 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #6b7280;
+    }
+
+    .apexops-sidebar-footer {
+      margin-top: auto;
+      font-size: 10px;
+      color: #4b5563;
+      border-top: 1px solid #111827;
+      padding-top: 8px;
+    }
+
+    /* MAIN AREA */
     .apexops-main {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 16px 18px 18px;
-      overflow: hidden;
+      padding: 14px 16px;
+      gap: 10px;
     }
 
-    /* Sidebar header */
-
-    .sidebar-brand {
+    .apexops-header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 18px;
+      justify-content: space-between;
+      gap: 12px;
     }
 
-    .sidebar-brand-mark {
-      width: 26px;
-      height: 26px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 30% 20%, #3fd5ff 0, #0b0f18 55%);
-      box-shadow: 0 0 18px rgba(63, 213, 255, 0.6);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .sidebar-brand-mark::after {
-      content: "";
-      position: absolute;
-      inset: 4px;
-      border-radius: inherit;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.7);
-    }
-
-    .sidebar-brand-text {
+    .apexops-header-left {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
 
-    .sidebar-brand-title {
-      font-size: 13px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--text-soft);
-    }
-
-    .sidebar-brand-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .sidebar-divider {
-      height: 1px;
-      background: radial-gradient(circle at left, rgba(63, 213, 255, 0.7), transparent 55%);
-      opacity: 0.7;
-      margin-bottom: 10px;
-    }
-
-    /* Sidebar sections */
-
-    .sidebar-section-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: var(--text-muted);
-      margin: 10px 4px 6px;
-    }
-
-    .sidebar-nav {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 10px;
-    }
-
-    .sidebar-nav-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 7px 9px;
-      border-radius: var(--radius-md);
-      color: var(--text-soft);
-      font-size: 12px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      background: transparent;
-      transition: background var(--transition-fast), border-color var(--transition-fast),
-        color var(--transition-fast), transform var(--transition-fast);
-    }
-
-    .sidebar-nav-item:hover {
-      background: rgba(15, 22, 40, 0.9);
-      border-color: rgba(63, 213, 255, 0.25);
-      color: var(--text-main);
-      transform: translateX(1px);
-    }
-
-    .sidebar-nav-item.active {
-      background: radial-gradient(circle at left, rgba(63, 213, 255, 0.18), #0b0f18);
-      border-color: rgba(63, 213, 255, 0.7);
-      color: var(--accent-strong);
-      box-shadow: 0 0 18px rgba(63, 213, 255, 0.35);
-    }
-
-    .sidebar-nav-item-main {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .sidebar-nav-icon {
-      width: 16px;
-      height: 16px;
-      border-radius: 4px;
-      background: radial-gradient(circle at 30% 20%, rgba(63, 213, 255, 0.9), rgba(63, 213, 255, 0.1));
-      box-shadow: 0 0 10px rgba(63, 213, 255, 0.5);
-      position: relative;
-      flex-shrink: 0;
-    }
-
-    .sidebar-nav-icon::after {
-      content: "";
-      position: absolute;
-      inset: 3px;
-      border-radius: inherit;
-      border: 1px solid rgba(5, 7, 11, 0.9);
-    }
-
-    .sidebar-nav-label {
-      font-size: 12px;
-    }
-
-    .sidebar-nav-meta {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    .sidebar-nav-pill {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid rgba(63, 213, 255, 0.4);
-      background: rgba(63, 213, 255, 0.08);
-      color: var(--accent-strong);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    .sidebar-nav-pill.warm {
-      border-color: rgba(255, 183, 71, 0.5);
-      background: rgba(255, 183, 71, 0.08);
-      color: var(--accent-warm);
-    }
-
-    .sidebar-nav-pill.halo {
-      border-color: rgba(123, 92, 255, 0.6);
-      background: rgba(123, 92, 255, 0.12);
-      color: var(--halo);
-    }
-
-    .sidebar-footer {
-      margin-top: auto;
-      padding-top: 10px;
-      border-top: 1px solid rgba(21, 30, 50, 0.9);
-      font-size: 10px;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .sidebar-footer-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .sidebar-footer-pill {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 999px;
-      border: 1px solid rgba(111, 255, 190, 0.5);
-      background: rgba(111, 255, 190, 0.08);
-      color: var(--success);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    /* Main header */
-
-    .apexops-main-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      gap: 10px;
-    }
-
-    .apexops-main-title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .apexops-main-title {
+    .apexops-title {
       font-size: 14px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--text-soft);
     }
 
-    .apexops-main-subtitle {
+    .apexops-subtitle {
       font-size: 11px;
-      color: var(--text-muted);
+      color: #6b7280;
     }
 
-    .apexops-main-status {
+    .apexops-header-right {
       display: flex;
       align-items: center;
       gap: 10px;
       font-size: 11px;
-      color: var(--text-muted);
+      color: var(--text-soft);
     }
 
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(76, 217, 100, 0.5);
-      background: rgba(76, 217, 100, 0.08);
-      color: var(--success);
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
+    .apexops-tag {
       font-size: 10px;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
+      padding: 2px 6px;
       border-radius: 999px;
-      background: radial-gradient(circle at 30% 20%, #6fffbe, #1b3b2b);
-      box-shadow: 0 0 10px rgba(111, 255, 190, 0.7);
+      border: 1px solid #1f2937;
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
     }
-
-    .status-meta {
-      display: flex;
-      gap: 10px;
-    }
-
-    .status-meta-item {
-      display: flex;
-      gap: 4px;
-      align-items: baseline;
-    }
-
-    .status-meta-label {
-      color: var(--text-muted);
-    }
-
-    .status-meta-value {
-      color: var(--accent-strong);
-    }
-
-    /* Main content */
 
     .apexops-main-body {
       flex: 1;
       display: flex;
-      gap: 12px;
-      overflow: hidden;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
     }
 
-    .apexops-panel-stack {
+    .apexops-panels {
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      overflow: hidden;
+      min-height: 0;
+      border-radius: 10px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      padding: 10px;
     }
 
     .apexops-panel {
-      flex: 1;
-      border-radius: var(--radius-lg);
-      background: radial-gradient(circle at top left, rgba(63, 213, 255, 0.08), #05070b);
-      border: 1px solid rgba(26, 36, 60, 0.95);
-      box-shadow: var(--shadow-subtle);
-      padding: 10px 11px 11px;
       display: none;
-      min-height: 0;
-      overflow: hidden;
+      height: 100%;
     }
 
     .apexops-panel.active {
       display: flex;
       flex-direction: column;
+      gap: 8px;
+      height: 100%;
     }
 
-    .apexops-panel-header {
+    .panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
-      gap: 8px;
+      font-size: 11px;
+      color: var(--text-soft);
+      border-bottom: 1px solid #111827;
+      padding-bottom: 6px;
     }
 
-    .apexops-panel-title-block {
+    .panel-header-left {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
 
-    .apexops-panel-title {
+    .panel-title {
       font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: var(--text-soft);
+      font-weight: 500;
+      color: var(--text);
     }
 
-    .apexops-panel-subtitle {
+    .panel-subtitle {
       font-size: 11px;
-      color: var(--text-muted);
+      color: #6b7280;
     }
 
-    .apexops-panel-meta {
+    .panel-header-right {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 10px;
-      color: var(--text-muted);
     }
 
-    .apexops-panel-pill {
+    .tag {
+      font-size: 10px;
       padding: 2px 6px;
       border-radius: 999px;
-      border: 1px solid rgba(63, 213, 255, 0.4);
-      background: rgba(63, 213, 255, 0.08);
-      color: var(--accent-strong);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
+      border: 1px solid #1f2937;
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-soft);
     }
 
-    .apexops-panel-pill.alt {
-      border-color: rgba(255, 183, 71, 0.5);
-      background: rgba(255, 183, 71, 0.08);
-      color: var(--accent-warm);
+    .tag.halo {
+      border-color: rgba(96, 165, 250, 0.6);
+      color: #bfdbfe;
+      background: rgba(15, 23, 42, 0.9);
     }
 
-    .apexops-panel-pill.halo {
-      border-color: rgba(123, 92, 255, 0.7);
-      background: rgba(123, 92, 255, 0.12);
-      color: var(--halo);
-    }
-
-    .apexops-panel-body {
+    .panel-body {
       flex: 1;
-      border-radius: var(--radius-md);
-      background: radial-gradient(circle at top, rgba(10, 16, 30, 0.9), #05070b);
-      border: 1px solid rgba(18, 26, 44, 0.95);
-      padding: 8px 9px;
-      overflow: auto;
+      min-height: 0;
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .panel-column {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .panel-block {
+      flex: 1;
+      min-height: 0;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .panel-block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       font-size: 11px;
       color: var(--text-soft);
     }
 
-    /* Simple content scaffolding */
+    .panel-block-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
+    }
 
-    .grid-two {
+    .panel-block-sub {
+      font-size: 10px;
+      color: #6b7280;
+    }
+
+    .panel-block-body {
+      flex: 1;
+      min-height: 0;
+      border-radius: 6px;
+      border: 1px solid #111827;
+      background: #020617;
+      padding: 6px;
+      overflow: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-soft);
+      white-space: pre;
+    }
+
+    /* HALO HUD */
+    .halo-hud-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
     }
 
-    .metric-card {
-      border-radius: var(--radius-md);
-      background: linear-gradient(135deg, rgba(10, 16, 30, 0.9), #05070b);
-      border: 1px solid rgba(26, 36, 60, 0.9);
-      padding: 7px 8px;
+    .halo-hud-card {
+      border-radius: 8px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      padding: 8px;
       display: flex;
       flex-direction: column;
       gap: 4px;
+      font-size: 11px;
+    }
+
+    .halo-hud-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #6b7280;
+    }
+
+    .halo-hud-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e5e7eb;
+    }
+
+    .halo-hud-meta {
+      font-size: 10px;
+      color: #6b7280;
+    }
+
+    .metric-card {
+      border-radius: 8px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
     }
 
     .metric-card-header {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: baseline;
-      font-size: 10px;
-      color: var(--text-muted);
+      font-size: 11px;
+      color: var(--text-soft);
     }
 
     .metric-card-title {
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-    }
-
-    .metric-card-value {
-      font-size: 12px;
-      color: var(--accent-strong);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text);
     }
 
     .metric-card-footer {
       font-size: 10px;
-      color: var(--text-muted);
+      color: #6b7280;
     }
 
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 10px;
-    }
-
-    .table th,
-    .table td {
-      padding: 4px 5px;
-      border-bottom: 1px solid rgba(26, 36, 60, 0.9);
-    }
-
-    .table th {
-      text-align: left;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-size: 9px;
-      color: var(--text-muted);
-    }
-
-    .table tr:last-child td {
-      border-bottom: none;
-    }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 1px 5px;
-      border-radius: 999px;
-      border: 1px solid rgba(63, 213, 255, 0.4);
-      background: rgba(63, 213, 255, 0.08);
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--accent-strong);
-    }
-
-    .tag.muted {
-      border-color: rgba(107, 116, 136, 0.6);
-      background: rgba(107, 116, 136, 0.12);
-      color: var(--text-muted);
-    }
-
-    .tag.halo {
-      border-color: rgba(123, 92, 255, 0.7);
-      background: rgba(123, 92, 255, 0.12);
-      color: var(--halo);
-    }
-
-    .timeline-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 3px 0;
-    }
-
-    .timeline-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 30% 20%, #3fd5ff, #101624);
-      box-shadow: 0 0 10px rgba(63, 213, 255, 0.7);
-      flex-shrink: 0;
-    }
-
-    .timeline-meta {
-      font-size: 10px;
-      color: var(--text-soft);
-    }
-
-    .timeline-meta strong {
-      color: var(--accent-strong);
-      font-weight: 500;
-    }
-
-    .halo-banner {
-      border-radius: var(--radius-md);
-      border: 1px solid rgba(123, 92, 255, 0.7);
-      background: radial-gradient(circle at top left, rgba(123, 92, 255, 0.25), #05070b);
-      padding: 7px 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      box-shadow: 0 0 24px rgba(123, 92, 255, 0.45);
-    }
-
-    .halo-banner-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 10px;
-      color: var(--text-soft);
-    }
-
-    .halo-banner-title {
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-    }
-
-    .halo-banner-body {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: var(--text-soft);
-      gap: 8px;
-    }
-
-    .halo-banner-col {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .halo-banner-label {
-      color: var(--text-muted);
-    }
-
-    .halo-banner-value {
-      color: var(--accent-strong);
-    }
-
-    .halo-banner-value.halo {
-      color: var(--halo);
-    }
-
-    .muted {
-      color: var(--text-muted);
-    }
-
-    /* HALO canvas viewport */
-
-    .halo-viewport {
-      border-radius: var(--radius-md);
-      background: radial-gradient(circle at top, rgba(10, 16, 30, 0.95), #05070b);
-      border: 1px solid rgba(40, 32, 80, 0.95);
-      box-shadow: 0 0 26px rgba(123, 92, 255, 0.35);
-      padding: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-height: 220px;
-    }
-
-    .halo-viewport-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 10px;
-      color: var(--text-soft);
-    }
-
-    .halo-viewport-title {
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--halo);
-    }
-
-    .halo-viewport-meta {
-      font-size: 9px;
-      color: var(--text-muted);
-    }
-
-    .halo-viewport-canvas-wrap {
-      position: relative;
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      background: radial-gradient(circle at center, rgba(123, 92, 255, 0.25), #05070b);
-      border: 1px solid rgba(123, 92, 255, 0.6);
+    /* HALO CANVAS PANEL */
+    .halo-canvas-wrapper {
       flex: 1;
-      min-height: 180px;
+      min-height: 0;
+      border-radius: 10px;
+      border: 1px solid #111827;
+      background: radial-gradient(circle at top, #020617 0, #020617 40%, #020617 100%);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .halo-canvas-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .halo-canvas-body {
+      flex: 1;
+      min-height: 0;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      background: #020617;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+      overflow: hidden;
     }
 
     #halo-canvas {
       width: 100%;
       height: 100%;
       display: block;
-      background: radial-gradient(circle at center, rgba(5, 7, 11, 0.9), #020308);
+      background: radial-gradient(circle at center, #0b1120 0, #020617 55%);
     }
 
-    .halo-viewport-overlay-label {
-      position: absolute;
-      bottom: 6px;
-      right: 8px;
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: rgba(197, 189, 255, 0.9);
-      background: rgba(5, 7, 11, 0.7);
-      padding: 2px 6px;
+    /* SCROLLBARS */
+    .panel-block-body::-webkit-scrollbar,
+    pre::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    .panel-block-body::-webkit-scrollbar-track,
+    pre::-webkit-scrollbar-track {
+      background: #020617;
+    }
+
+    .panel-block-body::-webkit-scrollbar-thumb,
+    pre::-webkit-scrollbar-thumb {
+      background: #1f2937;
       border-radius: 999px;
-      border: 1px solid rgba(123, 92, 255, 0.7);
-      backdrop-filter: blur(4px);
-    }
-
-    @media (max-width: 900px) {
-      .apexops-sidebar {
-        display: none;
-      }
-      .apexops-main {
-        padding-left: 12px;
-        padding-right: 12px;
-      }
-      .grid-two {
-        grid-template-columns: minmax(0, 1fr);
-      }
     }
   </style>
 </head>
 <body>
   <div class="apexops-root">
-    <!-- NAVIGATION SIDEBAR -->
+    <!-- SIDEBAR -->
     <aside class="apexops-sidebar">
-      <div class="sidebar-brand">
-        <div class="sidebar-brand-mark"></div>
-        <div class="sidebar-brand-text">
-          <div class="sidebar-brand-title">APEXOPS</div>
-          <div class="sidebar-brand-subtitle">Diagnostics console · v3.5</div>
+      <div class="apexops-logo">
+        <div>
+          APEXCORE <span>APEXOPS</span>
         </div>
+        <div class="apexops-badge">CONTROL SURFACE</div>
       </div>
 
-      <div class="sidebar-divider"></div>
-
-      <div class="sidebar-section-label">Views</div>
-      <nav class="sidebar-nav" id="apexops-nav">
-        <button
-          class="sidebar-nav-item active"
-          data-panel-target="panel-profiler"
-        >
-          <div class="sidebar-nav-item-main">
-            <div class="sidebar-nav-icon"></div>
-            <div>
-              <div class="sidebar-nav-label">Tick Profiler</div>
-              <div class="sidebar-nav-meta">Global tick duration metrics</div>
-            </div>
+      <div class="apexops-sidebar-section-title">Panels</div>
+      <nav id="apexops-nav" class="apexops-nav">
+        <button data-panel="panel-registry" class="active">
+          <div class="apexops-nav-label">
+            <span class="apexops-nav-title">Registry</span>
+            <span class="apexops-nav-sub">Live module registry snapshot</span>
           </div>
-          <span class="sidebar-nav-pill">Core</span>
+          <span class="apexops-nav-tag">core.registry</span>
         </button>
 
-        <button
-          class="sidebar-nav-item"
-          data-panel-target="panel-regdiff"
-        >
-          <div class="sidebar-nav-item-main">
-            <div class="sidebar-nav-icon"></div>
-            <div>
-              <div class="sidebar-nav-label">Registry Diff</div>
-              <div class="sidebar-nav-meta">Per-tick registry changes</div>
-            </div>
+        <button data-panel="panel-diff">
+          <div class="apexops-nav-label">
+            <span class="apexops-nav-title">Diff</span>
+            <span class="apexops-nav-sub">State changes over time</span>
           </div>
-          <span class="sidebar-nav-pill warm">Delta</span>
+          <span class="apexops-nav-tag">core.diff</span>
         </button>
 
-        <button
-          class="sidebar-nav-item"
-          data-panel-target="panel-timeline"
-        >
-          <div class="sidebar-nav-item-main">
-            <div class="sidebar-nav-icon"></div>
-            <div>
-              <div class="sidebar-nav-label">Event Timeline</div>
-              <div class="sidebar-nav-meta">Tick history + registry counts</div>
-            </div>
+        <button data-panel="panel-timeline">
+          <div class="apexops-nav-label">
+            <span class="apexops-nav-title">Timeline</span>
+            <span class="apexops-nav-sub">Event stream visualization</span>
           </div>
-          <span class="sidebar-nav-pill">Ops</span>
+          <span class="apexops-nav-tag">core.timeline</span>
         </button>
 
-        <button
-          class="sidebar-nav-item"
-          data-panel-target="panel-modinspector"
-        >
-          <div class="sidebar-nav-item-main">
-            <div class="sidebar-nav-icon"></div>
-            <div>
-              <div class="sidebar-nav-label">Module Inspector</div>
-              <div class="sidebar-nav-meta">Mounted modules + capabilities</div>
-            </div>
+        <button data-panel="panel-profiler">
+          <div class="apexops-nav-label">
+            <span class="apexops-nav-title">Profiler</span>
+            <span class="apexops-nav-sub">Module cost + engine ticks</span>
           </div>
-          <span class="sidebar-nav-pill warm">Introspect</span>
+          <span class="apexops-nav-tag">core.profiler</span>
         </button>
 
-        <button
-          class="sidebar-nav-item"
-          data-panel-target="panel-halo"
-        >
-          <div class="sidebar-nav-item-main">
-            <div class="sidebar-nav-icon"></div>
-            <div>
-              <div class="sidebar-nav-label">HALO Tactical HUD</div>
-              <div class="sidebar-nav-meta">Swarm sim · Tier 1–3</div>
-            </div>
+        <button data-panel="panel-halo">
+          <div class="apexops-nav-label">
+            <span class="apexops-nav-title">HALO HUD</span>
+            <span class="apexops-nav-sub">Swarm renderer + metrics</span>
           </div>
-          <span class="sidebar-nav-pill halo">Sim</span>
+          <span class="apexops-nav-tag">halo-renderer</span>
         </button>
       </nav>
 
-      <div class="sidebar-section-label">Session</div>
-      <div class="sidebar-footer">
-        <div class="sidebar-footer-row">
-          <span>Simulation</span>
-          <span class="sidebar-footer-pill" id="sidebar-sim-status">
-            Online
-          </span>
-        </div>
-        <div class="sidebar-footer-row">
-          <span>Last tick</span>
-          <span id="sidebar-last-tick" class="muted">—</span>
-        </div>
+      <div class="apexops-sidebar-footer">
+        <div>ENGINE: <span id="engine-status">AUTO · 1000ms</span></div>
+        <div>MODULES: APEXCORE, HALO, PROFILER, DIFF, TIMELINE</div>
       </div>
     </aside>
 
-    <!-- MAIN AREA -->
+    <!-- MAIN -->
     <main class="apexops-main">
-      <header class="apexops-main-header">
-        <div class="apexops-main-title-block">
-          <div class="apexops-main-title">APEXCORE · OPS</div>
-          <div class="apexops-main-subtitle">
-            Live diagnostics across profiler, registry, timeline, modules, and HALO.
-          </div>
+      <header class="apexops-header">
+        <div class="apexops-header-left">
+          <div class="apexops-title">APEXCORE · OPERATIONS</div>
+          <div class="apexops-subtitle">Unified control surface for ENGINE + modules</div>
         </div>
-        <div class="apexops-main-status">
-          <span class="status-pill">
-            <span class="status-dot"></span>
-            SIM ONLINE
-          </span>
-          <div class="status-meta">
-            <div class="status-meta-item">
-              <span class="status-meta-label">Last tick</span>
-              <span class="status-meta-value" id="header-last-tick">—</span>
-            </div>
-            <div class="status-meta-item">
-              <span class="status-meta-label">Last duration</span>
-              <span class="status-meta-value" id="header-last-duration">—</span>
-            </div>
-          </div>
+        <div class="apexops-header-right">
+          <span class="apexops-tag">ENGINE: TICKING</span>
+          <span class="apexops-tag">HALO: RENDERER</span>
+          <span class="apexops-tag">MODE: LIVE</span>
         </div>
       </header>
 
       <section class="apexops-main-body">
-        <div class="apexops-panel-stack">
-          <!-- PROFILER PANEL -->
-          <section
-            class="apexops-panel active"
-            id="panel-profiler"
-          >
-            <div class="apexops-panel-header">
-              <div class="apexops-panel-title-block">
-                <div class="apexops-panel-title">Tick Profiler</div>
-                <div class="apexops-panel-subtitle">
-                  Global tick duration statistics from <code>profiler.*</code>.
-                </div>
+        <section class="apexops-panels">
+          <!-- REGISTRY PANEL -->
+          <section id="panel-registry" class="apexops-panel active">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-title">Registry</div>
+                <div class="panel-subtitle">Live snapshot of APEXCORE module registry</div>
               </div>
-              <div class="apexops-panel-meta">
-                <span class="apexops-panel-pill">Profiling</span>
-                <span id="profiler-status" class="muted">status: —</span>
+              <div class="panel-header-right">
+                <span class="tag">core.registry</span>
               </div>
             </div>
-            <div class="apexops-panel-body">
-              <div class="grid-two">
-                <div class="metric-card">
-                  <div class="metric-card-header">
-                    <span class="metric-card-title">Tick duration</span>
-                    <span class="tag">ms</span>
+            <div class="panel-body">
+              <div class="panel-column">
+                <div class="panel-block">
+                  <div class="panel-block-header">
+                    <div>
+                      <span class="panel-block-title">Registry dump</span>
+                      <span class="panel-block-sub">APEXCORE.api.dump()</span>
+                    </div>
+                    <span class="tag">read-only</span>
                   </div>
-                  <div class="metric-card-value" id="profiler-lastMs">—</div>
-                  <div class="metric-card-footer">
-                    min: <span id="profiler-minMs">—</span> ·
-                    max: <span id="profiler-maxMs">—</span> ·
-                    avg: <span id="profiler-avgMs">—</span> ·
-                    ticks: <span id="profiler-ticks">—</span>
-                  </div>
-                </div>
-                <div class="metric-card">
-                  <div class="metric-card-header">
-                    <span class="metric-card-title">Last tick duration</span>
-                    <span class="tag muted">profiler.lastTickDuration</span>
-                  </div>
-                  <div class="metric-card-value" id="profiler-lastTickDuration">
-                    —
-                  </div>
-                  <div class="metric-card-footer">
-                    Derived from latest engine tick.
+                  <div id="registry-container" class="panel-block-body">
+                    <!-- Filled by UI script -->
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- REGISTRY DIFF PANEL -->
-          <section
-            class="apexops-panel"
-            id="panel-regdiff"
-          >
-            <div class="apexops-panel-header">
-              <div class="apexops-panel-title-block">
-                <div class="apexops-panel-title">Registry Diff Viewer</div>
-                <div class="apexops-panel-subtitle">
-                  Per-tick registry deltas from <code>regdiff.diff</code>.
-                </div>
+          <!-- DIFF PANEL -->
+          <section id="panel-diff" class="apexops-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-title">Diff viewer</div>
+                <div class="panel-subtitle">State changes between ticks</div>
               </div>
-              <div class="apexops-panel-meta">
-                <span class="apexops-panel-pill alt">Introspection</span>
-                <span id="regdiff-status" class="muted">status: —</span>
+              <div class="panel-header-right">
+                <span class="tag">core.diff</span>
               </div>
             </div>
-            <div class="apexops-panel-body">
-              <div class="grid-two">
-                <div>
-                  <div class="metric-card" style="margin-bottom: 6px;">
-                    <div class="metric-card-header">
-                      <span class="metric-card-title">Added keys</span>
-                      <span class="tag">added</span>
+            <div class="panel-body">
+              <div class="panel-column">
+                <div class="panel-block">
+                  <div class="panel-block-header">
+                    <div>
+                      <span class="panel-block-title">Registry diff</span>
+                      <span class="panel-block-sub">APEXCORE.api.getDiff()</span>
                     </div>
-                    <div class="metric-card-footer">
-                      Latest tick added:
-                      <span id="regdiff-added-count">—</span> keys.
-                    </div>
+                    <span class="tag">delta</span>
                   </div>
-                  <div class="metric-card" style="margin-bottom: 6px;">
-                    <div class="metric-card-header">
-                      <span class="metric-card-title">Removed keys</span>
-                      <span class="tag muted">removed</span>
-                    </div>
-                    <div class="metric-card-footer">
-                      Latest tick removed:
-                      <span id="regdiff-removed-count">—</span> keys.
-                    </div>
+                  <div id="diff-container" class="panel-block-body">
+                    <!-- Filled by UI script -->
                   </div>
-                  <div class="metric-card">
-                    <div class="metric-card-header">
-                      <span class="metric-card-title">Changed keys</span>
-                      <span class="tag">changed</span>
-                    </div>
-                    <div class="metric-card-footer">
-                      Latest tick changed:
-                      <span id="regdiff-changed-count">—</span> keys.
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <table class="table" id="regdiff-table">
-                    <thead>
-                      <tr>
-                        <th>Key</th>
-                        <th>Type</th>
-                        <th>Before</th>
-                        <th>After</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <!-- Filled by JS from regdiff.diff -->
-                    </tbody>
-                  </table>
                 </div>
               </div>
             </div>
           </section>
 
           <!-- TIMELINE PANEL -->
-          <section
-            class="apexops-panel"
-            id="panel-timeline"
-          >
-            <div class="apexops-panel-header">
-              <div class="apexops-panel-title-block">
-                <div class="apexops-panel-title">Event Timeline</div>
-                <div class="apexops-panel-subtitle">
-                  Rolling tick history from <code>timeline.events</code>.
-                </div>
+          <section id="panel-timeline" class="apexops-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-title">Event timeline</div>
+                <div class="panel-subtitle">Chronological event stream</div>
               </div>
-              <div class="apexops-panel-meta">
-                <span class="apexops-panel-pill">Ops</span>
-                <span id="timeline-status" class="muted">status: —</span>
-              </div>
+              <div class="panel-header-right">
+                <span class="tag">core.timeline</span>
+               </div>
             </div>
-            <div class="apexops-panel-body">
-              <div class="grid-two">
-                <div id="timeline-list">
-                  <!-- Timeline rows -->
-                </div>
-                <div>
-                  <table class="table" id="timeline-table">
-                    <thead>
-                      <tr>
-                        <th>Tick</th>
-                        <th>Time</th>
-                        <th>Duration</th>
-                        <th>Added</th>
-                        <th>Changed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <!-- Filled by JS from timeline.events -->
-                    </tbody>
-                  </table>
+            <div class="panel-body">
+              <div class="panel-column">
+                <div class="panel-block">
+                  <div class="panel-block-header">
+                    <div>
+                      <span class="panel-block-title">Timeline</span>
+                      <span class="panel-block-sub">APEXCORE.api.getTimeline()</span>
+                    </div>
+                    <span class="tag">events</span>
+                  </div>
+                  <div id="timeline-container" class="panel-block-body">
+                    <!-- Filled by UI script -->
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- MODULE INSPECTOR PANEL -->
-          <section
-            class="apexops-panel"
-            id="panel-modinspector"
-          >
-            <div class="apexops-panel-header">
-              <div class="apexops-panel-title-block">
-                <div class="apexops-panel-title">Module Inspector</div>
-                <div class="apexops-panel-subtitle">
-                  Live module registry from <code>modinspector.modules</code>.
-                </div>
+          <!-- PROFILER PANEL -->
+          <section id="panel-profiler" class="apexops-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-title">Profiler</div>
+                <div class="panel-subtitle">Module + engine cost metrics</div>
               </div>
-              <div class="apexops-panel-meta">
-                <span class="apexops-panel-pill alt">Introspection</span>
-                <span id="modinspector-status" class="muted">status: —</span>
+              <div class="panel-header-right">
+                <span class="tag">core.profiler</span>
               </div>
             </div>
-            <div class="apexops-panel-body">
-              <table class="table" id="modinspector-table">
-                <thead>
-                  <tr>
-                    <th>Module</th>
-                    <th>Namespace</th>
-                    <th>Capabilities</th>
-                    <th>Mounted</th>
-                    <th>Hooks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Filled by JS from modinspector.modules -->
-                </tbody>
-              </table>
+            <div class="panel-body">
+              <div class="panel-column">
+                <div class="panel-block">
+                  <div class="panel-block-header">
+                    <div>
+                      <span class="panel-block-title">Profiler snapshot</span>
+                      <span class="panel-block-sub">APEXCORE.api.get("profiler")</span>
+                    </div>
+                    <span class="tag">metrics</span>
+                  </div>
+                  <div id="profiler-container" class="panel-block-body">
+                    <!-- Filled by UI script -->
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
-          <!-- HALO PANEL -->
-          <section
-            class="apexops-panel"
-            id="panel-halo"
-          >
-            <div class="apexops-panel-header">
-              <div class="apexops-panel-title-block">
-                <div class="apexops-panel-title">HALO Tactical HUD</div>
-                <div class="apexops-panel-subtitle">
-                  Swarm sim status from <code>halo.*</code> and <code>modprofiler.halo-renderer.*</code>.
-                </div>
+          <!-- HALO HUD PANEL -->
+          <section id="panel-halo" class="apexops-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-title">HALO HUD</div>
+                <div class="panel-subtitle">Swarm renderer status + metrics</div>
               </div>
-              <div class="apexops-panel-meta">
-                <span class="apexops-panel-pill halo">Sim</span>
-                <span id="halo-status-label" class="muted">status: —</span>
+              <div class="panel-header-right">
+                <span class="tag halo">halo-renderer</span>
               </div>
             </div>
-            <div class="apexops-panel-body">
-              <div class="halo-banner">
-                <div class="halo-banner-header">
-                  <span class="halo-banner-title">
-                    HALO VISUAL LAYER V2.4D — T1+T2 / FORM / HUD
-                  </span>
-                  <span class="tag halo">Tier 3 HUD</span>
-                </div>
-                <div class="halo-banner-body">
-                  <div class="halo-banner-col">
-                    <span class="halo-banner-label">Formation</span>
-                    <span class="halo-banner-value halo" id="halo-formation">
-                      SWARM
-                    </span>
+            <div class="panel-body">
+              <div class="panel-column">
+                <div class="halo-hud-grid">
+                  <div class="halo-hud-card">
+                    <div class="halo-hud-label">Agents</div>
+                    <div class="halo-hud-value" id="halo-agent-count">—</div>
+                    <div class="halo-hud-meta">Total active swimmers in HALO</div>
                   </div>
-                  <div class="halo-banner-col">
-                    <span class="halo-banner-label">Agents</span>
-                    <span class="halo-banner-value" id="halo-agents">—</span>
+                  <div class="halo-hud-card">
+                    <div class="halo-hud-label">Formation</div>
+                    <div class="halo-hud-value" id="halo-formation">—</div>
+                    <div class="halo-hud-meta">Current formation mode</div>
                   </div>
-                  <div class="halo-banner-col">
-                    <span class="halo-banner-label">Activity</span>
-                    <span class="halo-banner-value" id="halo-activity">
-                      On
-                    </span>
+                  <div class="halo-hud-card">
+                    <div class="halo-hud-label">Engine tick</div>
+                    <div class="halo-hud-value" id="halo-last-tick">—</div>
+                    <div class="halo-hud-meta">Last engine tick timestamp</div>
                   </div>
-                  <div class="halo-banner-col">
-                    <span class="halo-banner-label">Integration</span>
-                    <span class="halo-banner-value" id="halo-integration">
-                      On
-                    </span>
-                  </div>
-                  <div class="halo-banner-col">
-                    <span class="halo-banner-label">Sim space</span>
-                    <span class="halo-banner-value" id="halo-simspace">
-                      Unbounded float
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div style="margin-top: 8px;" class="grid-two">
-                <div>
-                  <div class="halo-viewport">
-                    <div class="halo-viewport-header">
-                      <span class="halo-viewport-title">HALO Canvas Renderer</span>
-                      <span class="halo-viewport-meta">
-                        Visual swarm viewport · simulation space (unbounded float)
-                      </span>
-                    </div>
-                    <div class="halo-viewport-canvas-wrap">
-                      <canvas id="halo-canvas"></canvas>
-                      <div class="halo-viewport-overlay-label">
-                        HALO · VISUAL SWARM
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <div class="metric-card" style="margin-bottom: 6px;">
-                    <div class="metric-card-header">
-                      <span class="metric-card-title">HALO tick</span>
-                      <span class="tag halo">halo.lastTick</span>
-                    </div>
-                    <div class="metric-card-value" id="halo-lastTick">—</div>
-                    <div class="metric-card-footer">
-                      Last update:
-                      <span id="halo-lastUpdate">—</span>
-                    </div>
+                  <div class="halo-hud-card">
+                    <div class="halo-hud-label">Last update</div>
+                    <div class="halo-hud-value" id="halo-last-update">—</div>
+                    <div class="halo-hud-meta">Last HALO state update</div>
                   </div>
                   <div class="metric-card">
                     <div class="metric-card-header">
@@ -1118,20 +719,31 @@
                   </div>
                 </div>
               </div>
+              <div class="panel-column">
+                <div class="halo-canvas-wrapper">
+                  <div class="halo-canvas-header">
+                    <div>HALO renderer</div>
+                    <div class="tag halo">canvas</div>
+                  </div>
+                  <div class="halo-canvas-body">
+                    <canvas id="halo-canvas"></canvas>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
-        </div>
+        </section>
       </section>
     </main>
   </div>
 
-    <!-- ENGINE + MODULES (ES MODULE STACK) -->
+  <!-- ENGINE + MODULES (ES MODULE STACK) -->
   <script type="module" src="engine.js"></script>
   <script type="module" src="apexcore.js"></script>
   <script type="module" src="example-module.js"></script>
   <script type="module" src="module-inspector.js"></script>
   <script type="module" src="tick-profiler.js"></script>
-  <script type="module" src="registry-diff-viewer.js"></script>
+ <script type="module" src="registry-diff-viewer.js"></script>
   <script type="module" src="event-timeline-visualizer.js"></script>
   <script type="module" src="halo-renderer.js"></script>
 
@@ -1140,13 +752,139 @@
     import { APEXCORE } from "./apexcore.js";
     import { ENGINE } from "./engine.js";
 
-    // Wire ENGINE to APEXCORE
     ENGINE.init(APEXCORE);
-
-    // Start auto-tick immediately (HALO + all modules will receive ticks)
     ENGINE.start();
 
     console.log("[BOOT] APEXCORE + ENGINE initialized, auto-tick started.");
   </script>
+
+  <!-- APEXOPS UI SCRIPT (INLINE) -->
+  <script>
+  (function () {
+    console.log("[APEXOPS] UI script loaded.");
+
+    // DOM LOOKUPS
+    const nav = document.getElementById("apexops-nav");
+    const panels = document.querySelectorAll(".apexops-panel");
+
+    const regContainer = document.getElementById("registry-container");
+    const diffContainer = document.getElementById("diff-container");
+    const timelineContainer = document.getElementById("timeline-container");
+    const profilerContainer = document.getElementById("profiler-container");
+
+    const haloAgentCount = document.getElementById("halo-agent-count");
+    const haloFormation = document.getElementById("halo-formation");
+    const haloLastTick = document.getElementById("halo-last-tick");
+    const haloLastUpdate = document.getElementById("halo-last-update");
+
+    const haloProfLast = document.getElementById("halo-prof-lastMs");
+    const haloProfMin = document.getElementById("halo-prof-minMs");
+    const haloProfMax = document.getElementById("halo-prof-maxMs");
+    const haloProfAvg = document.getElementById("halo-prof-avgMs");
+    const haloProfTicks = document.getElementById("halo-prof-ticks");
+
+    // PANEL SWITCHING
+    function showPanel(id) {
+      panels.forEach(p => p.classList.remove("active"));
+      const target = document.getElementById(id);
+      if (target) target.classList.add("active");
+
+      nav.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
+      const activeBtn = nav.querySelector(`button[data-panel="${id}"]`);
+      if (activeBtn) activeBtn.classList.add("active");
+    }
+
+    nav.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-panel]");
+      if (!btn) return;
+      const panel = btn.getAttribute("data-panel");
+      showPanel(panel);
+    });
+
+    // REGISTRY RENDERING
+    function renderRegistry() {
+      if (!window.APEXCORE || !regContainer) return;
+      try {
+        const reg = APEXCORE.api.dump();
+        regContainer.textContent = JSON.stringify(reg, null, 2);
+      } catch (err) {
+        regContainer.textContent = "// registry error: " + err.message;
+      }
+    }
+
+    // DIFF VIEWER RENDERING
+    function renderDiff() {
+      if (!window.APEXCORE || !diffContainer) return;
+      try {
+        const diff = APEXCORE.api.getDiff ? APEXCORE.api.getDiff() : {};
+        diffContainer.textContent = JSON.stringify(diff, null, 2);
+      } catch (err) {
+        diffContainer.textContent = "// diff error: " + err.message;
+      }
+    }
+
+    // TIMELINE RENDERING
+    function renderTimeline() {
+      if (!window.APEXCORE || !timelineContainer) return;
+      try {
+        const events = APEXCORE.api.getTimeline ? APEXCORE.api.getTimeline() : [];
+        timelineContainer.textContent = JSON.stringify(events, null, 2);
+      } catch (err) {
+        timelineContainer.textContent = "// timeline error: " + err.message;
+      }
+    }
+
+    // PROFILER RENDERING
+    function renderProfiler() {
+      if (!window.APEXCORE || !profilerContainer) return;
+      try {
+        const prof = APEXCORE.api.get ? APEXCORE.api.get("profiler") : {};
+        profilerContainer.textContent = JSON.stringify(prof, null, 2);
+      } catch (err) {
+        profilerContainer.textContent = "// profiler error: " + err.message;
+      }
+    }
+
+    // HALO HUD RENDERING
+    function renderHaloHUD() {
+      if (!window.APEXCORE) return;
+
+      try {
+        haloAgentCount.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("halo.agents")) ?? "—";
+        haloFormation.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("halo.formation")) ?? "—";
+        haloLastTick.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("engine.lastTick")) ?? "—";
+        haloLastUpdate.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("halo.lastUpdate")) ?? "—";
+
+        haloProfLast.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.lastMs")) ?? "—";
+        haloProfMin.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.minMs")) ?? "—";
+        haloProfMax.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.maxMs")) ?? "—";
+        haloProfAvg.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.avgMs")) ?? "—";
+        haloProfTicks.textContent =
+          (APEXCORE.api.get && APEXCORE.api.get("modprofiler.halo-renderer.ticks")) ?? "—";
+      } catch (err) {
+        // fail silently in HUD; keep UI alive
+      }
+    }
+
+    // MAIN UI LOOP
+    setInterval(() => {
+      renderRegistry();
+      renderDiff();
+      renderTimeline();
+      renderProfiler();
+      renderHaloHUD();
+    }, 200);
+
+    console.log("[APEXOPS] UI initialized.");
+  })();
+  </script>
 </body>
-</html>
+</html> 
