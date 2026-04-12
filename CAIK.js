@@ -1,6 +1,6 @@
 /* ============================================================
    APEXCORE — TIER‑4 COMMAND INTELLIGENCE KERNEL (CAIK)
-   Batch 2 — Advanced Evaluators + Weighted Plan Confidence
+   Batch 3 — Full Plan Synthesis + Multi‑Branch Command Logic
    ============================================================ */
 
 window.APEXCORE = window.APEXCORE || {};
@@ -10,14 +10,17 @@ APEXCORE.CommandAI = {};
    1. COMMAND PLAN OBJECT
 ------------------------------------------------------------ */
 class CommandPlan {
-    constructor() {
+    constructor(label = "primary") {
+        this.label = label;                 // e.g., "aggressive", "cautious", "flank"
         this.targetPositions = [];
         this.formationTransitions = [];
         this.movementVectors = [];
         this.engagementRules = [];
         this.timing = { start: 0, end: 0 };
         this.confidence = 0;
+        this.score = 0;                     // internal plan score
         this.contingencies = [];
+        this.ghostPaths = [];               // for Tier‑4 HUD previews
         this.analysis = {
             threat: null,
             terrain: null,
@@ -26,6 +29,8 @@ class CommandPlan {
             opportunity: null,
             pathing: null
         };
+        this.branches = [];                 // alternative plans (CommandPlan[])
+        this.selected = true;               // this plan is the chosen one
     }
 }
 
@@ -41,6 +46,17 @@ function distance2D(a, b) {
     const dx = (a.x || 0) - (b.x || 0);
     const dy = (a.y || 0) - (b.y || 0);
     return Math.sqrt(dx * dx + dy * dy);
+}
+
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+
+function lerpPoint(a, b, t) {
+    return {
+        x: lerp(a.x || 0, b.x || 0, t),
+        y: lerp(a.y || 0, b.y || 0, t)
+    };
 }
 
 /* ------------------------------------------------------------
@@ -66,10 +82,7 @@ class BaseEvaluator {
    4. ADVANCED EVALUATORS
 ------------------------------------------------------------ */
 
-/* ---------------- ThreatEvaluator ----------------
-   Multi‑vector threat forecasting:
-   - Considers distance, flanking, aggression, LOS, and count
----------------------------------------------------- */
+/* ---------------- ThreatEvaluator ---------------- */
 class ThreatEvaluator extends BaseEvaluator {
     constructor() {
         super("threat", 1.3);
@@ -126,10 +139,7 @@ class ThreatEvaluator extends BaseEvaluator {
     }
 }
 
-/* ---------------- TerrainEvaluator ----------------
-   Terrain corridor scoring:
-   - Cover, elevation, choke points, openness
----------------------------------------------------- */
+/* ---------------- TerrainEvaluator ---------------- */
 class TerrainEvaluator extends BaseEvaluator {
     constructor() {
         super("terrain", 1.1);
@@ -144,15 +154,12 @@ class TerrainEvaluator extends BaseEvaluator {
         const isChoke = !!terrain.isChokePoint;
         const openness = terrain.openness ?? 0.5;
 
-        // Good cover boosts, low cover penalizes
         if (cover > 0.7) base += 0.15;
         if (cover < 0.3) base -= 0.2;
 
-        // High ground advantage
         if (elevation > 5) base += 0.15;
         if (elevation < -5) base -= 0.1;
 
-        // Choke points are risky unless intent is "hold"
         if (isChoke) {
             if (intent.objective === "hold") {
                 base += 0.1;
@@ -161,7 +168,6 @@ class TerrainEvaluator extends BaseEvaluator {
             }
         }
 
-        // Too open is risky for low‑risk intents
         if (openness > 0.8 && intent.risk !== "high") {
             base -= 0.15;
         }
@@ -183,10 +189,7 @@ class TerrainEvaluator extends BaseEvaluator {
     }
 }
 
-/* ---------------- FormationEvaluator ----------------
-   Formation feasibility:
-   - Cohesion, stability, distance to target, formation type
-------------------------------------------------------- */
+/* ---------------- FormationEvaluator ---------------- */
 class FormationEvaluator extends BaseEvaluator {
     constructor() {
         super("formation", 1.0);
@@ -204,7 +207,6 @@ class FormationEvaluator extends BaseEvaluator {
         if (cohesion < 0.5) base -= 0.25;
         if (cohesion < 0.25) base -= 0.25;
 
-        // Penalize aggressive objectives with weak formations
         if (intent.objective === "attack" && cohesion < 0.5) {
             base -= 0.2;
         }
@@ -225,10 +227,7 @@ class FormationEvaluator extends BaseEvaluator {
     }
 }
 
-/* ---------------- RiskEvaluator ----------------
-   Risk‑adjusted weighting:
-   - Aligns plan aggressiveness with commander risk tolerance
--------------------------------------------------- */
+/* ---------------- RiskEvaluator ---------------- */
 class RiskEvaluator extends BaseEvaluator {
     constructor() {
         super("risk", 0.9);
@@ -264,10 +263,7 @@ class RiskEvaluator extends BaseEvaluator {
     }
 }
 
-/* ---------------- OpportunityEvaluator ----------------
-   Opportunity window prediction:
-   - Short windows, exposed flanks, isolated targets
--------------------------------------------------------- */
+/* ---------------- OpportunityEvaluator ---------------- */
 class OpportunityEvaluator extends BaseEvaluator {
     constructor() {
         super("opportunity", 1.2);
@@ -319,10 +315,7 @@ class OpportunityEvaluator extends BaseEvaluator {
     }
 }
 
-/* ---------------- PathingEvaluator ----------------
-   Predictive pathing:
-   - Distance, exposure along path, terrain quality along route
------------------------------------------------------ */
+/* ---------------- PathingEvaluator ---------------- */
 class PathingEvaluator extends BaseEvaluator {
     constructor() {
         super("pathing", 1.0);
@@ -334,13 +327,11 @@ class PathingEvaluator extends BaseEvaluator {
 
         const dist = distance2D(origin, target);
 
-        // Heuristic: shorter paths are better, but we normalize
         let base = 1;
         if (dist > 1000) base -= 0.4;
         else if (dist > 500) base -= 0.25;
         else if (dist > 250) base -= 0.1;
 
-        // If worldState has pathExposure metric (0‑1), use it
         const pathExposure = worldState.pathExposure ?? 0.5;
         if (pathExposure > 0.7) base -= 0.25;
         if (pathExposure < 0.3) base += 0.15;
@@ -362,7 +353,7 @@ class PathingEvaluator extends BaseEvaluator {
 }
 
 /* ------------------------------------------------------------
-   5. COMMAND AI KERNEL (CAIK)
+   5. COMMAND AI KERNEL (CAIK) — FULL PLAN SYNTHESIS
 ------------------------------------------------------------ */
 class CommandAIKernel {
     constructor() {
@@ -376,67 +367,189 @@ class CommandAIKernel {
         ];
     }
 
+    /* ---------------- Public API ---------------- */
     processIntent(intentPacket, worldState) {
-        const plan = new CommandPlan();
-
         const evalResults = this.evaluators.map(ev => ev.evaluate(intentPacket, worldState));
 
+        const baseConfidence = this.computeBaseConfidence(evalResults);
+        const analysisMap = this.buildAnalysisMap(evalResults);
+
+        const candidatePlans = this.buildCandidatePlans(intentPacket, worldState, baseConfidence, analysisMap);
+
+        const scoredPlans = this.scoreCandidatePlans(candidatePlans, analysisMap, intentPacket, worldState);
+
+        const bestPlan = this.selectBestPlan(scoredPlans);
+
+        bestPlan.branches = scoredPlans.filter(p => p !== bestPlan);
+        bestPlan.selected = true;
+
+        return bestPlan;
+    }
+
+    /* ---------------- Confidence & Analysis ---------------- */
+    computeBaseConfidence(evalResults) {
         let weightedSum = 0;
         let weightTotal = 0;
 
         evalResults.forEach(r => {
             weightedSum += r.score * r.weight;
             weightTotal += r.weight;
+        });
 
-            // Attach analysis by name
-            if (plan.analysis.hasOwnProperty(r.name)) {
-                plan.analysis[r.name] = r;
+        return weightTotal > 0 ? clamp01(weightedSum / weightTotal) : 0;
+    }
+
+    buildAnalysisMap(evalResults) {
+        const map = {
+            threat: null,
+            terrain: null,
+            formation: null,
+            risk: null,
+            opportunity: null,
+            pathing: null
+        };
+
+        evalResults.forEach(r => {
+            if (map.hasOwnProperty(r.name)) {
+                map[r.name] = r;
             }
         });
 
-        plan.confidence = weightTotal > 0 ? clamp01(weightedSum / weightTotal) : 0;
+        return map;
+    }
 
-        plan.movementVectors = this.generateMovement(intentPacket, worldState, plan);
-        plan.formationTransitions = this.generateFormation(intentPacket, worldState, plan);
-        plan.engagementRules = this.generateEngagement(intentPacket, worldState, plan);
-        plan.timing = this.generateTiming(intentPacket, worldState, plan);
-        plan.contingencies = this.generateContingencies(intentPacket, worldState, plan);
+    /* ---------------- Candidate Plan Generation ---------------- */
+    buildCandidatePlans(intent, worldState, baseConfidence, analysis) {
+        const plans = [];
+
+        // Primary: baseline aligned with intent
+        const primary = this.createPlan("primary", intent, worldState, baseConfidence, analysis, {
+            aggressionBias: 0,
+            flankBias: 0,
+            cautionBias: 0
+        });
+        plans.push(primary);
+
+        // Aggressive branch (if risk allows)
+        if ((analysis.risk?.data?.risk || "medium") !== "low") {
+            const aggressive = this.createPlan("aggressive", intent, worldState, baseConfidence, analysis, {
+                aggressionBias: 0.3,
+                flankBias: 0.1,
+                cautionBias: -0.2
+            });
+            plans.push(aggressive);
+        }
+
+        // Cautious branch
+        const cautious = this.createPlan("cautious", intent, worldState, baseConfidence, analysis, {
+            aggressionBias: -0.2,
+            flankBias: 0,
+            cautionBias: 0.3
+        });
+        plans.push(cautious);
+
+        // Flanking branch (if opportunities exist)
+        if (analysis.opportunity && analysis.opportunity.data.highValue > 0) {
+            const flank = this.createPlan("flank", intent, worldState, baseConfidence, analysis, {
+                aggressionBias: 0.1,
+                flankBias: 0.4,
+                cautionBias: 0
+            });
+            plans.push(flank);
+        }
+
+        // Fallback branch (if threat is high or confidence low)
+        const threatScore = analysis.threat ? analysis.threat.score : 1;
+        if (threatScore < 0.5 || baseConfidence < 0.4) {
+            const fallback = this.createPlan("fallback", intent, worldState, baseConfidence, analysis, {
+                aggressionBias: -0.4,
+                flankBias: 0,
+                cautionBias: 0.5,
+                forceRetreat: true
+            });
+            plans.push(fallback);
+        }
+
+        return plans;
+    }
+
+    createPlan(label, intent, worldState, baseConfidence, analysis, behavior) {
+        const plan = new CommandPlan(label);
+
+        plan.analysis = analysis;
+        plan.confidence = baseConfidence;
+
+        plan.movementVectors = this.generateMovement(intent, worldState, plan, behavior);
+        plan.formationTransitions = this.generateFormation(intent, worldState, plan, behavior);
+        plan.engagementRules = this.generateEngagement(intent, worldState, plan, behavior);
+        plan.timing = this.generateTiming(intent, worldState, plan, behavior);
+        plan.contingencies = this.generateContingencies(intent, worldState, plan, behavior);
+        plan.ghostPaths = this.generateGhostPaths(plan, worldState);
 
         return plan;
     }
 
     /* ---------------- Movement Generation ---------------- */
-    generateMovement(intent, worldState, plan) {
+    generateMovement(intent, worldState, plan, behavior) {
         const origin = worldState.position || { x: 0, y: 0 };
-        const target = intent.target || origin;
+        const targetBase = intent.target || origin;
 
-        const speedMode =
-            intent.priority === "high" ? "fast" :
-            intent.priority === "low" ? "slow" :
+        let target = { ...targetBase };
+
+        if (behavior.flankBias > 0 && plan.analysis.opportunity) {
+            const opps = plan.analysis.opportunity.data.opportunities || [];
+            const flankOpp = opps.find(o => o.exposedFlank) || opps[0];
+            if (flankOpp && flankOpp.position) {
+                target = flankOpp.position;
+            }
+        }
+
+        const priority = intent.priority || "medium";
+        let speedMode =
+            priority === "high" ? "fast" :
+            priority === "low" ? "slow" :
             "normal";
+
+        if (behavior.cautionBias > 0.3) {
+            speedMode = "slow";
+        }
+        if (behavior.aggressionBias > 0.2 && priority !== "low") {
+            speedMode = "fast";
+        }
 
         return [{
             from: origin,
             to: target,
             speed: speedMode,
             pathPreference: {
-                avoidHighExposure: true,
+                avoidHighExposure: behavior.cautionBias > 0,
                 preferCover: true
             }
         }];
     }
 
     /* ---------------- Formation Transitions ---------------- */
-    generateFormation(intent, worldState, plan) {
+    generateFormation(intent, worldState, plan, behavior) {
         const current = worldState.formation?.current || "default";
         let desired = intent.formation || "line";
 
-        if (intent.objective === "attack" && intent.risk === "high") {
+        const objective = intent.objective || "hold";
+        const risk = intent.risk || "medium";
+
+        if (labelIs(plan, "aggressive") || (objective === "attack" && risk === "high")) {
             desired = intent.formation || "wedge";
         }
 
-        if (intent.objective === "hold") {
+        if (labelIs(plan, "cautious") || objective === "hold") {
             desired = intent.formation || "shield";
+        }
+
+        if (labelIs(plan, "flank")) {
+            desired = intent.formation || "column";
+        }
+
+        if (labelIs(plan, "fallback")) {
+            desired = intent.formation || "echelon";
         }
 
         return [{
@@ -446,7 +559,7 @@ class CommandAIKernel {
     }
 
     /* ---------------- Engagement Rules ---------------- */
-    generateEngagement(intent, worldState, plan) {
+    generateEngagement(intent, worldState, plan, behavior) {
         const objective = intent.objective || "hold";
 
         let mode = "hold";
@@ -456,13 +569,29 @@ class CommandAIKernel {
         if (objective === "attack") {
             mode = "aggressive";
             fire = true;
-            pursuit = intent.risk === "high";
-        } else if (objective === "retreat") {
+            pursuit = intent.risk === "high" || behavior.aggressionBias > 0.2;
+        } else if (objective === "retreat" || behavior.forceRetreat) {
             mode = "evasive";
-            fire = intent.risk === "high";
+            fire = intent.risk === "high" && !behavior.cautionBias;
         } else if (objective === "scout" || objective === "recon") {
             mode = "stealth";
             fire = false;
+        }
+
+        if (labelIs(plan, "cautious")) {
+            fire = fire && intent.risk !== "low";
+            pursuit = false;
+        }
+
+        if (labelIs(plan, "flank")) {
+            mode = "aggressive";
+            fire = true;
+        }
+
+        if (labelIs(plan, "fallback")) {
+            mode = "evasive";
+            fire = false;
+            pursuit = false;
         }
 
         return [{
@@ -473,17 +602,25 @@ class CommandAIKernel {
     }
 
     /* ---------------- Timing Windows ---------------- */
-    generateTiming(intent, worldState, plan) {
+    generateTiming(intent, worldState, plan, behavior) {
         const now = worldState.time || 0;
 
         let duration;
-        if (intent.priority === "high") duration = 2;
-        else if (intent.priority === "low") duration = 6;
+        const priority = intent.priority || "medium";
+
+        if (priority === "high") duration = 2;
+        else if (priority === "low") duration = 6;
         else duration = 4;
 
-        // Slightly compress timing if confidence is high
         if (plan.confidence > 0.8) duration *= 0.8;
         if (plan.confidence < 0.4) duration *= 1.2;
+
+        if (labelIs(plan, "aggressive")) {
+            duration *= 0.9;
+        }
+        if (labelIs(plan, "cautious") || labelIs(plan, "fallback")) {
+            duration *= 1.1;
+        }
 
         return {
             start: now,
@@ -492,17 +629,19 @@ class CommandAIKernel {
     }
 
     /* ---------------- Contingency Branches ---------------- */
-    generateContingencies(intent, worldState, plan) {
+    generateContingencies(intent, worldState, plan, behavior) {
         const contingencies = [];
 
         contingencies.push({
             condition: "threatSpike",
-            action: intent.risk === "low" ? "fallback" : "holdAndCounter"
+            action: behavior.forceRetreat ? "fallback" :
+                    intent.risk === "low" ? "fallback" :
+                    "holdAndCounter"
         });
 
         contingencies.push({
             condition: "opportunityWindow",
-            action: intent.objective === "attack" ? "advance" : "probe"
+            action: labelIs(plan, "aggressive") || labelIs(plan, "flank") ? "advance" : "probe"
         });
 
         contingencies.push({
@@ -519,9 +658,87 @@ class CommandAIKernel {
 
         return contingencies;
     }
+
+    /* ---------------- Ghost Paths (Tier‑4 HUD) ---------------- */
+    generateGhostPaths(plan, worldState) {
+        const origin = (plan.movementVectors[0] && plan.movementVectors[0].from) || worldState.position || { x: 0, y: 0 };
+        const target = (plan.movementVectors[0] && plan.movementVectors[0].to) || origin;
+
+        const segments = [];
+        const steps = 5;
+
+        for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            segments.push(lerpPoint(origin, target, t));
+        }
+
+        return segments;
+    }
+
+    /* ---------------- Plan Scoring & Selection ---------------- */
+    scoreCandidatePlans(plans, analysis, intent, worldState) {
+        const threatScore = analysis.threat ? analysis.threat.score : 1;
+        const oppScore = analysis.opportunity ? analysis.opportunity.score : 0;
+        const risk = analysis.risk ? analysis.risk.data.risk : (intent.risk || "medium");
+
+        return plans.map(plan => {
+            let score = plan.confidence;
+
+            if (labelIs(plan, "aggressive")) {
+                score += oppScore * 0.3;
+                score -= (1 - threatScore) * 0.2;
+                if (risk === "high") score += 0.1;
+                if (risk === "low") score -= 0.2;
+            }
+
+            if (labelIs(plan, "cautious")) {
+                score += (1 - threatScore) * 0.3;
+                if (risk === "low") score += 0.1;
+            }
+
+            if (labelIs(plan, "flank")) {
+                score += oppScore * 0.4;
+                score -= (1 - threatScore) * 0.1;
+            }
+
+            if (labelIs(plan, "fallback")) {
+                score += (1 - threatScore) * 0.4;
+                if (plan.confidence < 0.4) score += 0.1;
+                if (risk === "high") score -= 0.1;
+            }
+
+            if (intent.objective === "hold" && labelIs(plan, "aggressive")) {
+                score -= 0.2;
+            }
+
+            plan.score = clamp01(score);
+            return plan;
+        });
+    }
+
+    selectBestPlan(plans) {
+        let best = plans[0];
+        let bestScore = plans[0].score;
+
+        for (let i = 1; i < plans.length; i++) {
+            if (plans[i].score > bestScore) {
+                best = plans[i];
+                bestScore = plans[i].score;
+            }
+        }
+
+        return best;
+    }
 }
 
 /* ------------------------------------------------------------
-   6. EXPORT TO APEXCORE
+   6. UTIL
+------------------------------------------------------------ */
+function labelIs(plan, label) {
+    return plan.label === label;
+}
+
+/* ------------------------------------------------------------
+   7. EXPORT TO APEXCORE
 ------------------------------------------------------------ */
 APEXCORE.CommandAI.Kernel = new CommandAIKernel();
