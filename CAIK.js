@@ -1,6 +1,6 @@
 /* ============================================================
    APEXCORE — TIER‑4 COMMAND INTELLIGENCE KERNEL (CAIK)
-   Batch 3 — Full Plan Synthesis + Multi‑Branch Command Logic
+   Batch 4 — Integration Layer (APEXOPS + Tier‑3 HUD + Leader AI)
    ============================================================ */
 
 window.APEXCORE = window.APEXCORE || {};
@@ -57,6 +57,10 @@ function lerpPoint(a, b, t) {
         x: lerp(a.x || 0, b.x || 0, t),
         y: lerp(a.y || 0, b.y || 0, t)
     };
+}
+
+function labelIs(plan, label) {
+    return plan.label === label;
 }
 
 /* ------------------------------------------------------------
@@ -365,6 +369,12 @@ class CommandAIKernel {
             new OpportunityEvaluator(),
             new PathingEvaluator()
         ];
+
+        this.lastPlan = null;
+        this.lastIntent = null;
+        this.lastWorldState = null;
+
+        this._wireIntegrationLayer();
     }
 
     /* ---------------- Public API ---------------- */
@@ -383,7 +393,22 @@ class CommandAIKernel {
         bestPlan.branches = scoredPlans.filter(p => p !== bestPlan);
         bestPlan.selected = true;
 
+        this.lastPlan = bestPlan;
+        this.lastIntent = intentPacket;
+        this.lastWorldState = worldState;
+
         return bestPlan;
+    }
+
+    updateFromWorldTick(intentPacket, worldState) {
+        const plan = this.processIntent(intentPacket, worldState);
+        this._pushToHUD(plan);
+        this._pushToLeaderAI(plan);
+        return plan;
+    }
+
+    getLastPlan() {
+        return this.lastPlan;
     }
 
     /* ---------------- Confidence & Analysis ---------------- */
@@ -422,7 +447,6 @@ class CommandAIKernel {
     buildCandidatePlans(intent, worldState, baseConfidence, analysis) {
         const plans = [];
 
-        // Primary: baseline aligned with intent
         const primary = this.createPlan("primary", intent, worldState, baseConfidence, analysis, {
             aggressionBias: 0,
             flankBias: 0,
@@ -430,7 +454,6 @@ class CommandAIKernel {
         });
         plans.push(primary);
 
-        // Aggressive branch (if risk allows)
         if ((analysis.risk?.data?.risk || "medium") !== "low") {
             const aggressive = this.createPlan("aggressive", intent, worldState, baseConfidence, analysis, {
                 aggressionBias: 0.3,
@@ -440,7 +463,6 @@ class CommandAIKernel {
             plans.push(aggressive);
         }
 
-        // Cautious branch
         const cautious = this.createPlan("cautious", intent, worldState, baseConfidence, analysis, {
             aggressionBias: -0.2,
             flankBias: 0,
@@ -448,7 +470,6 @@ class CommandAIKernel {
         });
         plans.push(cautious);
 
-        // Flanking branch (if opportunities exist)
         if (analysis.opportunity && analysis.opportunity.data.highValue > 0) {
             const flank = this.createPlan("flank", intent, worldState, baseConfidence, analysis, {
                 aggressionBias: 0.1,
@@ -458,7 +479,6 @@ class CommandAIKernel {
             plans.push(flank);
         }
 
-        // Fallback branch (if threat is high or confidence low)
         const threatScore = analysis.threat ? analysis.threat.score : 1;
         if (threatScore < 0.5 || baseConfidence < 0.4) {
             const fallback = this.createPlan("fallback", intent, worldState, baseConfidence, analysis, {
@@ -729,13 +749,71 @@ class CommandAIKernel {
 
         return best;
     }
-}
 
-/* ------------------------------------------------------------
-   6. UTIL
------------------------------------------------------------- */
-function labelIs(plan, label) {
-    return plan.label === label;
+    /* --------------------------------------------------------
+       6. INTEGRATION LAYER
+       - APEXOPS tick hook (advisory)
+       - Tier‑3 HUD overlays
+       - Leader AI command feed
+    -------------------------------------------------------- */
+    _wireIntegrationLayer() {
+        // APEXOPS advisory hook (non‑breaking, optional)
+        if (window.APEXOPS && typeof window.APEXOPS.registerCommandAdvisor === "function") {
+            window.APEXOPS.registerCommandAdvisor((intentPacket, worldState) => {
+                return this.updateFromWorldTick(intentPacket, worldState);
+            });
+        }
+
+        // Alternative generic hook on APEXCORE.Ops if present
+        if (APEXCORE.Ops && typeof APEXCORE.Ops.onCommandTick === "function") {
+            APEXCORE.Ops.onCommandTick((intentPacket, worldState) => {
+                return this.updateFromWorldTick(intentPacket, worldState);
+            });
+        }
+    }
+
+    _pushToHUD(plan) {
+        // Tier‑3 HUD overlay integration (safe, optional)
+        // Expected usage: show ghost paths, confidence, label
+        if (APEXCORE.HUD && APEXCORE.HUD.Tier3) {
+            const hud = APEXCORE.HUD.Tier3;
+
+            if (typeof hud.setCommandPlanOverlay === "function") {
+                hud.setCommandPlanOverlay({
+                    label: plan.label,
+                    confidence: plan.confidence,
+                    score: plan.score,
+                    ghostPaths: plan.ghostPaths,
+                    movementVectors: plan.movementVectors,
+                    formationTransitions: plan.formationTransitions,
+                    engagementRules: plan.engagementRules
+                });
+            }
+
+            if (typeof hud.setCommandConfidencePulse === "function") {
+                hud.setCommandConfidencePulse(plan.confidence);
+            }
+        }
+    }
+
+    _pushToLeaderAI(plan) {
+        // Leader AI integration (safe, optional)
+        if (APEXCORE.LeaderAI) {
+            const leader = APEXCORE.LeaderAI;
+
+            if (typeof leader.setActiveCommandPlan === "function") {
+                leader.setActiveCommandPlan(plan);
+            }
+
+            if (typeof leader.applyEngagementRules === "function") {
+                leader.applyEngagementRules(plan.engagementRules);
+            }
+
+            if (typeof leader.applyFormationTransition === "function" && plan.formationTransitions[0]) {
+                leader.applyFormationTransition(plan.formationTransitions[0]);
+            }
+        }
+    }
 }
 
 /* ------------------------------------------------------------
