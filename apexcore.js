@@ -1,317 +1,134 @@
-// APEXCORE v3.5 — Core Kernel + Event Bus + Data Registry + Lifecycle + Tick Engine + Diagnostics
-// Clean, stable, modular, and future‑proof.
+// APEXCORE v3.5 — minimal, stable core
 
-export const APEXCORE = {
+export const APEXCORE = (() => {
+    const registry = new Map();
+    const modules = new Map();
+    const mounted = new Set();
+    const tickListeners = new Set();
 
-    version: "3.5.0",
+    function log(...args) {
+        console.log("[APEXCORE]", ...args);
+    }
 
-    state: {
-        modules: {},        // name -> moduleRef
-        moduleStatus: {},   // name -> "mounted" | "unmounted"
-        logs: [],
-        events: {},         // Event Bus
-        registry: {},       // Data Registry
-        diagnostics: {
-            errors: [],
-            lifecycleHistory: [] // { type, name, timestamp }
-        }
-    },
+    function init() {
+        log("init()");
+    }
 
-    // =========================
-    // MODULE REGISTRATION
-    // =========================
+    function set(key, value) {
+        registry.set(key, value);
+    }
 
-    register(name, moduleRef) {
-        if (!name || !moduleRef) return;
-        this.state.modules[name] = moduleRef;
-        if (!this.state.moduleStatus[name]) {
-            this.state.moduleStatus[name] = "unmounted";
-        }
-        this.log(`Module registered: ${name}`);
-    },
+    function get(key) {
+        return registry.get(key);
+    }
 
-    getModule(name) {
-        return this.state.modules[name] || null;
-    },
+    function del(key) {
+        registry.delete(key);
+    }
 
-    // =========================
-    // LOGGING
-    // =========================
-
-    log(msg) {
-        const entry = `[APEXCORE] ${msg}`;
-        this.state.logs.push(entry);
-        console.log(entry);
-    },
-
-    logError(context, err) {
-        const entry = {
-            context,
-            error: String(err),
-            timestamp: Date.now()
-        };
-        this.state.diagnostics.errors.push(entry);
-        const line = `[APEXCORE][ERROR] ${context}: ${err}`;
-        this.state.logs.push(line);
-        console.error(line);
-    },
-
-    // =========================
-    // HEARTBEAT
-    // =========================
-
-    ping() {
-        return {
-            core: "APEXCORE v3.5",
-            status: "OK",
-            modules: Object.keys(this.state.modules),
-            mounted: Object.keys(this.state.moduleStatus)
-                .filter(name => this.state.moduleStatus[name] === "mounted"),
-            timestamp: Date.now()
-        };
-    },
-
-    // =========================
-    // EVENT BUS
-    // =========================
-
-    on(eventName, listener) {
-        if (!eventName || typeof listener !== "function") return;
-
-        if (!this.state.events[eventName]) {
-            this.state.events[eventName] = [];
-        }
-        this.state.events[eventName].push(listener);
-        this.log(`Listener added for event: ${eventName}`);
-    },
-
-    off(eventName, listener) {
-        const list = this.state.events[eventName];
-        if (!list) return;
-
-        this.state.events[eventName] = list.filter(fn => fn !== listener);
-        this.log(`Listener removed for event: ${eventName}`);
-    },
-
-    emit(eventName, payload) {
-        const list = this.state.events[eventName];
-        if (!list || list.length === 0) return;
-
-        this.log(`Event emitted: ${eventName}`);
-        for (const fn of list) {
-            try {
-                fn(payload);
-            } catch (err) {
-                this.logError(`Listener for event "${eventName}"`, err);
-            }
-        }
-    },
-
-    once(eventName, listener) {
-        if (!eventName || typeof listener !== "function") return;
-
-        const wrapper = (payload) => {
-            this.off(eventName, wrapper);
-            listener(payload);
-        };
-
-        this.on(eventName, wrapper);
-    },
-
-    // =========================
-    // DATA REGISTRY
-    // =========================
-
-    set(key, value) {
-        this.state.registry[key] = value;
-        this.emit("registry:changed", { key, value });
-        this.log(`Registry set: ${key}`);
-    },
-
-    get(key) {
-        return this.state.registry[key];
-    },
-
-    has(key) {
-        return Object.prototype.hasOwnProperty.call(this.state.registry, key);
-    },
-
-    delete(key) {
-        if (this.has(key)) {
-            delete this.state.registry[key];
-            this.emit("registry:deleted", { key });
-            this.log(`Registry deleted: ${key}`);
-        }
-    },
-
-    clear() {
-        this.state.registry = {};
-        this.emit("registry:cleared", {});
-        this.log("Registry cleared.");
-    },
-
-    // =========================
-    // LIFECYCLE SYSTEM
-    // =========================
-
-    isMounted(name) {
-        return this.state.moduleStatus[name] === "mounted";
-    },
-
-    mount(name) {
-        const mod = this.state.modules[name];
-        if (!mod) {
-            this.log(`mount() failed — module not found: ${name}`);
+    function register(name, mod) {
+        if (modules.has(name)) {
+            log("register() skipped — already registered:", name);
             return;
         }
-        if (this.isMounted(name)) {
-            this.log(`mount() skipped — already mounted: ${name}`);
+        modules.set(name, mod);
+        log("Module registered:", name);
+    }
+
+    function mount(name) {
+        if (!modules.has(name)) {
+            log("mount() failed — unknown module:", name);
             return;
         }
-
+        if (mounted.has(name)) {
+            log("mount() skipped — already mounted:", name);
+            return;
+        }
+        const mod = modules.get(name);
         if (typeof mod.init === "function") {
-            try {
-                mod.init(this);
-            } catch (err) {
-                this.logError(`${name}.init()`, err);
-            }
+            mod.init(api);
         }
+        mounted.add(name);
+        log("Module mounted:", name);
+    }
 
-        this.state.moduleStatus[name] = "mounted";
-        this.state.diagnostics.lifecycleHistory.push({
-            type: "mounted",
-            name,
-            timestamp: Date.now()
-        });
-        this.emit("module:mounted", { name });
-        this.log(`Module mounted: ${name}`);
-    },
+    function unmount(name) {
+        if (!mounted.has(name)) {
+            log("unmount() skipped — not mounted:", name);
+            return;
+        }
+        const mod = modules.get(name);
+        if (mod && typeof mod.destroy === "function") {
+            mod.destroy(api);
+        }
+        mounted.delete(name);
+        log("Module unmounted:", name);
+    }
 
-    unmount(name) {
-        const mod = this.state.modules[name];
+    function reload(name) {
+        const mod = modules.get(name);
         if (!mod) {
-            this.log(`unmount() failed — module not found: ${name}`);
+            log("reload() failed — unknown module:", name);
             return;
         }
-        if (!this.isMounted(name)) {
-            this.log(`unmount() skipped — not mounted: ${name}`);
-            return;
-        }
-
-        if (typeof mod.destroy === "function") {
-            try {
-                mod.destroy(this);
-            } catch (err) {
-                this.logError(`${name}.destroy()`, err);
-            }
-        }
-
-        this.state.moduleStatus[name] = "unmounted";
-        this.state.diagnostics.lifecycleHistory.push({
-            type: "unmounted",
-            name,
-            timestamp: Date.now()
-        });
-        this.emit("module:unmounted", { name });
-        this.log(`Module unmounted: ${name}`);
-    },
-
-    reload(name) {
-        const mod = this.state.modules[name];
-        if (!mod) {
-            this.log(`reload() failed — module not found: ${name}`);
-            return;
-        }
-
-        const wasMounted = this.isMounted(name);
-        if (wasMounted) {
-            this.unmount(name);
-        }
-
         if (typeof mod.reload === "function") {
-            try {
-                mod.reload(this);
-                this.state.moduleStatus[name] = "mounted";
-                this.state.diagnostics.lifecycleHistory.push({
-                    type: "reloaded",
-                    name,
-                    timestamp: Date.now()
-                });
-                this.emit("module:reloaded", { name });
-                this.log(`Module reloaded: ${name}`);
-                return;
-            } catch (err) {
-                this.logError(`${name}.reload()`, err);
-            }
+            mod.reload(api);
+            log("Module reloaded:", name);
+        } else {
+            log("reload() skipped — no reload() on module:", name);
         }
+    }
 
-        if (wasMounted) {
-            this.mount(name);
-            this.state.diagnostics.lifecycleHistory.push({
-                type: "reloaded",
-                name,
-                timestamp: Date.now()
-            });
-            this.emit("module:reloaded", { name });
-            this.log(`Module reloaded via unmount/mount: ${name}`);
-        }
-    },
-
-    // =========================
-    // TICK ENGINE (NEW IN v3.5)
-    // =========================
-
-    tick(tickData) {
-        const mounted = Object.keys(this.state.moduleStatus)
-            .filter(name => this.state.moduleStatus[name] === "mounted");
-
+    function runTick(tickData) {
         for (const name of mounted) {
-            const mod = this.state.modules[name];
-            if (!mod || typeof mod.tick !== "function") continue;
-
-            try {
-                mod.tick(tickData, this);
-            } catch (err) {
-                this.logError(`${name}.tick()`, err);
+            const mod = modules.get(name);
+            if (mod && typeof mod.tick === "function") {
+                try {
+                    mod.tick(tickData, api);
+                } catch (err) {
+                    console.error("[APEXCORE] tick error in module:", name, err);
+                }
             }
-
-            this.emit("module:tick", { name, tick: tickData });
         }
+        for (const cb of tickListeners) {
+            try {
+                cb(tickData);
+            } catch (err) {
+                console.error("[APEXCORE] tick listener error:", err);
+            }
+        }
+    }
 
-        this.log(`Tick processed for ${mounted.length} modules.`);
-    },
+    function onTick(cb) {
+        tickListeners.add(cb);
+    }
 
-    // =========================
-    // DIAGNOSTICS
-    // =========================
+    function offTick(cb) {
+        tickListeners.delete(cb);
+    }
 
-    getLogs() {
-        return [...this.state.logs];
-    },
-
-    getErrors() {
-        return [...this.state.diagnostics.errors];
-    },
-
-    getLifecycleHistory() {
-        return [...this.state.diagnostics.lifecycleHistory];
-    },
-
-    getModuleStatus() {
-        return { ...this.state.moduleStatus };
-    },
-
-    getDiagnosticsSnapshot() {
+    function debugSnapshot() {
         return {
-            version: this.version,
-            timestamp: Date.now(),
-            modules: Object.keys(this.state.modules),
-            moduleStatus: { ...this.state.moduleStatus },
-            registryKeys: Object.keys(this.state.registry),
-            eventNames: Object.keys(this.state.events),
-            logCount: this.state.logs.length,
-            errorCount: this.state.diagnostics.errors.length,
-            lifecycleEvents: this.state.diagnostics.lifecycleHistory.length
+            registry: Object.fromEntries(registry.entries()),
+            modules: Array.from(modules.keys()),
+            mounted: Array.from(mounted.values())
         };
     }
-};
+
+    const api = {
+        init,
+        set,
+        get,
+        delete: del,
+        register,
+        mount,
+        unmount,
+        reload,
+        runTick,
+        onTick,
+        offTick,
+        debugSnapshot
+    };
+
+    return api;
+})();
