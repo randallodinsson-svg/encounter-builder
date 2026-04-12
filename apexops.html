@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXOPS – Tick Profiler</title>
+  <title>APEXOPS – Diagnostics Console</title>
 
   <style>
     body {
@@ -30,13 +30,14 @@
     #main {
       flex: 1;
       padding: 20px;
+      overflow-y: auto;
     }
     .metric-box {
       background: #11141a;
       padding: 10px;
       border: 1px solid #2d3748;
       border-radius: 6px;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
     }
     .metric-box h2 {
       font-size: 12px;
@@ -58,6 +59,19 @@
       font-size: 10px;
       color: #a0aec0;
     }
+
+    /* Registry Diff Panel Styling */
+    #diffAdded li,
+    #diffChanged li,
+    #diffRemoved li {
+      font-size: 12px;
+      padding: 2px 0;
+      color: #cbd5e1;
+    }
+
+    #diffAdded li { color: #4ade80; }     /* green */
+    #diffChanged li { color: #facc15; }   /* yellow */
+    #diffRemoved li { color: #f87171; }   /* red */
   </style>
 </head>
 <body>
@@ -65,10 +79,12 @@
 <div id="wrap">
   <div id="sidebar">
     <h1>APEXOPS</h1>
-    <p>Tick Profiler</p>
+    <p>Diagnostics Console</p>
   </div>
 
   <div id="main">
+
+    <!-- GLOBAL TICK METRICS -->
     <div class="metric-box">
       <h2>Global Tick Metrics</h2>
       <div>Ticks: <span id="ticks">–</span></div>
@@ -78,6 +94,7 @@
       <div>Avg: <span id="avg">–</span> ms</div>
     </div>
 
+    <!-- PER-MODULE COST -->
     <div class="metric-box">
       <h2>Per‑Module Cost</h2>
       <table>
@@ -91,24 +108,87 @@
         <tbody id="moduleTable"></tbody>
       </table>
     </div>
+
+    <!-- REGISTRY DIFF PANEL -->
+    <div class="metric-box">
+      <h2>Registry Diff (This Tick)</h2>
+
+      <div>
+        <strong>Added Keys:</strong>
+        <ul id="diffAdded"></ul>
+      </div>
+
+      <div style="margin-top:10px;">
+        <strong>Changed Keys:</strong>
+        <ul id="diffChanged"></ul>
+      </div>
+
+      <div style="margin-top:10px;">
+        <strong>Removed Keys:</strong>
+        <ul id="diffRemoved"></ul>
+      </div>
+    </div>
+
   </div>
 </div>
+
 <script>
-/* Replace this later with your real engine snapshot */
+/* Pull snapshot from engine */
 function getRegistrySnapshot() {
   return window.APEXCORE_SNAPSHOT || null;
 }
 
+/* Update Registry Diff Panel */
+function updateRegistryDiff(snap) {
+  const diff = snap.regdiff?.diff;
+  if (!diff) return;
+
+  const added = diff.added || {};
+  const changed = diff.changed || {};
+  const removed = diff.removed || {};
+
+  const addedList = document.getElementById("diffAdded");
+  const changedList = document.getElementById("diffChanged");
+  const removedList = document.getElementById("diffRemoved");
+
+  addedList.innerHTML = "";
+  changedList.innerHTML = "";
+  removedList.innerHTML = "";
+
+  for (const key in added) {
+    const li = document.createElement("li");
+    li.textContent = `${key}: ${JSON.stringify(added[key])}`;
+    addedList.appendChild(li);
+  }
+
+  for (const key in changed) {
+    const li = document.createElement("li");
+    const before = JSON.stringify(changed[key].before);
+    const after = JSON.stringify(changed[key].after);
+    li.textContent = `${key}: ${before} → ${after}`;
+    changedList.appendChild(li);
+  }
+
+  for (const key in removed) {
+    const li = document.createElement("li");
+    li.textContent = key;
+    removedList.appendChild(li);
+  }
+}
+
+/* Update UI */
 function updateUI() {
   const snap = getRegistrySnapshot();
   if (!snap) return;
 
+  // Global metrics
   document.getElementById("ticks").textContent = snap.profiler?.ticks ?? "–";
   document.getElementById("last").textContent = snap.profiler?.lastTickDuration?.toFixed(2) ?? "–";
   document.getElementById("min").textContent = snap.profiler?.minMs?.toFixed(2) ?? "–";
   document.getElementById("max").textContent = snap.profiler?.maxMs?.toFixed(2) ?? "–";
   document.getElementById("avg").textContent = snap.profiler?.avgMs?.toFixed(2) ?? "–";
 
+  // Module table
   const table = document.getElementById("moduleTable");
   table.innerHTML = "";
 
@@ -123,6 +203,9 @@ function updateUI() {
     `;
     table.appendChild(row);
   }
+
+  // Registry Diff Panel
+  updateRegistryDiff(snap);
 }
 
 setInterval(updateUI, 300);
