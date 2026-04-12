@@ -1,11 +1,12 @@
-// HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm + Tier 1 Tactical Overlays (Soft Gradient Cone)
+// HALO-RENDERER — B2‑X Extreme Aggression Tactical Swarm
+// Tier 1 + Tier 2 Tactical Overlays (Soft-Medium Cinematic Grid, Blue→Cyan→White heat-tint)
 
 export const HaloRenderer = {
     meta: {
         name: "halo-renderer",
-        version: "2.1.1",
+        version: "2.2.0",
         author: "VECTORCORE",
-        description: "Extreme-aggression tactical swarm with flocking, camera, trails, and Tier 1 tactical overlays.",
+        description: "Extreme-aggression tactical swarm with flocking, camera, trails, and Tier 1+2 tactical overlays.",
         namespace: "halo",
         capabilities: ["render", "sim", "ops"]
     },
@@ -86,7 +87,7 @@ export const HaloRenderer = {
                 vx: randRange(-0.4, 0.4),
                 vy: randRange(-0.4, 0.4),
                 radius: randRange(4.5, 6.5),
-                color: "rgba(219, 234, 254, 0.98)"
+                baseColor: "rgba(219, 234, 254, 0.98)"
             });
         }
 
@@ -136,6 +137,26 @@ export const HaloRenderer = {
                 const k = maxSpeed / s;
                 agent.vx *= k;
                 agent.vy *= k;
+            }
+        }
+
+        // Heat-tint helper (Blue → Cyan → White)
+        function speedToColor(speed, maxSpeed) {
+            const t = Math.min(1, speed / maxSpeed);
+            if (t < 0.5) {
+                // Blue (0, 122, 255) → Cyan (56, 189, 248)
+                const k = t / 0.5;
+                const r = 0 + (56 - 0) * k;
+                const g = 122 + (189 - 122) * k;
+                const b = 255 + (248 - 255) * k;
+                return `rgba(${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}, 0.95)`;
+            } else {
+                // Cyan (56, 189, 248) → White (255, 255, 255)
+                const k = (t - 0.5) / 0.5;
+                const r = 56 + (255 - 56) * k;
+                const g = 189 + (255 - 189) * k;
+                const b = 248 + (255 - 248) * k;
+                return `rgba(${r.toFixed(0)}, ${g.toFixed(0)}, ${b.toFixed(0)}, 0.98)`;
             }
         }
 
@@ -279,24 +300,56 @@ export const HaloRenderer = {
             ctx2d.restore();
 
             // -----------------------------
-            // TIER 1 TACTICAL OVERLAYS
+            // TIER 2: SOFT-MEDIUM CINEMATIC GRID
+            // -----------------------------
+            ctx2d.save();
+            ctx2d.strokeStyle = "rgba(30, 64, 175, 0.18)";
+            ctx2d.lineWidth = 1;
+
+            const gridSpacingBase = 64;
+            const spacing = gridSpacingBase * cam.zoom;
+            const startX = 0;
+            const startY = 0;
+
+            // Vertical lines
+            for (let x = startX; x <= r.width; x += spacing) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(x, 0);
+                ctx2d.lineTo(x, r.height);
+                ctx2d.stroke();
+            }
+
+            // Horizontal lines
+            for (let y = startY; y <= r.height; y += spacing) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, y);
+                ctx2d.lineTo(r.width, y);
+                ctx2d.stroke();
+            }
+
+            ctx2d.restore();
+
+            // -----------------------------
+            // TIER 1 + TIER 2 TACTICAL OVERLAYS
             // -----------------------------
 
             // Swarm centroid
             let cx = 0, cy = 0;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             for (const a of agents) {
                 cx += a.x;
                 cy += a.y;
+                if (a.x < minX) minX = a.x;
+                if (a.x > maxX) maxX = a.x;
+                if (a.y < minY) minY = a.y;
+                if (a.y > maxY) maxY = a.y;
             }
             cx /= agents.length;
             cy /= agents.length;
-            const centroid = { x: cx, y: cy };
             const centroidScreen = worldToScreen(cx, cy);
-
-            // Leader screen position
             const leaderScreen = worldToScreen(leader.x, leader.y);
 
-            // 1. Leader Range Rings
+            // 1. Leader Range Rings (Tier 1)
             ctx2d.save();
             ctx2d.lineWidth = 1.2;
 
@@ -311,7 +364,7 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 2. Swarm Cohesion Ring
+            // 2. Swarm Cohesion Ring (Tier 1)
             let cohesionRadius = 0;
             for (const a of agents) {
                 const dx = a.x - cx;
@@ -328,9 +381,8 @@ export const HaloRenderer = {
             ctx2d.stroke();
             ctx2d.restore();
 
-            // 3. Velocity Vectors
+            // 3. Velocity Vectors (Tier 1)
             ctx2d.save();
-            ctx2d.strokeStyle = "rgba(148, 163, 184, 0.55)";
             ctx2d.lineWidth = 1;
             for (const a of agents) {
                 const p = worldToScreen(a.x, a.y);
@@ -340,6 +392,7 @@ export const HaloRenderer = {
                 const dirX = (a.vx / (speed || 1)) * len;
                 const dirY = (a.vy / (speed || 1)) * len;
 
+                ctx2d.strokeStyle = speedToColor(speed, params.maxSpeed).replace("0.98", "0.65");
                 ctx2d.beginPath();
                 ctx2d.moveTo(p.x, p.y);
                 ctx2d.lineTo(p.x + dirX, p.y + dirY);
@@ -347,7 +400,7 @@ export const HaloRenderer = {
             }
             ctx2d.restore();
 
-            // 4. Soft Gradient Threat Cone
+            // 4. Soft Gradient Threat Cone (Tier 1)
             ctx2d.save();
             const coneAngle = Math.PI * 0.33; // ~60 degrees
             const leaderDir = Math.atan2(leader.vy, leader.vx) || 0;
@@ -373,13 +426,67 @@ export const HaloRenderer = {
             ctx2d.fill();
             ctx2d.restore();
 
-            // 5. Target Line (Leader → Centroid)
+            // 5. Target Line (Leader → Centroid) (Tier 1)
             ctx2d.save();
             ctx2d.strokeStyle = "rgba(56, 189, 248, 0.45)";
             ctx2d.lineWidth = 1;
             ctx2d.beginPath();
             ctx2d.moveTo(leaderScreen.x, leaderScreen.y);
             ctx2d.lineTo(centroidScreen.x, centroidScreen.y);
+            ctx2d.stroke();
+            ctx2d.restore();
+
+            // 6. Influence Radius Circles (Tier 2)
+            ctx2d.save();
+            ctx2d.lineWidth = 0.6;
+            for (const a of agents) {
+                const p = worldToScreen(a.x, a.y);
+                const speed = Math.hypot(a.vx, a.vy);
+                const radius = 22 * cam.zoom;
+                ctx2d.beginPath();
+                ctx2d.strokeStyle = "rgba(148, 163, 184, 0.18)";
+                if (speed > params.maxSpeed * 0.7) {
+                    ctx2d.strokeStyle = "rgba(56, 189, 248, 0.25)";
+                }
+                ctx2d.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                ctx2d.stroke();
+            }
+            // Leader stronger influence ring
+            ctx2d.beginPath();
+            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.35)";
+            ctx2d.lineWidth = 1;
+            ctx2d.arc(leaderScreen.x, leaderScreen.y, 40 * cam.zoom, 0, Math.PI * 2);
+            ctx2d.stroke();
+            ctx2d.restore();
+
+            // 7. Formation Bounding Box (Tier 2)
+            const minScreen = worldToScreen(minX, minY);
+            const maxScreen = worldToScreen(maxX, maxY);
+            const boxPadding = 16 * cam.zoom;
+
+            ctx2d.save();
+            ctx2d.strokeStyle = "rgba(148, 163, 184, 0.30)";
+            ctx2d.lineWidth = 1;
+            ctx2d.setLineDash([6, 4]);
+            ctx2d.strokeRect(
+                minScreen.x - boxPadding,
+                minScreen.y - boxPadding,
+                (maxScreen.x - minScreen.x) + boxPadding * 2,
+                (maxScreen.y - minScreen.y) + boxPadding * 2
+            );
+            ctx2d.restore();
+
+            // 8. Leader Command Arc (Tier 2)
+            ctx2d.save();
+            const commandRadius = 130 * cam.zoom;
+            const commandAngle = Math.PI * 0.20; // narrower than threat cone
+            const cmdStart = leaderDir - commandAngle;
+            const cmdEnd = leaderDir + commandAngle;
+
+            ctx2d.beginPath();
+            ctx2d.strokeStyle = "rgba(56, 189, 248, 0.70)";
+            ctx2d.lineWidth = 1.4;
+            ctx2d.arc(leaderScreen.x, leaderScreen.y, commandRadius, cmdStart, cmdEnd);
             ctx2d.stroke();
             ctx2d.restore();
 
@@ -413,16 +520,20 @@ export const HaloRenderer = {
                 const dirX = (a.vx / (speed || 1)) * streakLen * cam.zoom;
                 const dirY = (a.vy / (speed || 1)) * streakLen * cam.zoom;
 
+                const heatColor = speedToColor(speed, params.maxSpeed);
+
+                // Velocity streak
                 ctx2d.beginPath();
                 ctx2d.moveTo(p.x - dirX, p.y - dirY);
                 ctx2d.lineTo(p.x, p.y);
-                ctx2d.strokeStyle = "rgba(148, 163, 184, 0.65)";
+                ctx2d.strokeStyle = heatColor;
                 ctx2d.lineWidth = 1.2;
                 ctx2d.stroke();
 
+                // Core agent
                 ctx2d.beginPath();
                 ctx2d.arc(p.x, p.y, a.radius * cam.zoom, 0, Math.PI * 2);
-                ctx2d.fillStyle = a.color;
+                ctx2d.fillStyle = heatColor;
                 ctx2d.fill();
 
                 ctx2d.lineWidth = 1;
@@ -436,7 +547,7 @@ export const HaloRenderer = {
             ctx2d.fillStyle = "rgba(148, 163, 184, 0.95)";
             ctx2d.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
             ctx2d.textBaseline = "top";
-            ctx2d.fillText("HALO VISUAL LAYER v2.1.1 — B2‑X + TIER 1 OVERLAYS", 10, 8);
+            ctx2d.fillText("HALO VISUAL LAYER v2.2.0 — B2‑X + TIER 1+2 OVERLAYS", 10, 8);
             ctx2d.fillText(`Agents: ${agents.length}`, 10, 24);
             ctx2d.fillText(`Zoom: ${cam.zoom.toFixed(2)}`, 10, 40);
             ctx2d.restore();
