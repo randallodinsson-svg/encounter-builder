@@ -1,6 +1,5 @@
 /*
     APEXCORE v4.2 — Auto-Spawn System (FULLNUKE Edition)
-    Creates a formation and entities at startup so the simulation is immediately visible.
 */
 
 (function () {
@@ -17,31 +16,19 @@
 
         console.log("Auto-Spawn — Creating formation and entities...");
 
-        // Create formation at center of screen
         const form = formations.create(400, 300, 100, 8);
 
-        // Create 8 entities
         const ents = [];
         for (let i = 0; i < 8; i++) {
-            const e = entities.create(400, 300, { speed: 80 });
-            ents.push(e);
+            ents.push(entities.create(400, 300, { speed: 80 }));
         }
 
-        // Assign entities to formation
         formations.assign(form, ents);
-
-        // Set a target point for movement
         ai.setTarget(800, 300);
 
         console.log("Auto-Spawn — Formation created and moving.");
     }
 
-    const AutoSpawnModule = {
-        type: "auto-spawn",
-        start
-    };
-
-    APEX.register("auto-spawn", AutoSpawnModule);
-    console.log("APEXCORE v4.2 — Auto-Spawn System registered");
+    APEX.register("auto-spawn", { type: "auto-spawn", start });
 
 })();
