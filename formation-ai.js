@@ -4,7 +4,8 @@
 
 (function () {
 
-    const target = { x: 800, y: 300 };
+    // FIXED: Target moved inside canvas so formation actually moves
+    const target = { x: 350, y: 250 };
 
     function setTarget(x, y) {
         target.x = x;
