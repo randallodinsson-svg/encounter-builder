@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Engine Loop (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Engine Loop (Stable HALO Crew)
 */
 
 (function () {
@@ -24,7 +24,7 @@
                 try {
                     m.update(state);
                 } catch (err) {
-                    console.error(`APEXCORE v4.2 — Error in update() of ${key}`, err);
+                    console.error(`APEXCORE v4.4 — Error in update() of ${key}`, err);
                 }
             }
         }
@@ -35,7 +35,7 @@
             try {
                 renderer.render(state);
             } catch (err) {
-                console.error("APEXCORE v4.2 — Error in renderer.render()", err);
+                console.error("APEXCORE v4.4 — Error in renderer.render()", err);
             }
         }
 
@@ -46,7 +46,7 @@
         if (running) return;
         running = true;
 
-        console.log("APEXCORE v4.2 — Engine Online");
+        console.log("APEXCORE v4.4 — Engine Online");
         APEX.startAll();
         requestAnimationFrame(engineLoop);
     }
@@ -56,7 +56,7 @@
     window.addEventListener("load", () => {
         const engine = APEX.get("engine");
         if (engine && typeof engine.start === "function") {
-            console.log("APEXCORE v4.2 — Forcing engine start from window.load");
+            console.log("APEXCORE v4.4 — Forcing engine start from window.load");
             engine.start();
         }
     });
