@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Core Module Registry (FULLNUKE Edition)
+    APEXCORE v4.2 — Core Module Registry (B1-A Clean Tactical Sim)
 */
 
 (function () {
@@ -20,14 +20,14 @@
     }
 
     function startAll() {
-        console.log("APEXCORE v4.2 — Starting all modules...");
-        for (const key in modules) {
-            const m = modules[key];
-            if (m && typeof m.start === "function") {
-                console.log(`APEXCORE v4.2 — Starting module: ${key}`);
-                m.start();
+            console.log("APEXCORE v4.2 — Starting all modules...");
+            for (const key in modules) {
+                const m = modules[key];
+                if (m && typeof m.start === "function") {
+                    console.log(`APEXCORE v4.2 — Starting module: ${key}`);
+                    m.start();
+                }
             }
-        }
     }
 
     window.APEX = { register, get, all, startAll };
