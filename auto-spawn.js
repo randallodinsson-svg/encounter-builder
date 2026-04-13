@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Auto-Spawn System (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Auto-Spawn (Stable HALO Crew)
 */
 
 (function () {
@@ -10,11 +10,11 @@
         const ai = APEX.get("formation-ai");
 
         if (!formations || !entities || !ai) {
-            console.error("Auto-Spawn — Missing required modules.");
+            console.error("Auto-Spawn v4.4 — Missing required modules.");
             return;
         }
 
-        console.log("Auto-Spawn — Creating formation and entities...");
+        console.log("Auto-Spawn v4.4 — Creating formation and entities...");
 
         const form = formations.create(400, 300, 100, 8);
 
@@ -26,7 +26,7 @@
         formations.assign(form, ents);
         ai.setTarget(800, 300);
 
-        console.log("Auto-Spawn — Formation created and moving.");
+        console.log("Auto-Spawn v4.4 — Formation created and moving.");
     }
 
     APEX.register("auto-spawn", {
