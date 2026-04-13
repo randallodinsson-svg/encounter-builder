@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Auto-Spawn System (FULLNUKE Edition)
+    APEXCORE v4.2 — Auto-Spawn System (B1-A Clean Tactical Sim)
 */
 
 (function () {
@@ -20,7 +20,7 @@
 
         const ents = [];
         for (let i = 0; i < 8; i++) {
-            ents.push(entities.create(400, 300, { speed: 80 }));
+            ents.push(entities.create(400, 300, { speed: 90 }));
         }
 
         formations.assign(form, ents);
@@ -29,6 +29,9 @@
         console.log("Auto-Spawn — Formation created and moving.");
     }
 
-    APEX.register("auto-spawn", { type: "auto-spawn", start });
+    APEX.register("auto-spawn", {
+        type: "auto-spawn",
+        start
+    });
 
 })();
