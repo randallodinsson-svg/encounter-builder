@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Formation AI (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Formation AI (Stable HALO Crew Orbit)
 */
 
 (function () {
@@ -26,17 +26,14 @@
         const moveSpeed = 60;
 
         for (const f of forms) {
-            // Move formation anchor toward target with easing and stop band
+            // Move formation anchor toward target
             const dx = target.x - f.x;
             const dy = target.y - f.y;
             const dist = Math.hypot(dx, dy);
 
-            if (dist > 2) {
-                const t = Math.min(dist / 200, 1); // easing factor
-                const easedSpeed = moveSpeed * (0.4 + 0.6 * t);
-
-                f.x += (dx / (dist || 1)) * easedSpeed * dt;
-                f.y += (dy / (dist || 1)) * easedSpeed * dt;
+            if (dist > 1) {
+                f.x += (dx / dist) * moveSpeed * dt;
+                f.y += (dy / dist) * moveSpeed * dt;
             }
 
             const members = f.members;
@@ -58,7 +55,6 @@
 
                 const followSpeed = e.speed || 80;
 
-                // Smooth follow toward slot
                 e.vx = (ex / edist) * followSpeed;
                 e.vy = (ey / edist) * followSpeed;
             }
