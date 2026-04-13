@@ -1,14 +1,12 @@
 /*
-    APEXCORE v4.2 — HALO Renderer (Base Layer)
-    Responsible for: canvas, resize, clear, simple visual heartbeat.
+    APEXCORE v4.2 — HALO Renderer (Phase 5)
+    Now supports entity rendering.
 */
 
 (function () {
     let canvas, ctx;
     let width = 0;
     let height = 0;
-
-    let pulse = 0;
 
     function createCanvas(root) {
         const host = document.createElement("div");
@@ -46,7 +44,7 @@
 
         ctx.clearRect(0, 0, width, height);
 
-        // Subtle center pulse to prove life
+        // Pulsing halo
         const t = state.time * 0.002;
         const radius = 40 + Math.sin(t) * 10;
 
@@ -68,6 +66,12 @@
         ctx.beginPath();
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
+
+        // ENTITY RENDERING (Phase 5)
+        const entityModule = APEX.get("entities");
+        if (entityModule && typeof entityModule.render === "function") {
+            entityModule.render(ctx, width, height);
+        }
     }
 
     const HaloRenderer = {
