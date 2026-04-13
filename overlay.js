@@ -1,18 +1,17 @@
 /*
-    APEXCORE v4.2 — Overlay System (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Overlay (Stable HALO Crew)
 */
 
 (function () {
 
     let root = null;
     let heartbeatEl = null;
-    let debugEl = null;
 
     function start() {
         root = document.getElementById("app-root");
 
         if (!root) {
-            console.error("Overlay — ERROR: #app-root not found.");
+            console.error("Overlay v4.4 — ERROR: #app-root not found.");
             return;
         }
 
@@ -20,33 +19,21 @@
         heartbeatEl.style.position = "absolute";
         heartbeatEl.style.top = "10px";
         heartbeatEl.style.left = "10px";
-        heartbeatEl.style.color = "#0f0";
+        heartbeatEl.style.color = "#ff3333";
         heartbeatEl.style.fontFamily = "monospace";
         heartbeatEl.style.fontSize = "14px";
-        heartbeatEl.textContent = "▲";
+        heartbeatEl.textContent = "● HALO CREW ONLINE";
         root.appendChild(heartbeatEl);
 
-        debugEl = document.createElement("div");
-        debugEl.style.position = "absolute";
-        debugEl.style.bottom = "10px";
-        debugEl.style.left = "10px";
-        debugEl.style.color = "#0f0";
-        debugEl.style.fontFamily = "monospace";
-        debugEl.style.fontSize = "12px";
-        debugEl.textContent = "APEXCORE v4.2 — Δ 0.00 ms";
-        root.appendChild(debugEl);
-
-        console.log("Overlay initialized");
+        console.log("Overlay v4.4 initialized");
     }
 
     function update(state) {
-        if (!heartbeatEl || !debugEl) return;
+        if (!heartbeatEl) return;
 
         const t = state.time * 0.006;
         const pulse = Math.sin(t) * 0.5 + 0.5;
-        heartbeatEl.style.transform = `scale(${0.9 + pulse * 0.3})`;
-
-        debugEl.textContent = `APEXCORE v4.2 — Δ ${state.delta.toFixed(2)} ms`;
+        heartbeatEl.style.opacity = (0.6 + pulse * 0.4).toString();
     }
 
     APEX.register("overlay", {
