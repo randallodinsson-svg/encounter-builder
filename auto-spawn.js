@@ -1,52 +1,47 @@
 /*
-    APEXCORE v4.2 — Auto-Spawn Module (Phase 7)
-    Automatically spawns an 8-entity formation and moves it to a target on page load.
+    APEXCORE v4.2 — Auto-Spawn System (FULLNUKE Edition)
+    Creates a formation and entities at startup so the simulation is immediately visible.
 */
 
 (function () {
 
-    function initAutoSpawn() {
-        const ents = APEX.get("entities");
-        const forms = APEX.get("formations");
+    function start() {
+        const formations = APEX.get("formations");
+        const entities = APEX.get("entities");
         const ai = APEX.get("formation-ai");
 
-        if (!ents || !forms || !ai) {
-            console.warn("Auto-Spawn: Required modules not ready.");
+        if (!formations || !entities || !ai) {
+            console.error("Auto-Spawn — Missing required modules.");
             return;
         }
 
-        // Create formation
-        const f = forms.create("circle");
+        console.log("Auto-Spawn — Creating formation and entities...");
 
-        // Spawn 8 entities
+        // Create formation at center of screen
+        const form = formations.create(400, 300, 100, 8);
+
+        // Create 8 entities
+        const ents = [];
         for (let i = 0; i < 8; i++) {
-            const e = ents.create(0, 0);
-            forms.addMember(f, e);
+            const e = entities.create(400, 300, { speed: 80 });
+            ents.push(e);
         }
 
-        // Center formation
-        f.x = 400;
-        f.y = 300;
+        // Assign entities to formation
+        formations.assign(form, ents);
 
-        // Move formation to a target (Phase 7 AI)
-        ai.setTarget(f, 700, 300);
+        // Set a target point for movement
+        ai.setTarget(800, 300);
 
-        console.log("Auto-Spawn: Formation created and moving.");
+        console.log("Auto-Spawn — Formation created and moving.");
     }
 
-    // Register module
     const AutoSpawnModule = {
         type: "auto-spawn",
-        start() {
-            initAutoSpawn();
-        }
+        start
     };
 
-    if (typeof APEX !== "undefined") {
-        APEX.register("auto-spawn", AutoSpawnModule);
-        console.log("APEXCORE v4.2 — Auto-Spawn Module registered");
-    } else {
-        console.warn("APEXCORE v4.2 — Auto-Spawn: APEX core not found.");
-    }
+    APEX.register("auto-spawn", AutoSpawnModule);
+    console.log("APEXCORE v4.2 — Auto-Spawn System registered");
 
 })();
