@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Entity System (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Entity System (Stable HALO Crew)
 */
 
 (function () {
