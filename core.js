@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Core Module Registry (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Core Module Registry (Stable HALO Crew)
 */
 
 (function () {
@@ -8,7 +8,7 @@
 
     function register(name, mod) {
         modules[name] = mod;
-        console.log(`APEXCORE v4.2 — Module registered: ${name}`);
+        console.log(`APEXCORE v4.4 — Module registered: ${name}`);
     }
 
     function get(name) {
@@ -20,14 +20,14 @@
     }
 
     function startAll() {
-            console.log("APEXCORE v4.2 — Starting all modules...");
-            for (const key in modules) {
-                const m = modules[key];
-                if (m && typeof m.start === "function") {
-                    console.log(`APEXCORE v4.2 — Starting module: ${key}`);
-                    m.start();
-                }
+        console.log("APEXCORE v4.4 — Starting all modules...");
+        for (const key in modules) {
+            const m = modules[key];
+            if (m && typeof m.start === "function") {
+                console.log(`APEXCORE v4.4 — Starting module: ${key}`);
+                m.start();
             }
+        }
     }
 
     window.APEX = { register, get, all, startAll };
