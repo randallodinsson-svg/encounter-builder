@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Engine Loop (with Forced Engine Start)
+    APEXCORE v4.2 — Engine Loop (FULLNUKE Edition)
     Handles timing, updates, and rendering.
 */
 
@@ -22,14 +22,22 @@
         for (const key in modules) {
             const m = modules[key];
             if (typeof m.update === "function") {
-                m.update(state);
+                try {
+                    m.update(state);
+                } catch (err) {
+                    console.error(`APEXCORE v4.2 — Error in update() of module: ${key}`, err);
+                }
             }
         }
 
         // === RENDER PHASE ===
         const renderer = APEX.get("renderer");
         if (renderer && typeof renderer.render === "function") {
-            renderer.render(state);
+            try {
+                renderer.render(state);
+            } catch (err) {
+                console.error("APEXCORE v4.2 — Error in renderer.render()", err);
+            }
         }
 
         requestAnimationFrame(engineLoop);
@@ -41,8 +49,8 @@
 
         console.log("APEXCORE v4.2 — Engine Online");
 
-        // Start all modules AFTER engine starts
-        console.log("APEXCORE v4.2 — Forcing module startup from engine.js");
+        // Start all modules AFTER engine is online
+        console.log("APEXCORE v4.2 — Starting all modules from engine.js");
         APEX.startAll();
 
         requestAnimationFrame(engineLoop);
@@ -57,7 +65,7 @@
     APEX.register("engine", EngineModule);
 
     // ===================================================================================
-    // FORCE ENGINE START FROM ENGINE.JS (SECOND SAFETY NET)
+    // FORCE ENGINE START FROM ENGINE.JS (SAFETY NET)
     // ===================================================================================
     window.addEventListener("load", () => {
         const engine = APEX.get("engine");
