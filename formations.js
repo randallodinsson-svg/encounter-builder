@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Formation System (Phase 6)
+    APEXCORE v4.2 — Formation System (Updated for Phase 7)
     Groups entities into tactical formations with simple layouts.
 */
 
@@ -7,6 +7,7 @@
     const formations = [];
     let nextFormationId = 1;
 
+    // === CREATE FORMATION ===
     function createFormation(type = "circle") {
         const f = {
             id: nextFormationId++,
@@ -21,12 +22,14 @@
         return f;
     }
 
+    // === ADD MEMBER ===
     function addMember(formation, entity) {
         if (!formation.members.includes(entity.id)) {
             formation.members.push(entity.id);
         }
     }
 
+    // === LAYOUT: CIRCLE ===
     function layoutCircle(formation, entities) {
         const count = formation.members.length;
         if (count === 0) return;
@@ -44,6 +47,7 @@
         }
     }
 
+    // === LAYOUT: LINE ===
     function layoutLine(formation, entities) {
         const count = formation.members.length;
         if (count === 0) return;
@@ -60,6 +64,7 @@
         }
     }
 
+    // === LAYOUT: WEDGE ===
     function layoutWedge(formation, entities) {
         const count = formation.members.length;
         if (count === 0) return;
@@ -77,6 +82,7 @@
         }
     }
 
+    // === UPDATE FORMATIONS ===
     function updateFormations(state) {
         const entityModule = APEX.get("entities");
         if (!entityModule) return;
@@ -98,6 +104,7 @@
         }
     }
 
+    // === RENDER FORMATIONS ===
     function renderFormations(ctx) {
         ctx.save();
         ctx.strokeStyle = "rgba(0,255,180,0.35)";
@@ -112,6 +119,12 @@
         ctx.restore();
     }
 
+    // === REQUIRED FOR PHASE 7 AI ===
+    function allFormations() {
+        return formations;
+    }
+
+    // === MODULE EXPORT ===
     const FormationModule = {
         type: "formations",
         update(state) {
@@ -121,12 +134,13 @@
             renderFormations(ctx);
         },
         create: createFormation,
-        addMember
+        addMember,
+        all: allFormations   // <-- THIS is what Phase 7 needed
     };
 
     if (typeof APEX !== "undefined") {
         APEX.register("formations", FormationModule);
-        console.log("APEXCORE v4.2 — Formation System registered");
+        console.log("APEXCORE v4.2 — Formation System (Updated) registered");
     } else {
         console.warn("APEXCORE v4.2 — Formation System: APEX core not found.");
     }
