@@ -1,30 +1,72 @@
-<!-- Core -->
-<script src="core.js?v=2"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>APEXCORE v4.4 — HALO Crew Stable Build</title>
 
-<!-- Renderer -->
-<script src="halo-renderer.js?v=2"></script>
-
-<!-- Systems -->
-<script src="entities.js?v=2"></script>
-<script src="formations.js?v=2"></script>
-<script src="formation-ai.js?v=2"></script>
-
-<!-- Auto-Spawn -->
-<script src="auto-spawn.js?v=2"></script>
-
-<!-- Overlay -->
-<script src="overlay.js?v=2"></script>
-
-<!-- Engine MUST be last -->
-<script src="engine.js?v=2"></script>
-
-<!-- Force engine start from HTML as primary trigger -->
-<script>
-    (function () {
-        const engine = APEX.get("engine");
-        if (engine && typeof engine.start === "function") {
-            console.log("APEXCORE v4.4 — Forcing engine start from index.html");
-            engine.start();
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: black;
         }
-    })();
-</script>
+
+        #app-root {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #haloCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ROOT + CANVAS (required for renderer + overlay) -->
+    <div id="app-root">
+        <canvas id="haloCanvas"></canvas>
+    </div>
+
+    <!-- Core -->
+    <script src="core.js?v=2"></script>
+
+    <!-- Renderer -->
+    <script src="halo-renderer.js?v=2"></script>
+
+    <!-- Systems -->
+    <script src="entities.js?v=2"></script>
+    <script src="formations.js?v=2"></script>
+    <script src="formation-ai.js?v=2"></script>
+
+    <!-- Auto-Spawn -->
+    <script src="auto-spawn.js?v=2"></script>
+
+    <!-- Overlay -->
+    <script src="overlay.js?v=2"></script>
+
+    <!-- Engine MUST be last -->
+    <script src="engine.js?v=2"></script>
+
+    <!-- Force engine start -->
+    <script>
+        (function () {
+            const engine = APEX.get("engine");
+            if (engine && typeof engine.start === "function") {
+                console.log("APEXCORE v4.4 — Forcing engine start from index.html");
+                engine.start();
+            }
+        })();
+    </script>
+
+</body>
+</html>
