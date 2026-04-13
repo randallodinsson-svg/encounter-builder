@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Formation System (FULLNUKE Edition)
+    APEXCORE v4.2 — Formation System (B1-A Clean Tactical Sim)
 */
 
 (function () {
@@ -24,10 +24,20 @@
         formation.members = entities;
     }
 
-    function all() { return formations; }
+    function all() {
+        return formations;
+    }
 
-    function update() {}
+    function update() {
+        // Reserved for future formation-level logic
+    }
 
-    APEX.register("formations", { type: "formations", create: createFormation, assign, all, update });
+    APEX.register("formations", {
+        type: "formations",
+        create: createFormation,
+        assign,
+        all,
+        update
+    });
 
 })();
