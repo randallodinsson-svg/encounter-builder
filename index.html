@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>APEXCORE v4.2 — Encounter Builder</title>
 
+    <!-- Core styling (optional, keep if you already use it) -->
     <link rel="stylesheet" href="core.css" />
 </head>
 
@@ -24,7 +25,7 @@
         ">
     </canvas>
 
-    <!-- Overlay Layer -->
+    <!-- Overlay Root -->
     <div id="app-root"
         style="
             position:absolute;
@@ -57,17 +58,25 @@
     <!-- Engine MUST be last -->
     <script src="engine.js"></script>
 
-    <!-- ===================================================================================
-         FORCE ENGINE START FROM INDEX.HTML (PRIMARY SAFETY NET)
-         =================================================================================== -->
+    <!-- Force engine start from HTML as primary trigger -->
     <script>
-        const engine = APEX.get("engine");
-        if (engine && typeof engine.start === "function") {
-            console.log("APEXCORE v4.2 — Forcing engine start from index.html");
-            engine.start();
-        } else {
-            console.warn("Engine module not found when forcing start from index.html.");
-        }
+        (function () {
+            const tryStartEngine = () => {
+                const engine = window.APEX && APEX.get("engine");
+                if (engine && typeof engine.start === "function") {
+                    console.log("APEXCORE v4.2 — Forcing engine start from index.html");
+                    engine.start();
+                } else {
+                    console.warn("Engine module not found when forcing start from index.html.");
+                }
+            };
+
+            if (document.readyState === "complete" || document.readyState === "interactive") {
+                tryStartEngine();
+            } else {
+                window.addEventListener("load", tryStartEngine);
+            }
+        })();
     </script>
 
 </body>
