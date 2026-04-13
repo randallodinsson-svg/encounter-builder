@@ -5,33 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>APEXCORE v4.2 — Encounter Builder</title>
 
-    <!-- Core styling -->
     <link rel="stylesheet" href="core.css" />
 </head>
 
 <body>
-    <!-- Root container for the HALO renderer -->
     <div id="app-root"></div>
 
-    <!-- v4.2 Core Stack (load in this exact order) -->
+    <!-- Core Stack -->
     <script src="core.js"></script>
     <script src="halo-renderer.js"></script>
     <script src="example-module.js"></script>
     <script src="engine.js"></script>
 
-    <!-- v4.2 CAIK Shell -->
+    <!-- AI Kernel -->
     <script src="CAIK.js"></script>
 
-    <!-- v4.2 Entity System -->
+    <!-- Entity + Formation Systems -->
     <script src="entities.js"></script>
-
-    <!-- v4.2 Formation System (Phase 6) -->
     <script src="formations.js"></script>
-
-    <!-- v4.2 Formation AI Kernel (Phase 7) -->
     <script src="formation-ai.js"></script>
 
-    <!-- v4.2 Overlay Layer -->
+    <!-- Auto-Spawn (Phase 7) -->
+    <script src="auto-spawn.js"></script>
+
+    <!-- Overlay -->
     <script src="overlay.js"></script>
 </body>
 </html>
