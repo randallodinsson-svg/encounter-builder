@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — HALO Renderer (FULLNUKE Edition)
+    APEXCORE v4.2 — HALO Renderer (B1-A Clean Tactical Sim)
 */
 
 (function () {
@@ -33,29 +33,51 @@
         canvas.height = canvas.clientHeight;
     }
 
-    function render() {
+    function render(state) {
         if (!ctx || !canvas) return;
 
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // Background
         ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, w, h);
 
-        const ents = APEX.get("entities");
-        if (ents && typeof ents.all === "function") {
-            for (const e of ents.all()) {
-                ctx.fillStyle = "white";
-                ctx.beginPath();
-                ctx.arc(e.x, e.y, 4, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
+        // Slight vignette
+        const grad = ctx.createRadialGradient(
+            w / 2, h / 2, Math.min(w, h) * 0.1,
+            w / 2, h / 2, Math.max(w, h) * 0.7
+        );
+        grad.addColorStop(0, "rgba(0, 0, 0, 0)");
+        grad.addColorStop(1, "rgba(0, 0, 0, 0.6)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
 
-        const forms = APEX.get("formations");
-        if (forms && typeof forms.all === "function") {
-            ctx.strokeStyle = "rgba(0,255,0,0.4)";
-            for (const f of forms.all()) {
+        const formations = APEX.get("formations");
+        const entities = APEX.get("entities");
+
+        // Formation ring
+        if (formations && typeof formations.all === "function") {
+            const forms = formations.all();
+            ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
+            ctx.lineWidth = 1.5;
+
+            for (const f of forms) {
                 ctx.beginPath();
                 ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
                 ctx.stroke();
+            }
+        }
+
+        // Entities
+        if (entities && typeof entities.all === "function") {
+            const ents = entities.all();
+            ctx.fillStyle = "#ffffff";
+
+            for (const e of ents) {
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, 4, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
     }
