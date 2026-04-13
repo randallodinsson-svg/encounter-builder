@@ -8,9 +8,34 @@
     <link rel="stylesheet" href="core.css" />
 </head>
 
-<body>
+<body style="margin:0; padding:0; overflow:hidden; background:black;">
+
     <!-- HALO Renderer Canvas -->
-    <canvas id="haloCanvas" style="width:100%; height:100%; border:1px solid #00ff00;"></canvas>
+    <canvas id="haloCanvas"
+        style="
+            position:absolute;
+            top:0;
+            left:0;
+            width:100vw;
+            height:100vh;
+            border:2px solid #00ff00;
+            z-index:1;
+            display:block;
+        ">
+    </canvas>
+
+    <!-- Overlay Layer -->
+    <div id="app-root"
+        style="
+            position:absolute;
+            top:0;
+            left:0;
+            width:100vw;
+            height:100vh;
+            pointer-events:none;
+            z-index:9999;
+        ">
+    </div>
 
     <!-- Core -->
     <script src="core.js"></script>
@@ -31,5 +56,19 @@
 
     <!-- Engine MUST be last -->
     <script src="engine.js"></script>
+
+    <!-- ===================================================================================
+         FORCE ENGINE START FROM INDEX.HTML (PRIMARY SAFETY NET)
+         =================================================================================== -->
+    <script>
+        const engine = APEX.get("engine");
+        if (engine && typeof engine.start === "function") {
+            console.log("APEXCORE v4.2 — Forcing engine start from index.html");
+            engine.start();
+        } else {
+            console.warn("Engine module not found when forcing start from index.html.");
+        }
+    </script>
+
 </body>
 </html>
