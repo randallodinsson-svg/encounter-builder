@@ -1,91 +1,55 @@
-// apexcore.js
-// Minimal APEXCORE registry + API for HALO + UI.
+/* 
+    APEXCORE v4.2 — Core Skeleton
+    Clean, stable, last-known-good foundation.
+*/
 
-export const APEXCORE = (() => {
-  const _registry = {};
-  const _timeline = [];
-  const _diff = [];
-  const _profiler = {
+/* -------------------------------------------------------
+   MODULE REGISTRY (empty but wired)
+------------------------------------------------------- */
+const APEX = {
     modules: {},
-  };
-  const _modules = [];
-
-  function _pushTimeline(type, payload) {
-    _timeline.push({
-      ts: Date.now(),
-      type,
-      payload,
-    });
-    if (_timeline.length > 200) _timeline.shift();
-  }
-
-  function register(id, moduleObj) {
-    if (!id || !moduleObj) return;
-    _registry[id] = {
-      id,
-      mounted: false,
-    };
-    _modules.push(moduleObj);
-    _pushTimeline("register", { id });
-    console.log("[APEXCORE] Module registered:", id);
-  }
-
-  function mount(id) {
-    const mod = _modules.find(m => m.id === id);
-    if (!mod) return;
-    if (typeof mod.init === "function") {
-      mod.init(APEXCORE);
+    register(name, module) {
+        this.modules[name] = module;
+    },
+    get(name) {
+        return this.modules[name];
     }
-    if (_registry[id]) {
-      _registry[id].mounted = true;
+};
+
+/* -------------------------------------------------------
+   GLOBAL STATE (minimal)
+------------------------------------------------------- */
+const STATE = {
+    lastTick: performance.now(),
+    delta: 0,
+    time: 0
+};
+
+/* -------------------------------------------------------
+   MAIN TICK LOOP
+------------------------------------------------------- */
+function tick(now) {
+    STATE.delta = now - STATE.lastTick;
+    STATE.lastTick = now;
+    STATE.time += STATE.delta;
+
+    // Dispatch tick to all registered modules
+    for (const key in APEX.modules) {
+        const mod = APEX.modules[key];
+        if (mod && typeof mod.update === "function") {
+            mod.update(STATE);
+        }
     }
-    _pushTimeline("mount", { id });
-    console.log("[APEXCORE] Module mounted:", id);
-  }
 
-  function set(key, value) {
-    _registry[key] = value;
-    _diff.push({ ts: Date.now(), key, value });
-    if (_diff.length > 200) _diff.shift();
-  }
+    requestAnimationFrame(tick);
+}
 
-  function get(key) {
-    return _registry[key];
-  }
+/* -------------------------------------------------------
+   INIT
+------------------------------------------------------- */
+function init() {
+    console.log("APEXCORE v4.2 — Core Skeleton Loaded");
+    requestAnimationFrame(tick);
+}
 
-  function dump() {
-    return {
-      registry: _registry,
-      timeline: _timeline,
-      diff: _diff,
-      profiler: _profiler,
-    };
-  }
-
-  function getDiff() {
-    return _diff;
-  }
-
-  function getTimeline() {
-    return _timeline;
-  }
-
-  const api = {
-    set,
-    get,
-    dump,
-    getDiff,
-    getTimeline,
-  };
-
-  return {
-    api,
-    register,
-    mount,
-    _modules,
-    _profiler,
-  };
-})();
-
-// Auto-mount known modules after they register themselves
-window.APEXCORE = APEXCORE;
+init();
