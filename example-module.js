@@ -1,47 +1,23 @@
-// Example module — APEXCORE Module API v1.0 compatible
+/*
+    APEXCORE v4.2 — Example Module
+    Lightweight heartbeat module to prove the tick loop is alive.
+*/
 
-export const ExampleModule = {
-    meta: {
-        name: "example",
-        version: "1.0.0",
-        author: "VECTORCORE",
-        description: "Baseline diagnostics/example module for APEXCORE v3.5.",
-        namespace: "example",
-        capabilities: ["tick", "registry"]
-    },
+(function () {
+    let lastLog = 0;
 
-    init(core, ctx) {
-        console.log("ExampleModule.init() called.", ctx);
-        const ns = ctx.meta.namespace || ctx.name;
+    const ExampleModule = {
+        update(state) {
+            if (state.time - lastLog > 2000) {
+                console.log(
+                    `APEXCORE v4.2 — Tick heartbeat | time=${Math.round(
+                        state.time
+                    )}ms | delta=${Math.round(state.delta)}ms`
+                );
+                lastLog = state.time;
+            }
+        }
+    };
 
-        core.set(`${ns}.status`, "initialized");
-        core.set(`${ns}.ticks`, 0);
-    },
-
-    tick(tickData, core, ctx) {
-        const ns = ctx.meta.namespace || ctx.name;
-
-        const count = (core.get(`${ns}.ticks`) || 0) + 1;
-        core.set(`${ns}.ticks`, count);
-        core.set(`${ns}.lastTickTime`, tickData.time);
-        core.set(`${ns}.random`, tickData.random);
-        core.set(`${ns}.status`, `running (${count} ticks)`);
-    },
-
-    destroy(core, ctx) {
-        console.log("ExampleModule.destroy() called.", ctx);
-        const ns = ctx.meta.namespace || ctx.name;
-
-        core.delete(`${ns}.status`);
-        core.delete(`${ns}.ticks`);
-        core.delete(`${ns}.lastTickTime`);
-        core.delete(`${ns}.random`);
-    },
-
-    reload(core, ctx) {
-        console.log("ExampleModule.reload() called.", ctx);
-        const ns = ctx.meta.namespace || ctx.name;
-
-        core.set(`${ns}.status`, "reloaded");
-    }
-};
+    APEX.register("example", ExampleModule);
+})();
