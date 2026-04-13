@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Engine Loop
+    APEXCORE v4.2 — Engine Loop (with Forced Engine Start)
     Handles timing, updates, and rendering.
 */
 
@@ -41,7 +41,8 @@
 
         console.log("APEXCORE v4.2 — Engine Online");
 
-        // NEW: Start all modules BEFORE the loop begins
+        // Start all modules AFTER engine starts
+        console.log("APEXCORE v4.2 — Forcing module startup from engine.js");
         APEX.startAll();
 
         requestAnimationFrame(engineLoop);
@@ -54,5 +55,18 @@
     };
 
     APEX.register("engine", EngineModule);
+
+    // ===================================================================================
+    // FORCE ENGINE START FROM ENGINE.JS (SECOND SAFETY NET)
+    // ===================================================================================
+    window.addEventListener("load", () => {
+        const engine = APEX.get("engine");
+        if (engine && typeof engine.start === "function") {
+            console.log("APEXCORE v4.2 — Forcing engine start from window.load");
+            engine.start();
+        } else {
+            console.warn("Engine module not found during window.load startup.");
+        }
+    });
 
 })();
