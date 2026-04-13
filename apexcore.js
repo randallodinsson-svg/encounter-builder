@@ -1,55 +1,121 @@
-/* 
-    APEXCORE v4.2 — Core Skeleton
-    Clean, stable, last-known-good foundation.
+/*
+    APEXCORE — Modern Engine Kernel
+    Standalone, non-interfering with v4.2 (uses APEXCORE namespace, not APEX).
 */
 
-/* -------------------------------------------------------
-   MODULE REGISTRY (empty but wired)
-------------------------------------------------------- */
-const APEX = {
-    modules: {},
-    register(name, module) {
-        this.modules[name] = module;
-    },
-    get(name) {
-        return this.modules[name];
+const APEXCORE = (function () {
+    const modules = {};
+    const listeners = {
+        tick: [],
+        event: []
+    };
+
+    const state = {
+        running: false,
+        lastTick: 0,
+        delta: 0,
+        time: 0,
+        frame: 0
+    };
+
+    function register(name, module) {
+        modules[name] = module;
     }
-};
 
-/* -------------------------------------------------------
-   GLOBAL STATE (minimal)
-------------------------------------------------------- */
-const STATE = {
-    lastTick: performance.now(),
-    delta: 0,
-    time: 0
-};
+    function get(name) {
+        return modules[name];
+    }
 
-/* -------------------------------------------------------
-   MAIN TICK LOOP
-------------------------------------------------------- */
-function tick(now) {
-    STATE.delta = now - STATE.lastTick;
-    STATE.lastTick = now;
-    STATE.time += STATE.delta;
+    function onTick(fn) {
+        listeners.tick.push(fn);
+    }
 
-    // Dispatch tick to all registered modules
-    for (const key in APEX.modules) {
-        const mod = APEX.modules[key];
-        if (mod && typeof mod.update === "function") {
-            mod.update(STATE);
+    function onEvent(fn) {
+        listeners.event.push(fn);
+    }
+
+    function emitEvent(type, payload) {
+        const evt = {
+            type,
+            payload,
+            time: performance.now()
+        };
+        for (const fn of listeners.event) {
+            try {
+                fn(evt);
+            } catch (err) {
+                console.error("APEXCORE event listener error:", err);
+            }
         }
     }
 
-    requestAnimationFrame(tick);
-}
+    function tick(now) {
+        if (!state.running) return;
 
-/* -------------------------------------------------------
-   INIT
-------------------------------------------------------- */
-function init() {
-    console.log("APEXCORE v4.2 — Core Skeleton Loaded");
-    requestAnimationFrame(tick);
-}
+        if (state.lastTick === 0) {
+            state.lastTick = now;
+        }
 
-init();
+        state.delta = now - state.lastTick;
+        state.lastTick = now;
+        state.time += state.delta;
+        state.frame++;
+
+        // Module updates
+        for (const key in modules) {
+            const mod = modules[key];
+            if (mod && typeof mod.update === "function") {
+                try {
+                    mod.update(state);
+                } catch (err) {
+                    console.error(`APEXCORE module "${key}" update error:`, err);
+                }
+            }
+        }
+
+        // Tick listeners
+        for (const fn of listeners.tick) {
+            try {
+                fn({ ...state });
+            } catch (err) {
+                console.error("APEXCORE tick listener error:", err);
+            }
+        }
+
+        requestAnimationFrame(tick);
+    }
+
+    function start() {
+        if (state.running) return;
+        state.running = true;
+        state.lastTick = 0;
+        requestAnimationFrame(tick);
+        console.log("APEXCORE — Engine started");
+    }
+
+    function stop() {
+        state.running = false;
+        console.log("APEXCORE — Engine stopped");
+    }
+
+    function snapshot() {
+        return {
+            time: state.time,
+            delta: state.delta,
+            frame: state.frame,
+            running: state.running,
+            modules: Object.keys(modules)
+        };
+    }
+
+    return {
+        register,
+        get,
+        onTick,
+        onEvent,
+        emitEvent,
+        start,
+        stop,
+        snapshot
+    };
+})();
