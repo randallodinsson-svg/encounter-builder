@@ -1,12 +1,12 @@
 /*
-    APEXCORE v4.2 — Formation System (B1-A Clean Tactical Sim)
+    APEXCORE v4.4 — Formation System (Stable HALO Crew)
 */
 
 (function () {
 
     const formations = [];
 
-    function createFormation(x, y, radius = 80, count = 8) {
+    function createFormation(x, y, radius = 100, count = 8) {
         const f = {
             id: crypto.randomUUID ? crypto.randomUUID() : ("form-" + Math.random().toString(36).slice(2)),
             x,
@@ -29,7 +29,7 @@
     }
 
     function update() {
-        // Reserved for future formation-level logic
+        // v4.4 kept formation logic in AI; this stays minimal
     }
 
     APEX.register("formations", {
