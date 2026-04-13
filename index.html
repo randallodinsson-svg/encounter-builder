@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>APEXCORE v4.4 — HALO Crew Stable Build</title>
+    <title>APEXCORE v4.4 — HALO + APEXSIM</title>
 
     <style>
         html, body {
@@ -29,14 +29,14 @@
             display: block;
         }
 
-        /* UI Deck container hook */
+        /* UI Deck container */
         #apex-ui-root {
             position: absolute;
             top: 0;
             right: 0;
             width: 320px;
             height: 100%;
-            pointer-events: none; /* UI will manage its own hit areas */
+            pointer-events: none;
         }
     </style>
 
@@ -46,38 +46,42 @@
 
 <body>
 
-    <!-- ROOT + CANVAS (renderer + overlay) -->
+    <!-- ROOT + CANVAS -->
     <div id="app-root">
         <canvas id="haloCanvas"></canvas>
 
-        <!-- APEXCORE UI Deck root -->
+        <!-- UI Deck root -->
         <div id="apex-ui-root"></div>
     </div>
 
-    <!-- Core -->
+    <!-- CORE -->
     <script src="core.js?v=2"></script>
 
-    <!-- Renderer -->
+    <!-- RENDERER -->
     <script src="halo-renderer.js?v=2"></script>
 
-    <!-- Systems -->
+    <!-- SYSTEMS -->
     <script src="entities.js?v=2"></script>
     <script src="formations.js?v=2"></script>
     <script src="formation-ai.js?v=2"></script>
 
-    <!-- Auto-Spawn -->
+    <!-- AUTO-SPAWN -->
     <script src="auto-spawn.js?v=2"></script>
 
-    <!-- Overlay -->
+    <!-- OVERLAY -->
     <script src="overlay.js?v=2"></script>
 
-    <!-- APEXCORE UI Deck -->
+    <!-- APEXSIM MODULES -->
+    <script src="apexsim.js?v=1"></script>
+    <script src="apexsim-renderer.js?v=1"></script>
+
+    <!-- UI DECK -->
     <script src="apex-ui.js?v=1"></script>
 
-    <!-- Engine MUST be last -->
+    <!-- ENGINE (MUST BE LAST) -->
     <script src="engine.js?v=2"></script>
 
-    <!-- Force engine start -->
+    <!-- FORCE ENGINE START -->
     <script>
         (function () {
             const engine = APEX.get("engine");
