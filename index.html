@@ -13,6 +13,7 @@
             height: 100%;
             overflow: hidden;
             background: black;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         #app-root {
@@ -27,14 +28,30 @@
             height: 100%;
             display: block;
         }
+
+        /* UI Deck container hook */
+        #apex-ui-root {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 320px;
+            height: 100%;
+            pointer-events: none; /* UI will manage its own hit areas */
+        }
     </style>
+
+    <!-- APEXCORE UI Deck styles -->
+    <link rel="stylesheet" href="apex-ui.css?v=1">
 </head>
 
 <body>
 
-    <!-- ROOT + CANVAS (required for renderer + overlay) -->
+    <!-- ROOT + CANVAS (renderer + overlay) -->
     <div id="app-root">
         <canvas id="haloCanvas"></canvas>
+
+        <!-- APEXCORE UI Deck root -->
+        <div id="apex-ui-root"></div>
     </div>
 
     <!-- Core -->
@@ -53,6 +70,9 @@
 
     <!-- Overlay -->
     <script src="overlay.js?v=2"></script>
+
+    <!-- APEXCORE UI Deck -->
+    <script src="apex-ui.js?v=1"></script>
 
     <!-- Engine MUST be last -->
     <script src="engine.js?v=2"></script>
