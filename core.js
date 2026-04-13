@@ -1,10 +1,10 @@
-/* 
-    APEXCORE v4.2 — Core Skeleton
-    Clean, stable, last-known-good foundation.
+/*
+    APEXCORE v4.2 — Core Loop & Module Registry
+    Last-known-good style: minimal, deterministic, renderer-agnostic.
 */
 
 /* -------------------------------------------------------
-   MODULE REGISTRY (empty but wired)
+   MODULE REGISTRY
 ------------------------------------------------------- */
 const APEX = {
     modules: {},
@@ -17,7 +17,7 @@ const APEX = {
 };
 
 /* -------------------------------------------------------
-   GLOBAL STATE (minimal)
+   GLOBAL STATE
 ------------------------------------------------------- */
 const STATE = {
     lastTick: performance.now(),
@@ -33,7 +33,6 @@ function tick(now) {
     STATE.lastTick = now;
     STATE.time += STATE.delta;
 
-    // Dispatch tick to all registered modules
     for (const key in APEX.modules) {
         const mod = APEX.modules[key];
         if (mod && typeof mod.update === "function") {
@@ -47,9 +46,9 @@ function tick(now) {
 /* -------------------------------------------------------
    INIT
 ------------------------------------------------------- */
-function init() {
-    console.log("APEXCORE v4.2 — Core Skeleton Loaded");
+function initCore() {
+    console.log("APEXCORE v4.2 — Core Loop Online");
     requestAnimationFrame(tick);
 }
 
-init();
+initCore();
