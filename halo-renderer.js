@@ -1,6 +1,6 @@
 /*
-    APEXCORE v4.2 — HALO Renderer (Phase 5)
-    Now supports entity rendering.
+    APEXCORE v4.2 — HALO Renderer (Phase 6)
+    Core halo effect + entity + formation rendering.
 */
 
 (function () {
@@ -67,10 +67,16 @@
         ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // ENTITY RENDERING (Phase 5)
+        // ENTITY RENDERING
         const entityModule = APEX.get("entities");
         if (entityModule && typeof entityModule.render === "function") {
             entityModule.render(ctx, width, height);
+        }
+
+        // FORMATION RENDERING (Phase 6)
+        const formationModule = APEX.get("formations");
+        if (formationModule && typeof formationModule.render === "function") {
+            formationModule.render(ctx, width, height);
         }
     }
 
@@ -82,8 +88,8 @@
         update(state) {
             render(state);
         },
-        resize(width, height) {
-            resize(width, height);
+        resize(newWidth, newHeight) {
+            resize(newWidth, newHeight);
         }
     };
 
