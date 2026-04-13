@@ -1,54 +1,40 @@
 /*
-    APEXCORE v4.2 — Core Loop & Module Registry
-    Last-known-good style: minimal, deterministic, renderer-agnostic.
+    APEXCORE v4.2 — Core Module Registry
+    Handles module registration, retrieval, and startup sequencing.
 */
 
-/* -------------------------------------------------------
-   MODULE REGISTRY
-------------------------------------------------------- */
-const APEX = {
-    modules: {},
-    register(name, module) {
-        this.modules[name] = module;
-    },
-    get(name) {
-        return this.modules[name];
-    }
-};
+(function () {
 
-/* -------------------------------------------------------
-   GLOBAL STATE
-------------------------------------------------------- */
-const STATE = {
-    lastTick: performance.now(),
-    delta: 0,
-    time: 0
-};
+    const modules = {};
 
-/* -------------------------------------------------------
-   MAIN TICK LOOP
-------------------------------------------------------- */
-function tick(now) {
-    STATE.delta = now - STATE.lastTick;
-    STATE.lastTick = now;
-    STATE.time += STATE.delta;
+    const APEX = {
+        register(name, module) {
+            modules[name] = module;
+            console.log(`APEXCORE v4.2 — Module registered: ${name}`);
+        },
 
-    for (const key in APEX.modules) {
-        const mod = APEX.modules[key];
-        if (mod && typeof mod.update === "function") {
-            mod.update(STATE);
+        get(name) {
+            return modules[name];
+        },
+
+        all() {
+            return modules;
+        },
+
+        // NEW: Start all modules that define a .start() method
+        startAll() {
+            console.log("APEXCORE v4.2 — Starting all modules...");
+            for (const key in modules) {
+                const m = modules[key];
+                if (typeof m.start === "function") {
+                    console.log(`APEXCORE v4.2 — Starting module: ${key}`);
+                    m.start();
+                }
+            }
         }
-    }
+    };
 
-    requestAnimationFrame(tick);
-}
+    // Expose globally
+    window.APEX = APEX;
 
-/* -------------------------------------------------------
-   INIT
-------------------------------------------------------- */
-function initCore() {
-    console.log("APEXCORE v4.2 — Core Loop Online");
-    requestAnimationFrame(tick);
-}
-
-initCore();
+})();
