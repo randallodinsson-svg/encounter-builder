@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Engine Loop (FULLNUKE Edition)
+    APEXCORE v4.2 — Engine Loop (B1-A Clean Tactical Sim)
 */
 
 (function () {
@@ -21,8 +21,9 @@
         for (const key in modules) {
             const m = modules[key];
             if (typeof m.update === "function") {
-                try { m.update(state); }
-                catch (err) {
+                try {
+                    m.update(state);
+                } catch (err) {
                     console.error(`APEXCORE v4.2 — Error in update() of ${key}`, err);
                 }
             }
@@ -31,8 +32,9 @@
         // RENDER
         const renderer = APEX.get("renderer");
         if (renderer && typeof renderer.render === "function") {
-            try { renderer.render(state); }
-            catch (err) {
+            try {
+                renderer.render(state);
+            } catch (err) {
                 console.error("APEXCORE v4.2 — Error in renderer.render()", err);
             }
         }
