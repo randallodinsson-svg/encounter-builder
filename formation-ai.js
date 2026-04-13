@@ -1,140 +1,80 @@
 /*
-    APEXCORE v4.2 — Formation AI Kernel (Phase 7)
-    Adds tactical intelligence, movement, cohesion, and target seeking to formations.
+    APEXCORE v4.2 — Formation AI (FULLNUKE Edition)
+    Provides simple steering logic for formations and their member entities.
 */
 
 (function () {
 
-    // === CONFIG ===
-    const MOVE_SPEED = 0.6;       // base movement speed
-    const TURN_SPEED = 0.12;      // how fast formations rotate toward target
-    const COHESION_STRENGTH = 0.15; // how strongly members pull toward formation center
+    let target = { x: 400, y: 300 }; // Default target point
 
-    // === INTERNAL STATE ===
-    const formationAI = new Map(); 
-    // Map: formationId -> { tx, ty, facing }
-
-    function ensureAIState(f) {
-        if (!formationAI.has(f.id)) {
-            formationAI.set(f.id, {
-                tx: f.x,      // target x
-                ty: f.y,      // target y
-                facing: 0     // radians
-            });
-        }
-        return formationAI.get(f.id);
+    function setTarget(x, y) {
+        target.x = x;
+        target.y = y;
     }
 
-    // === PUBLIC API ===
-    function setFormationTarget(formation, x, y) {
-        const ai = ensureAIState(formation);
-        ai.tx = x;
-        ai.ty = y;
-    }
+    function update(state) {
+        const formations = APEX.get("formations");
+        const entities = APEX.get("entities");
 
-    // === MOVEMENT LOGIC ===
-    function updateMovement(f, ai, dt) {
-        const dx = ai.tx - f.x;
-        const dy = ai.ty - f.y;
-        const dist = Math.hypot(dx, dy);
+        if (!formations || !entities) return;
+        if (typeof formations.all !== "function" || typeof entities.all !== "function") return;
 
-        if (dist > 1) {
-            const nx = dx / dist;
-            const ny = dy / dist;
+        const forms = formations.all();
+        const ents = entities.all();
+        if (!forms || forms.length === 0 || !ents || ents.length === 0) return;
 
-            f.x += nx * MOVE_SPEED * dt;
-            f.y += ny * MOVE_SPEED * dt;
+        const dt = (state.delta || 16.67) / 1000;
+        const speed = 40; // formation anchor speed
 
-            // Update facing
-            const targetAngle = Math.atan2(ny, nx);
-            let diff = targetAngle - ai.facing;
+        for (const f of forms) {
+            if (!f) continue;
 
-            // Normalize angle
-            diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+            const dx = target.x - f.x;
+            const dy = target.y - f.y;
+            const dist = Math.hypot(dx, dy) || 1;
 
-            ai.facing += diff * TURN_SPEED;
-        }
-    }
+            const vx = (dx / dist) * speed;
+            const vy = (dy / dist) * speed;
 
-    // === COHESION LOGIC ===
-    function applyCohesion(f, entities) {
-        for (const id of f.members) {
-            const e = entities.find(ent => ent.id === id);
-            if (!e) continue;
+            // Move formation anchor
+            f.x += vx * dt;
+            f.y += vy * dt;
 
-            const dx = f.x - e.x;
-            const dy = f.y - e.y;
+            // Push velocity into members (simple follow behavior)
+            const members = f.members || [];
+            const memberCount = members.length || ents.length;
 
-            e.x += dx * COHESION_STRENGTH;
-            e.y += dy * COHESION_STRENGTH;
+            for (let i = 0; i < memberCount; i++) {
+                const e = members[i] || ents[i];
+                if (!e) continue;
+
+                // Offset entities around the formation center in a circle
+                const angle = (Math.PI * 2 * i) / memberCount;
+                const offsetX = Math.cos(angle) * (f.radius || 80);
+                const offsetY = Math.sin(angle) * (f.radius || 80);
+
+                // Move entity toward its slot
+                const slotX = f.x + offsetX;
+                const slotY = f.y + offsetY;
+
+                const ex = slotX - e.x;
+                const ey = slotY - e.y;
+                const edist = Math.hypot(ex, ey) || 1;
+
+                const followSpeed = e.speed || 60;
+                e.vx = (ex / edist) * followSpeed;
+                e.vy = (ey / edist) * followSpeed;
+            }
         }
     }
 
-    // === MAIN UPDATE LOOP ===
-    function updateFormationAI(state) {
-        const formationModule = APEX.get("formations");
-        const entityModule = APEX.get("entities");
-        if (!formationModule || !entityModule) return;
-
-        const formations = formationModule.all ? formationModule.all() : null;
-        if (!formations) return;
-
-        const entities = entityModule.all();
-        const dt = state.delta;
-
-        for (const f of formations) {
-            const ai = ensureAIState(f);
-
-            updateMovement(f, ai, dt);
-            applyCohesion(f, entities);
-        }
-    }
-
-    // === DEBUG RENDERING (OPTIONAL) ===
-    function renderFormationAI(ctx) {
-        const formationModule = APEX.get("formations");
-        if (!formationModule || !formationModule.all) return;
-
-        const formations = formationModule.all();
-
-        ctx.save();
-        ctx.strokeStyle = "rgba(255,255,0,0.5)";
-        ctx.lineWidth = 2;
-
-        for (const f of formations) {
-            const ai = formationAI.get(f.id);
-            if (!ai) continue;
-
-            // Draw facing direction
-            const fx = f.x + Math.cos(ai.facing) * 50;
-            const fy = f.y + Math.sin(ai.facing) * 50;
-
-            ctx.beginPath();
-            ctx.moveTo(f.x, f.y);
-            ctx.lineTo(fx, fy);
-            ctx.stroke();
-        }
-
-        ctx.restore();
-    }
-
-    // === MODULE REGISTRATION ===
     const FormationAIModule = {
         type: "formation-ai",
-        update(state) {
-            updateFormationAI(state);
-        },
-        render(ctx) {
-            renderFormationAI(ctx);
-        },
-        setTarget: setFormationTarget
+        setTarget,
+        update
     };
 
-    if (typeof APEX !== "undefined") {
-        APEX.register("formation-ai", FormationAIModule);
-        console.log("APEXCORE v4.2 — Formation AI Kernel registered");
-    } else {
-        console.warn("APEXCORE v4.2 — Formation AI Kernel: APEX core not found.");
-    }
+    APEX.register("formation-ai", FormationAIModule);
+    console.log("APEXCORE v4.2 — Formation AI registered");
 
 })();
