@@ -1,4 +1,4 @@
-/* APEXCORE v4.2 — Minimal Reset & Layout */
+/* APEXCORE v4.2 — Core Layout & Minimal Styling */
 
 * {
     margin: 0;
@@ -9,9 +9,9 @@
 html, body {
     width: 100%;
     height: 100%;
-    background: #0d0d0d;
+    background: #050505;
     color: #e6e6e6;
-    font-family: sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 #app-root {
@@ -19,4 +19,24 @@ html, body {
     height: 100%;
     display: flex;
     flex-direction: column;
+}
+
+/* Canvas host */
+.apex-canvas-host {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at top, #202020 0, #050505 55%, #000000 100%);
+}
+
+/* Debug overlay text (bottom-left) */
+.apex-debug-label {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8a8a;
+    pointer-events: none;
 }
