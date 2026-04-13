@@ -1,60 +1,51 @@
 /*
-    APEXCORE v4.2 — Entity System (Phase 5)
-    Lightweight entity registry + renderer hooks.
+    APEXCORE v4.2 — Entity System (FULLNUKE Edition)
+    Manages all entities used by formations, AI, and renderer.
 */
 
 (function () {
-    const entities = [];
-    let nextId = 1;
 
-    function createEntity(x, y, color = "rgba(0,255,180,0.9)") {
+    const entities = [];
+
+    function createEntity(x, y, options = {}) {
         const e = {
-            id: nextId++,
-            x,
-            y,
-            color,
-            radius: 8,
+            id: crypto.randomUUID ? crypto.randomUUID() : ("ent-" + Math.random().toString(36).slice(2)),
+            x: x || 0,
+            y: y || 0,
             vx: 0,
-            vy: 0
+            vy: 0,
+            speed: options.speed || 60,
+            role: options.role || "unit",
+            data: options.data || {}
         };
+
         entities.push(e);
         return e;
     }
 
-    function updateEntities(state) {
-        const dt = state.delta * 0.001;
-
-        for (const e of entities) {
-            e.x += e.vx * dt;
-            e.y += e.vy * dt;
-        }
+    function all() {
+        return entities;
     }
 
-    function renderEntities(ctx, width, height) {
+    function update(state) {
+        const dt = (state.delta || 16.67) / 1000;
+
         for (const e of entities) {
-            ctx.beginPath();
-            ctx.fillStyle = e.color;
-            ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-            ctx.fill();
+            if (!e) continue;
+
+            e.x += (e.vx || 0) * dt;
+            e.y += (e.vy || 0) * dt;
         }
     }
 
     const EntityModule = {
         type: "entities",
-        update(state) {
-            updateEntities(state);
-        },
-        render(ctx, width, height) {
-            renderEntities(ctx, width, height);
-        },
         create: createEntity,
-        all: () => entities
+        all,
+        update
     };
 
-    if (typeof APEX !== "undefined") {
-        APEX.register("entities", EntityModule);
-        console.log("APEXCORE v4.2 — Entity System registered");
-    } else {
-        console.warn("APEXCORE v4.2 — Entity System: APEX core not found.");
-    }
+    APEX.register("entities", EntityModule);
+    console.log("APEXCORE v4.2 — Entity System registered");
+
 })();
