@@ -1,6 +1,5 @@
 /*
     APEXCORE v4.2 — Entity System (FULLNUKE Edition)
-    Manages all entities used by formations, AI, and renderer.
 */
 
 (function () {
@@ -23,29 +22,16 @@
         return e;
     }
 
-    function all() {
-        return entities;
-    }
+    function all() { return entities; }
 
     function update(state) {
         const dt = (state.delta || 16.67) / 1000;
-
         for (const e of entities) {
-            if (!e) continue;
-
-            e.x += (e.vx || 0) * dt;
-            e.y += (e.vy || 0) * dt;
+            e.x += e.vx * dt;
+            e.y += e.vy * dt;
         }
     }
 
-    const EntityModule = {
-        type: "entities",
-        create: createEntity,
-        all,
-        update
-    };
-
-    APEX.register("entities", EntityModule);
-    console.log("APEXCORE v4.2 — Entity System registered");
+    APEX.register("entities", { type: "entities", create: createEntity, all, update });
 
 })();
