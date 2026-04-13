@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>APEXCORE v4.2 — Encounter Builder</title>
 
+    <!-- Core styling -->
     <link rel="stylesheet" href="core.css" />
 </head>
 
 <body>
+    <!-- Root container for the HALO renderer -->
     <div id="app-root"></div>
 
-    <!-- v4.2 Core Stack -->
+    <!-- v4.2 Core Stack (load in this exact order) -->
     <script src="core.js"></script>
     <script src="halo-renderer.js"></script>
     <script src="example-module.js"></script>
@@ -22,6 +24,9 @@
 
     <!-- v4.2 Entity System -->
     <script src="entities.js"></script>
+
+    <!-- v4.2 Formation System (Phase 6) -->
+    <script src="formations.js"></script>
 
     <!-- v4.2 Overlay Layer -->
     <script src="overlay.js"></script>
