@@ -1,71 +1,25 @@
-/*
-    APEXCORE v4.2 — CAIK Shell
-    Lightweight command-awareness kernel riding on the v4.2 core loop.
-    This is NOT the modern Tier 4 CAIK — this is the classic v4.2 brain stem.
-*/
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>APEXCORE v4.2 — Encounter Builder</title>
 
-(function () {
-    const COMMAND_LOG_LIMIT = 32;
+    <!-- Core styling -->
+    <link rel="stylesheet" href="core.css" />
+</head>
 
-    const buffer = {
-        commands: [],
-        lastEmitTime: 0
-    };
+<body>
+    <!-- Root container for the renderer -->
+    <div id="app-root"></div>
 
-    function pushCommand(source, payload) {
-        buffer.commands.push({
-            source,
-            payload,
-            time: performance.now()
-        });
+    <!-- v4.2 Core Stack (load in this exact order) -->
+    <script src="core.js"></script>
+    <script src="halo-renderer.js"></script>
+    <script src="example-module.js"></script>
+    <script src="engine.js"></script>
 
-        if (buffer.commands.length > COMMAND_LOG_LIMIT) {
-            buffer.commands.shift();
-        }
-    }
-
-    // Simple input hook: keyboard → CAIK
-    function onKeyDown(e) {
-        // Ignore modifier-only presses
-        if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") return;
-
-        const cmd = {
-            type: "key",
-            key: e.key,
-            code: e.code,
-            ctrl: e.ctrlKey,
-            alt: e.altKey,
-            shift: e.shiftKey,
-            meta: e.metaKey
-        };
-
-        pushCommand("keyboard", cmd);
-    }
-
-    const CAIKv42 = {
-        type: "caik",
-        update(state) {
-            // Emit a summary log every ~5 seconds
-            if (state.time - buffer.lastEmitTime > 5000) {
-                if (buffer.commands.length > 0) {
-                    console.group("APEXCORE v4.2 — CAIK Shell");
-                    console.log("Recent commands:", buffer.commands.slice(-5));
-                    console.log("Total buffered:", buffer.commands.length);
-                    console.groupEnd();
-                }
-                buffer.lastEmitTime = state.time;
-            }
-        }
-    };
-
-    // Register into the v4.2 core registry
-    if (typeof APEX !== "undefined") {
-        APEX.register("caik", CAIKv42);
-        console.log("APEXCORE v4.2 — CAIK Shell registered");
-
-        // Attach keyboard listener once
-        window.addEventListener("keydown", onKeyDown);
-    } else {
-        console.warn("APEXCORE v4.2 — CAIK Shell: APEX core not found.");
-    }
-})();
+    <!-- v4.2 CAIK Shell -->
+    <script src="CAIK.js"></script>
+</body>
+</html>
