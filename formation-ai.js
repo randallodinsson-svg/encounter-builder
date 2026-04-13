@@ -1,54 +1,60 @@
-function update(state) {
-    const formations = APEX.get("formations");
-    const entities = APEX.get("entities");
+/*
+    APEXCORE v4.2 — Formation AI (FULLNUKE Edition)
+*/
 
-    if (!formations || !entities) return;
-    if (typeof formations.all !== "function" || typeof entities.all !== "function") return;
+(function () {
 
-    const forms = formations.all();
-    const ents = entities.all();
-    if (!forms || forms.length === 0 || !ents || ents.length === 0) return;
+    let target = { x: 800, y: 300 };
 
-    const dt = (state.delta || 16.67) / 1000;
-    const speed = 40;
+    function setTarget(x, y) {
+        target.x = x;
+        target.y = y;
+    }
 
-    for (const f of forms) {
-        if (!f) continue;
+    function update(state) {
+        const formations = APEX.get("formations");
+        const entities = APEX.get("entities");
 
-        const dx = target.x - f.x;
-        const dy = target.y - f.y;
-        const dist = Math.hypot(dx, dy);
+        if (!formations || !entities) return;
 
-        // STOP when close enough
-        if (dist > 2) {
-            const vx = (dx / dist) * speed;
-            const vy = (dy / dist) * speed;
+        const forms = formations.all();
+        const ents = entities.all();
+        if (!forms.length || !ents.length) return;
 
-            f.x += vx * dt;
-            f.y += vy * dt;
-        }
+        const dt = (state.delta || 16.67) / 1000;
+        const speed = 40;
 
-        const members = f.members || [];
-        const memberCount = members.length || ents.length;
+        for (const f of forms) {
 
-        for (let i = 0; i < memberCount; i++) {
-            const e = members[i] || ents[i];
-            if (!e) continue;
+            const dx = target.x - f.x;
+            const dy = target.y - f.y;
+            const dist = Math.hypot(dx, dy);
 
-            const angle = (Math.PI * 2 * i) / memberCount;
-            const offsetX = Math.cos(angle) * (f.radius || 80);
-            const offsetY = Math.sin(angle) * (f.radius || 80);
+            if (dist > 2) {
+                f.x += (dx / dist) * speed * dt;
+                f.y += (dy / dist) * speed * dt;
+            }
 
-            const slotX = f.x + offsetX;
-            const slotY = f.y + offsetY;
+            const members = f.members;
+            const count = members.length;
 
-            const ex = slotX - e.x;
-            const ey = slotY - e.y;
-            const edist = Math.hypot(ex, ey) || 1;
+            for (let i = 0; i < count; i++) {
+                const e = members[i];
+                const angle = (Math.PI * 2 * i) / count;
 
-            const followSpeed = e.speed || 60;
-            e.vx = (ex / edist) * followSpeed;
-            e.vy = (ey / edist) * followSpeed;
+                const slotX = f.x + Math.cos(angle) * f.radius;
+                const slotY = f.y + Math.sin(angle) * f.radius;
+
+                const ex = slotX - e.x;
+                const ey = slotY - e.y;
+                const edist = Math.hypot(ex, ey) || 1;
+
+                e.vx = (ex / edist) * e.speed;
+                e.vy = (ey / edist) * e.speed;
+            }
         }
     }
-}
+
+    APEX.register("formation-ai", { type: "formation-ai", setTarget, update });
+
+})();
