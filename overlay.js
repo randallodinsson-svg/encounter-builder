@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.2 — Overlay System (FULLNUKE Edition)
+    APEXCORE v4.2 — Overlay System (B1-A Clean Tactical Sim)
 */
 
 (function () {
@@ -22,7 +22,8 @@
         heartbeatEl.style.left = "10px";
         heartbeatEl.style.color = "#0f0";
         heartbeatEl.style.fontFamily = "monospace";
-        heartbeatEl.textContent = "♥";
+        heartbeatEl.style.fontSize = "14px";
+        heartbeatEl.textContent = "▲";
         root.appendChild(heartbeatEl);
 
         debugEl = document.createElement("div");
@@ -31,7 +32,8 @@
         debugEl.style.left = "10px";
         debugEl.style.color = "#0f0";
         debugEl.style.fontFamily = "monospace";
-        debugEl.textContent = "APEXCORE v4.2 — Overlay Online";
+        debugEl.style.fontSize = "12px";
+        debugEl.textContent = "APEXCORE v4.2 — Δ 0.00 ms";
         root.appendChild(debugEl);
 
         console.log("Overlay initialized");
@@ -40,13 +42,17 @@
     function update(state) {
         if (!heartbeatEl || !debugEl) return;
 
-        const t = state.time * 0.005;
+        const t = state.time * 0.006;
         const pulse = Math.sin(t) * 0.5 + 0.5;
-        heartbeatEl.style.fontSize = (14 + pulse * 4) + "px";
+        heartbeatEl.style.transform = `scale(${0.9 + pulse * 0.3})`;
 
         debugEl.textContent = `APEXCORE v4.2 — Δ ${state.delta.toFixed(2)} ms`;
     }
 
-    APEX.register("overlay", { type: "overlay", start, update });
+    APEX.register("overlay", {
+        type: "overlay",
+        start,
+        update
+    });
 
 })();
