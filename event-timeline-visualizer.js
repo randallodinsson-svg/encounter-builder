@@ -1,71 +1,47 @@
-// EVENT-TIMELINE-VISUALIZER — Per-tick engine heartbeat timeline
+/*
+    APEXCORE — Event Timeline Visualizer
+    Records engine events and prints a rolling timeline.
+*/
 
-export const EventTimelineVisualizer = {
-    meta: {
-        name: "event-timeline-visualizer",
-        version: "1.0.0",
-        author: "VECTORCORE",
-        description: "Maintains a rolling timeline of tick events and key metrics.",
-        namespace: "timeline",
-        capabilities: ["ops", "introspection"]
-    },
+(function () {
+    if (typeof APEXCORE === "undefined") {
+        console.warn("APEXCORE Event Timeline: APEXCORE not found.");
+        return;
+    }
 
-    init(core, ctx) {
-        const ns = ctx.meta.namespace;
-        ctx.state.events = [];
-        core.set(`${ns}.status`, "initialized");
-        core.set(`${ns}.events`, []);
-        core.set(`${ns}.lastUpdate`, null);
-    },
+    const MAX_EVENTS = 100;
+    const events = [];
 
-    tick(tickData, core, ctx) {
-        const ns = ctx.meta.namespace;
-        const events = ctx.state.events;
-
-        const duration = core.get("profiler.lastTickDuration") ?? null;
-        const diff = core.get("regdiff.diff") ?? null;
-
-        const changedCount = diff && diff.changed
-            ? Object.keys(diff.changed).length
-            : 0;
-        const addedCount = diff && diff.added
-            ? Object.keys(diff.added).length
-            : 0;
-        const removedCount = diff && diff.removed
-            ? Object.keys(diff.removed).length
-            : 0;
-
-        const entry = {
-            tick: tickData.count ?? null,
-            time: tickData.time ?? null,
-            durationMs: duration,
-            registry: {
-                added: addedCount,
-                removed: removedCount,
-                changed: changedCount
-            }
-        };
-
-        events.push(entry);
-        if (events.length > 100) {
+    function record(evt) {
+        events.push(evt);
+        if (events.length > MAX_EVENTS) {
             events.shift();
         }
-
-        core.set(`${ns}.events`, events);
-        core.set(`${ns}.lastUpdate`, tickData.time);
-        core.set(`${ns}.status`, "updated");
-    },
-
-    destroy(core, ctx) {
-        const ns = ctx.meta.namespace;
-        core.delete(`${ns}.status`);
-        core.delete(`${ns}.events`);
-        core.delete(`${ns}.lastUpdate`);
-        ctx.state.events = [];
-    },
-
-    reload(core, ctx) {
-        const ns = ctx.meta.namespace;
-        core.set(`${ns}.status`, "reloaded");
     }
-};
+
+    function dump() {
+        const rows = events.map((e, i) => ({
+            idx: i,
+            type: e.type,
+            time: Math.round(e.time),
+            payload: e.payload
+        }));
+
+        console.group("APEXCORE — Event Timeline");
+        console.table(rows);
+        console.groupEnd();
+    }
+
+    APEXCORE.onEvent((evt) => {
+        record(evt);
+    });
+
+    // Expose a small control module
+    const EventTimeline = {
+        type: "tool",
+        dump
+    };
+
+    APEXCORE.register("eventTimeline", EventTimeline);
+    console.log("APEXCORE — Event Timeline Visualizer registered");
+})();
