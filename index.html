@@ -23,11 +23,13 @@
     <div id="apex-ui"></div>
     <canvas id="apex-canvas"></canvas>
 
-    <!-- ⭐ LOAD THE REAL ENGINE FIRST ⭐ -->
-    <script src="apexcore.js"></script>
-
-    <!-- CORE SYSTEM -->
+    <!-- CORE REGISTRY -->
     <script src="core.js"></script>
+
+    <!-- ENGINE SHIM (defines APEX.start) -->
+    <script src="apexcore-engine.js"></script>
+
+    <!-- CORE SYSTEM MODULES -->
     <script src="engine.js"></script>
     <script src="entities.js"></script>
     <script src="formations.js"></script>
