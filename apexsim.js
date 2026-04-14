@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.4 — APEXSIM Engine (Flow Field Edition)
+    APEXCORE v4.4 — APEXSIM Engine (Flow Field Edition + Resume Kick)
 */
 
 (function () {
@@ -7,7 +7,6 @@
   /*      SIMPLEX NOISE (2D)       */
   /* ----------------------------- */
 
-  // Lightweight 2D Simplex Noise implementation (no external deps)
   function Simplex2D(seed = 1) {
     const grad3 = [
       [1, 1],
@@ -23,7 +22,6 @@
     const p = new Uint8Array(256);
     for (let i = 0; i < 256; i++) p[i] = i;
 
-    // Simple LCG for deterministic shuffle
     let s = seed >>> 0;
     function rand() {
       s = (s * 1664525 + 1013904223) >>> 0;
@@ -106,7 +104,6 @@
         n2 = t2 * t2 * (g[0] * x2 + g[1] * y2);
       }
 
-      // Scale to roughly [-1, 1]
       return 70 * (n0 + n1 + n2);
     }
 
@@ -141,6 +138,7 @@
     /* ----------------------------- */
     /*      INTERNAL INITIALIZER     */
     /* ----------------------------- */
+
     _initParticles() {
       const s = this._state;
       s.particles = [];
@@ -166,7 +164,14 @@
     },
 
     resume() {
-      this._state.paused = false;
+      const s = this._state;
+      s.paused = false;
+
+      // ⭐ Resume Kick — subtle velocity boost so motion is visible
+      for (const p of s.particles) {
+        p.vx *= 1.05;
+        p.vy *= 1.05;
+      }
     },
 
     reset() {
@@ -266,26 +271,25 @@
     /*   FLOW FIELD ACCESSOR         */
     /* ----------------------------- */
 
-    // Returns a direction vector from the flow field at (x, y)
     sampleFlow(x, y) {
       const s = this._state;
-      const scale = 0.0015; // spatial scale of the field
-      const t = performance.now() * 0.00015; // temporal evolution
+      const scale = 0.0015;
+      const t = performance.now() * 0.00015;
 
       const nx = x * scale;
       const ny = y * scale;
 
-      // Two noise samples, phase‑shifted, to form a 2D vector
       const angle =
-        noise.noise2D(nx + t, ny) * Math.PI * 2 * 0.25 +
-        noise.noise2D(nx, ny + t) * Math.PI * 2 * 0.25;
+        noise.noise2D(nx + t, ny) * Math.PI * 0.5 +
+        noise.noise2D(nx, ny + t) * Math.PI * 0.5;
 
       const fx = Math.cos(angle);
       const fy = Math.sin(angle);
 
-      // Scale by field strength
-      const strength = s.fieldStrength;
-      return { fx: fx * strength, fy: fy * strength };
+      return {
+        fx: fx * s.fieldStrength,
+        fy: fy * s.fieldStrength,
+      };
     },
   };
 
