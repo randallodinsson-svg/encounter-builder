@@ -1,6 +1,6 @@
 /*
-    APEXCORE v4.8 — APEXSIM Engine
-    Flow Field + Fractal Curl Noise + Attractor / Repulsor Fields + Vortex Cores + Resume Kick
+    APEXCORE v4.9 — APEXSIM Engine
+    Flow Field + Fractal Curl Noise + Attractor / Repulsor Fields + Vortex Cores + Additive Flocking + Resume Kick
 */
 
 (function () {
@@ -138,6 +138,14 @@
       // { x, y, strength, radius, type: "attractor" | "repulsor" | "vortex", spin?: 1|-1 }
       fields: [],
 
+      // Flocking parameters
+      flockEnabled: true,
+      flockRadius: 80,
+      flockSeparationRadius: 30,
+      flockSeparationWeight: 1.2,
+      flockAlignmentWeight: 0.7,
+      flockCohesionWeight: 0.6,
+
       obstaclesEnabled: true,
       trailsEnabled: true,
       paused: false,
@@ -146,7 +154,7 @@
     },
 
     start() {
-      console.log("APEXCORE v4.8 — APEXSIM online.");
+      console.log("APEXCORE v4.9 — APEXSIM online.");
       this._initParticles();
       this._initDefaultFields();
     },
@@ -264,7 +272,13 @@
           s.curlStrengthMicro = 0.8;
           s.particleSpeed = 1.0;
 
-          // Multiple vortices + one repulsor
+          s.flockEnabled = true;
+          s.flockRadius = 90;
+          s.flockSeparationRadius = 32;
+          s.flockSeparationWeight = 1.4;
+          s.flockAlignmentWeight = 0.9;
+          s.flockCohesionWeight = 0.8;
+
           s.fields.push(
             { x: w * 0.3, y: h * 0.4, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "vortex", spin: 1 },
             { x: w * 0.7, y: h * 0.6, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "vortex", spin: -1 },
@@ -279,7 +293,13 @@
           s.curlStrengthMicro = 0.2;
           s.particleSpeed = 0.6;
 
-          // Soft center vortex, gentle spin
+          s.flockEnabled = true;
+          s.flockRadius = 70;
+          s.flockSeparationRadius = 26;
+          s.flockSeparationWeight = 0.9;
+          s.flockAlignmentWeight = 0.6;
+          s.flockCohesionWeight = 0.5;
+
           s.fields.push({
             x: w / 2,
             y: h / 2,
@@ -297,7 +317,13 @@
           s.curlStrengthMicro = 1.0;
           s.particleSpeed = 1.7;
 
-          // Strong center vortex + outer repulsors
+          s.flockEnabled = true;
+          s.flockRadius = 85;
+          s.flockSeparationRadius = 30;
+          s.flockSeparationWeight = 1.5;
+          s.flockAlignmentWeight = 0.8;
+          s.flockCohesionWeight = 0.7;
+
           s.fields.push(
             { x: w / 2, y: h / 2, strength: 3.0, radius: Math.min(w, h) * 0.35, type: "vortex", spin: 1 },
             { x: w * 0.1, y: h * 0.1, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
@@ -312,7 +338,13 @@
           s.curlStrengthMicro = 0.4;
           s.particleSpeed = 2.0;
 
-          // Single strong vortex for orbital behavior
+          s.flockEnabled = true;
+          s.flockRadius = 80;
+          s.flockSeparationRadius = 28;
+          s.flockSeparationWeight = 1.0;
+          s.flockAlignmentWeight = 0.7;
+          s.flockCohesionWeight = 0.7;
+
           s.fields.push({
             x: w / 2,
             y: h / 2,
@@ -343,7 +375,7 @@
         if (distSq > radiusSq || distSq === 0) continue;
 
         const dist = Math.sqrt(distSq);
-        const falloff = 1 - dist / f.radius; // linear falloff
+        const falloff = 1 - dist / f.radius;
 
         if (f.type === "attractor" || f.type === "repulsor") {
           let strength = f.strength * falloff;
@@ -355,11 +387,9 @@
           fx += nx * strength;
           fy += ny * strength;
         } else if (f.type === "vortex") {
-          // Vortex: tangential force around center
           const nx = dx / (dist || 1);
           const ny = dy / (dist || 1);
 
-          // Perpendicular vector (tangent)
           const tx = -ny * (f.spin || 1);
           const ty = nx * (f.spin || 1);
 
@@ -374,10 +404,83 @@
     },
 
     /* ----------------------------- */
+    /*       FLOCKING LAYER          */
+    /* ----------------------------- */
+
+    _sampleFlocking(index) {
+      const s = this._state;
+      if (!s.flockEnabled) return { fx: 0, fy: 0 };
+
+      const particles = s.particles;
+      const p = particles[index];
+
+      const radius = s.flockRadius;
+      const sepRadius = s.flockSeparationRadius;
+      const radiusSq = radius * radius;
+      const sepRadiusSq = sepRadius * sepRadius;
+
+      let count = 0;
+      let avgVX = 0, avgVY = 0;
+      let avgX = 0, avgY = 0;
+      let sepX = 0, sepY = 0;
+
+      for (let i = 0; i < particles.length; i++) {
+        if (i === index) continue;
+        const o = particles[i];
+
+        const dx = o.x - p.x;
+        const dy = o.y - p.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq > radiusSq) continue;
+
+        count++;
+
+        avgVX += o.vx;
+        avgVY += o.vy;
+
+        avgX += o.x;
+        avgY += o.y;
+
+        if (distSq < sepRadiusSq && distSq > 0) {
+          const dist = Math.sqrt(distSq);
+          const nx = dx / (dist || 1);
+          const ny = dy / (dist || 1);
+          const strength = 1 - dist / sepRadius;
+          sepX -= nx * strength;
+          sepY -= ny * strength;
+        }
+      }
+
+      if (count === 0) return { fx: 0, fy: 0 };
+
+      const invCount = 1 / count;
+
+      avgVX *= invCount;
+      avgVY *= invCount;
+      avgX  *= invCount;
+      avgY  *= invCount;
+
+      const alignX = (avgVX - p.vx) * s.flockAlignmentWeight;
+      const alignY = (avgVY - p.vy) * s.flockAlignmentWeight;
+
+      const cohX = (avgX - p.x) * s.flockCohesionWeight * 0.01;
+      const cohY = (avgY - p.y) * s.flockCohesionWeight * 0.01;
+
+      const sepFX = sepX * s.flockSeparationWeight;
+      const sepFY = sepY * s.flockSeparationWeight;
+
+      return {
+        fx: alignX + cohX + sepFX,
+        fy: alignY + cohY + sepFY,
+      };
+    },
+
+    /* ----------------------------- */
     /*     FLOW + FRACTAL CURL       */
     /* ----------------------------- */
 
-    sampleFlow(x, y) {
+    sampleFlow(x, y, indexForFlocking = null) {
       const s = this._state;
       const baseScale = 0.0015;
       const time = performance.now();
@@ -410,9 +513,14 @@
 
       const fieldForce = this._sampleFields(x, y);
 
+      let flockForce = { fx: 0, fy: 0 };
+      if (indexForFlocking !== null) {
+        flockForce = this._sampleFlocking(indexForFlocking);
+      }
+
       return {
-        fx: fxFlow + fxCurl + fieldForce.fx,
-        fy: fyFlow + fyCurl + fieldForce.fy,
+        fx: fxFlow + fxCurl + fieldForce.fx + flockForce.fx,
+        fy: fyFlow + fyCurl + fieldForce.fy + flockForce.fy,
       };
     },
   };
