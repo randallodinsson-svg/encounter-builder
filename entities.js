@@ -1,50 +1,36 @@
 /*
-    APEXCORE v4.4 — Entity System (Renderer-Aligned)
+    APEXCORE v4.4 — Entity Registry
 */
 
 (function () {
+  const Entities = {
+    list: [],
+    create(props = {}) {
+      const e = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `e-${Date.now()}-${Math.random()}`,
+        x: props.x || 0,
+        y: props.y || 0,
+        vx: props.vx || 0,
+        vy: props.vy || 0,
+        data: props.data || {},
+      };
+      this.list.push(e);
+      return e;
+    },
+    clear() {
+      this.list.length = 0;
+    },
+    forEach(fn) {
+      this.list.forEach(fn);
+    },
+    onTick(delta) {
+      const dt = delta / 16.67;
+      for (const e of this.list) {
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+      }
+    },
+  };
 
-    const entities = [];
-
-    function createEntity(x, y, options = {}) {
-        const e = {
-            id: crypto.randomUUID ? crypto.randomUUID() : ("ent-" + Math.random().toString(36).slice(2)),
-            position: {
-                x: x || 0,
-                y: y || 0
-            },
-            vx: 0,
-            vy: 0,
-            speed: options.speed || 80,
-            role: options.role || "unit",
-            data: options.data || {}
-        };
-
-        entities.push(e);
-        return e;
-    }
-
-    function all() {
-        return entities;
-    }
-
-    function getAll() {
-        return entities;
-    }
-
-    function update(dt) {
-        for (const e of entities) {
-            e.position.x += e.vx * dt;
-            e.position.y += e.vy * dt;
-        }
-    }
-
-    APEX.register("entities", {
-        type: "entities",
-        create: createEntity,
-        all,
-        getAll,
-        update
-    });
-
+  APEX.register("entities", Entities);
 })();
