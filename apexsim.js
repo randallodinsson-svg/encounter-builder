@@ -1,6 +1,6 @@
 /*
-    APEXCORE v4.7 — APEXSIM Engine
-    Flow Field + Fractal Curl Noise + Attractor / Repulsor Fields + Resume Kick
+    APEXCORE v4.8 — APEXSIM Engine
+    Flow Field + Fractal Curl Noise + Attractor / Repulsor Fields + Vortex Cores + Resume Kick
 */
 
 (function () {
@@ -134,8 +134,9 @@
       curlStrengthMeso: 0.5,
       curlStrengthMicro: 0.25,
 
-      // Attractor / Repulsor fields
-      fields: [], // { x, y, strength, radius, type: "attractor" | "repulsor" }
+      // Fields: attractor, repulsor, vortex
+      // { x, y, strength, radius, type: "attractor" | "repulsor" | "vortex", spin?: 1|-1 }
+      fields: [],
 
       obstaclesEnabled: true,
       trailsEnabled: true,
@@ -145,7 +146,7 @@
     },
 
     start() {
-      console.log("APEXCORE v4.7 — APEXSIM online.");
+      console.log("APEXCORE v4.8 — APEXSIM online.");
       this._initParticles();
       this._initDefaultFields();
     },
@@ -172,13 +173,14 @@
       const h = window.innerHeight;
       s.fields = [];
 
-      // Center attractor by default
+      // Default: soft center vortex
       s.fields.push({
         x: w / 2,
         y: h / 2,
         strength: 1.5,
         radius: Math.min(w, h) * 0.4,
-        type: "attractor",
+        type: "vortex",
+        spin: 1,
       });
     },
 
@@ -239,8 +241,8 @@
       this._state.fields = [];
     },
 
-    addField(x, y, strength, radius, type = "attractor") {
-      this._state.fields.push({ x, y, strength, radius, type });
+    addField(x, y, strength, radius, type = "attractor", spin = 1) {
+      this._state.fields.push({ x, y, strength, radius, type, spin });
     },
 
     /* ----------------------------- */
@@ -262,10 +264,10 @@
           s.curlStrengthMicro = 0.8;
           s.particleSpeed = 1.0;
 
-          // Multiple attractors + one repulsor
+          // Multiple vortices + one repulsor
           s.fields.push(
-            { x: w * 0.3, y: h * 0.4, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "attractor" },
-            { x: w * 0.7, y: h * 0.6, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "attractor" },
+            { x: w * 0.3, y: h * 0.4, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "vortex", spin: 1 },
+            { x: w * 0.7, y: h * 0.6, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "vortex", spin: -1 },
             { x: w * 0.5, y: h * 0.5, strength: 1.8, radius: Math.min(w, h) * 0.25, type: "repulsor" },
           );
           break;
@@ -277,13 +279,14 @@
           s.curlStrengthMicro = 0.2;
           s.particleSpeed = 0.6;
 
-          // Soft center attractor
+          // Soft center vortex, gentle spin
           s.fields.push({
             x: w / 2,
             y: h / 2,
-            strength: 0.8,
+            strength: 0.9,
             radius: Math.min(w, h) * 0.5,
-            type: "attractor",
+            type: "vortex",
+            spin: 1,
           });
           break;
 
@@ -294,9 +297,9 @@
           s.curlStrengthMicro = 1.0;
           s.particleSpeed = 1.7;
 
-          // Strong center attractor + outer repulsors
+          // Strong center vortex + outer repulsors
           s.fields.push(
-            { x: w / 2, y: h / 2, strength: 3.0, radius: Math.min(w, h) * 0.35, type: "attractor" },
+            { x: w / 2, y: h / 2, strength: 3.0, radius: Math.min(w, h) * 0.35, type: "vortex", spin: 1 },
             { x: w * 0.1, y: h * 0.1, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
             { x: w * 0.9, y: h * 0.9, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
           );
@@ -309,20 +312,21 @@
           s.curlStrengthMicro = 0.4;
           s.particleSpeed = 2.0;
 
-          // Single strong attractor for orbital behavior
+          // Single strong vortex for orbital behavior
           s.fields.push({
             x: w / 2,
             y: h / 2,
             strength: 2.4,
             radius: Math.min(w, h) * 0.45,
-            type: "attractor",
+            type: "vortex",
+            spin: 1,
           });
           break;
       }
     },
 
     /* ----------------------------- */
-    /*   ATTRACTOR / REPULSOR FORCE  */
+    /*   FIELD FORCE SAMPLING        */
     /* ----------------------------- */
 
     _sampleFields(x, y) {
@@ -339,16 +343,31 @@
         if (distSq > radiusSq || distSq === 0) continue;
 
         const dist = Math.sqrt(distSq);
-        const falloff = 1 - dist / f.radius; // linear falloff inside radius
+        const falloff = 1 - dist / f.radius; // linear falloff
 
-        let strength = f.strength * falloff;
-        if (f.type === "repulsor") strength *= -1;
+        if (f.type === "attractor" || f.type === "repulsor") {
+          let strength = f.strength * falloff;
+          if (f.type === "repulsor") strength *= -1;
 
-        const nx = dx / (dist || 1);
-        const ny = dy / (dist || 1);
+          const nx = dx / (dist || 1);
+          const ny = dy / (dist || 1);
 
-        fx += nx * strength;
-        fy += ny * strength;
+          fx += nx * strength;
+          fy += ny * strength;
+        } else if (f.type === "vortex") {
+          // Vortex: tangential force around center
+          const nx = dx / (dist || 1);
+          const ny = dy / (dist || 1);
+
+          // Perpendicular vector (tangent)
+          const tx = -ny * (f.spin || 1);
+          const ty = nx * (f.spin || 1);
+
+          const strength = f.strength * falloff;
+
+          fx += tx * strength;
+          fy += ty * strength;
+        }
       }
 
       return { fx, fy };
