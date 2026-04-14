@@ -1,10 +1,11 @@
 /*
-    APEXCORE v4.4 — Entity Registry
+    APEXCORE v4.4 — Entity Registry (Diagnostics‑Ready Edition)
 */
 
 (function () {
   const Entities = {
     list: [],
+
     create(props = {}) {
       const e = {
         id: crypto.randomUUID ? crypto.randomUUID() : `e-${Date.now()}-${Math.random()}`,
@@ -17,12 +18,23 @@
       this.list.push(e);
       return e;
     },
+
     clear() {
       this.list.length = 0;
     },
+
     forEach(fn) {
       this.list.forEach(fn);
     },
+
+    count() {
+      return this.list.length;
+    },
+
+    getAll() {
+      return this.list;
+    },
+
     onTick(delta) {
       const dt = delta / 16.67;
       for (const e of this.list) {
