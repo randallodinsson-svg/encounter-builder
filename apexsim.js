@@ -1,8 +1,5 @@
 /*
-    APEXSIM v1.0 — Reintegration Module for APEXCORE v4.4
-    - Particle-style simulation layer
-    - Glow, trails, debug vectors (renderer handles visuals)
-    - Fully modular, no interference with HALO
+    APEXSIM v1.1 — Engine-Aligned
 */
 
 (function () {
@@ -15,7 +12,9 @@
     };
 
     function init() {
-        // Create 40 particles in a cluster
+        state.particles.length = 0;
+        state.obstacles.length = 0;
+
         for (let i = 0; i < 40; i++) {
             state.particles.push({
                 x: 200 + Math.random() * 40,
@@ -27,12 +26,11 @@
             });
         }
 
-        // Add 3 static obstacles
         state.obstacles.push({ x: 400, y: 200, r: 40 });
         state.obstacles.push({ x: 500, y: 300, r: 30 });
         state.obstacles.push({ x: 300, y: 350, r: 50 });
 
-        console.log("APEXSIM v1.0 — Simulation initialized");
+        console.log("APEXSIM v1.1 — Simulation initialized");
     }
 
     function update(dt) {
@@ -44,15 +42,12 @@
         for (let i = 0; i < p.length; i++) {
             const a = p[i];
 
-            // Basic motion
             a.x += a.vx * dt;
             a.y += a.vy * dt;
 
-            // Soft boundary bounce
             if (a.x < 0 || a.x > 800) a.vx *= -1;
             if (a.y < 0 || a.y > 600) a.vy *= -1;
 
-            // Obstacle avoidance
             for (let j = 0; j < obs.length; j++) {
                 const o = obs[j];
                 const dx = a.x - o.x;
