@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.4 — APEXSIM Engine
+    APEXCORE v4.4 — APEXSIM Engine (Final Recommended API)
 */
 
 (function () {
@@ -21,6 +21,9 @@
       this._initParticles();
     },
 
+    /* ----------------------------- */
+    /*      INTERNAL INITIALIZER     */
+    /* ----------------------------- */
     _initParticles() {
       const s = this._state;
       s.particles = [];
@@ -34,7 +37,57 @@
       }
     },
 
-    // Control surface
+    /* ----------------------------- */
+    /*     RECOMMENDED UI API        */
+    /* ----------------------------- */
+
+    pause() {
+      this._state.paused = true;
+    },
+
+    resume() {
+      this._state.paused = false;
+    },
+
+    reset() {
+      this.resetSimulation();
+    },
+
+    spawnBurst(count = 64) {
+      const s = this._state;
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+
+      for (let i = 0; i < count; i++) {
+        s.particles.push({
+          x: cx,
+          y: cy,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+        });
+      }
+    },
+
+    setPreset(name) {
+      this.applyPreset(name);
+    },
+
+    setSpeed(v) {
+      this.setParticleSpeed(v);
+    },
+
+    enableObstacles(v) {
+      this.setObstaclesEnabled(v);
+    },
+
+    enableTrails(v) {
+      this.setTrailsEnabled(v);
+    },
+
+    /* ----------------------------- */
+    /*   ORIGINAL ENGINE FUNCTIONS   */
+    /* ----------------------------- */
+
     setParticleCount(count) {
       this._state.particleCount = count;
       this._initParticles();
@@ -58,20 +111,6 @@
 
     setPaused(paused) {
       this._state.paused = paused;
-    },
-
-    spawnBurst() {
-      const s = this._state;
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-      for (let i = 0; i < 64; i++) {
-        s.particles.push({
-          x: cx,
-          y: cy,
-          vx: (Math.random() - 0.5) * 6,
-          vy: (Math.random() - 0.5) * 6,
-        });
-      }
     },
 
     resetSimulation() {
