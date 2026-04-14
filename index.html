@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <title>APEXCORE — Simulation</title>
 
-    <!-- Core styling -->
     <link rel="stylesheet" href="core.css" />
     <link rel="stylesheet" href="apex-ui.css" />
 
@@ -21,11 +20,11 @@
 
 <body>
 
-    <!-- UI Panel -->
     <div id="apex-ui"></div>
-
-    <!-- CANVAS -->
     <canvas id="apex-canvas"></canvas>
+
+    <!-- ⭐ LOAD THE REAL ENGINE FIRST ⭐ -->
+    <script src="apexcore.js"></script>
 
     <!-- CORE SYSTEM -->
     <script src="core.js"></script>
@@ -59,7 +58,7 @@
     <!-- UI CONTROLLER -->
     <script src="apex-ui.js"></script>
 
-    <!-- ⭐ REQUIRED: START THE ENGINE ⭐ -->
+    <!-- START ENGINE -->
     <script>
         APEX.start();
     </script>
