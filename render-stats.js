@@ -1,71 +1,75 @@
 /*
-    APEXCORE v4.4 — Render Stats Panel
-    Tracks renderer performance each frame.
+    APEXCORE v4.4 — Render Stats Panel (HALO-Compatible)
+    Tracks renderer performance each frame without hooking nonexistent methods.
 */
 
 (function () {
   const RenderStats = {
-    drawCalls: 0,
-    batches: 0,
     clears: 0,
+    nodeDraws: 0,
+    linkDraws: 0,
     frameStart: 0,
     frameCost: 0,
 
     start() {
       console.log("APEXCORE v4.4 — Render Stats online.");
-      this.hookRenderer();
-      this.hookRAF();
+      this.hookHaloRenderer();
     },
 
-    hookRenderer() {
+    hookHaloRenderer() {
       const renderer = APEX.get("renderer");
-      if (!renderer) return console.warn("RenderStats: renderer not found.");
-
-      // Wrap renderer.clear()
-      const originalClear = renderer.clear.bind(renderer);
-      renderer.clear = (...args) => {
-        this.clears++;
-        return originalClear(...args);
-      };
-
-      // Wrap renderer.draw()
-      const originalDraw = renderer.draw.bind(renderer);
-      renderer.draw = (...args) => {
-        this.drawCalls++;
-        return originalDraw(...args);
-      };
-
-      // Wrap renderer.batch() if present
-      if (renderer.batch) {
-        const originalBatch = renderer.batch.bind(renderer);
-        renderer.batch = (...args) => {
-          this.batches++;
-          return originalBatch(...args);
-        };
+      if (!renderer) {
+        console.warn("RenderStats: HALO renderer not found.");
+        return;
       }
-    },
 
-    hookRAF() {
-      const originalRAF = window.requestAnimationFrame;
+      // Wrap renderer.render()
+      const originalRender = renderer.render.bind(renderer);
 
-      window.requestAnimationFrame = (cb) => {
-        return originalRAF((ts) => {
-          this.frameStart = performance.now();
+      renderer.render = () => {
+        this.frameStart = performance.now();
 
-          cb(ts);
+        // Reset counters for this frame
+        this.clears = 0;
+        this.nodeDraws = 0;
+        this.linkDraws = 0;
 
-          this.frameCost = performance.now() - this.frameStart;
+        // Wrap ctx calls
+        const ctx = renderer.ctx;
+        if (ctx) this.hookContext(ctx);
 
-          this.updateUI();
-          this.resetCounters();
-        });
+        // Run original render
+        originalRender();
+
+        // Compute frame cost
+        this.frameCost = performance.now() - this.frameStart;
+
+        // Update UI
+        this.updateUI();
       };
     },
 
-    resetCounters() {
-      this.drawCalls = 0;
-      this.batches = 0;
-      this.clears = 0;
+    hookContext(ctx) {
+      // ClearRect → canvas clear
+      const originalClearRect = ctx.clearRect.bind(ctx);
+      ctx.clearRect = (...args) => {
+        this.clears++;
+        return originalClearRect(...args);
+      };
+
+      // Stroke → link draw
+      const originalStroke = ctx.stroke.bind(ctx);
+      ctx.stroke = (...args) => {
+        this.linkDraws++;
+        return originalStroke(...args);
+      };
+
+      // Fill → node draw
+      const originalFill = ctx.fill.bind(ctx);
+      ctx.fill = (...args) => {
+        this.nodeDraws++;
+        return originalFill(...args);
+      };
     },
 
     updateUI() {
@@ -78,8 +82,8 @@
         if (el) el.textContent = val;
       };
 
-      set("rs-drawcalls", this.drawCalls);
-      set("rs-batches", this.batches);
+      set("rs-drawcalls", this.nodeDraws + this.linkDraws);
+      set("rs-batches", this.linkDraws); // links = strokes
       set("rs-clears", this.clears);
       set("rs-framecost", this.frameCost.toFixed(2) + " ms");
       set("rs-resolution", `${w}×${h}`);
