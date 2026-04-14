@@ -1,9 +1,9 @@
 /*
     APEXCORE v4.4 — APEX UI Controller
-    Batch 2 — Step 3: Interaction Tuning Layer
-    - Controls HALO visibility, SIM visibility, Dual-Field mode
-    - Controls particle count, speed, field strength
-    - Field Strength now also drives HALO_FIELD.setStrength(...)
+    - Controls visibility, presets, particles, field strength
+    - Controls environment + atmosphere (wind, turbulence, vortices, storm)
+    - Controls weather presets (calm, gusty, storm, cyclone, turbulentSea)
+    - Controls basic SIM actions (pause, burst, reset)
 */
 
 (function () {
@@ -22,15 +22,18 @@
     _cacheElements() {
       const $ = (id) => document.getElementById(id);
 
+      // Visibility
       this._els.haloVisible = $("haloVisible");
       this._els.simVisible = $("simVisible");
       this._els.dualMode = $("dualMode");
 
+      // Presets
       this._els.presetDrift = $("presetDrift");
       this._els.presetPulse = $("presetPulse");
       this._els.presetOrbit = $("presetOrbit");
       this._els.presetSwarm = $("presetSwarm");
 
+      // Particles
       this._els.particleCount = $("particleCount");
       this._els.particleCountLabel = $("particleCountLabel");
 
@@ -40,9 +43,33 @@
       this._els.fieldStrength = $("fieldStrength");
       this._els.fieldStrengthLabel = $("fieldStrengthLabel");
 
+      // Environment toggles
       this._els.obstaclesEnabled = $("obstaclesEnabled");
       this._els.trailsEnabled = $("trailsEnabled");
 
+      // Atmosphere sliders
+      this._els.windSpeed = $("windSpeed");
+      this._els.windSpeedLabel = $("windSpeedLabel");
+
+      this._els.windDir = $("windDir");
+      this._els.windDirLabel = $("windDirLabel");
+
+      this._els.turbulence = $("turbulence");
+      this._els.turbulenceLabel = $("turbulenceLabel");
+
+      this._els.vortices = $("vortices");
+      this._els.vorticesLabel = $("vorticesLabel");
+
+      this._els.stormMode = $("stormMode");
+
+      // Weather presets
+      this._els.weatherCalm = $("weatherCalm");
+      this._els.weatherGusty = $("weatherGusty");
+      this._els.weatherStorm = $("weatherStorm");
+      this._els.weatherCyclone = $("weatherCyclone");
+      this._els.weatherSea = $("weatherSea");
+
+      // SIM control
       this._els.pauseBtn = $("pauseBtn");
       this._els.spawnBurstBtn = $("spawnBurstBtn");
       this._els.resetBtn = $("resetBtn");
@@ -51,6 +78,7 @@
     _wireEvents() {
       const sim = window.APEXSIM;
       const haloField = window.HALO_FIELD || null;
+      const env = window.ENV_FIELD || null;
 
       const vis = (window.APEX_VIS = window.APEX_VIS || {
         halo: true,
@@ -58,7 +86,9 @@
         dual: true,
       });
 
+      // -----------------------------
       // Visibility toggles
+      // -----------------------------
       if (this._els.haloVisible) {
         this._els.haloVisible.addEventListener("change", (e) => {
           vis.halo = !!e.target.checked;
@@ -80,7 +110,9 @@
         });
       }
 
-      // Presets
+      // -----------------------------
+      // SIM Presets
+      // -----------------------------
       const bindPreset = (el, name) => {
         if (!el) return;
         el.addEventListener("click", () => {
@@ -96,7 +128,9 @@
       bindPreset(this._els.presetOrbit, "orbit");
       bindPreset(this._els.presetSwarm, "swarm");
 
+      // -----------------------------
       // Particle Count
+      // -----------------------------
       if (this._els.particleCount) {
         this._els.particleCount.addEventListener("input", (e) => {
           const v = parseInt(e.target.value, 10) || 0;
@@ -109,7 +143,9 @@
         });
       }
 
+      // -----------------------------
       // Particle Speed
+      // -----------------------------
       if (this._els.particleSpeed) {
         this._els.particleSpeed.addEventListener("input", (e) => {
           const v = parseFloat(e.target.value) || 1.0;
@@ -122,7 +158,9 @@
         });
       }
 
+      // -----------------------------
       // Field Strength → SIM + HALO_FIELD
+      // -----------------------------
       if (this._els.fieldStrength) {
         this._els.fieldStrength.addEventListener("input", (e) => {
           const v = parseFloat(e.target.value) || 1.0;
@@ -135,7 +173,6 @@
           }
 
           if (haloField && haloField.setStrength) {
-            // tie HALO influence to same control (interaction tuning)
             haloField.setStrength(v);
           }
 
@@ -143,7 +180,9 @@
         });
       }
 
-      // Obstacles / Trails
+      // -----------------------------
+      // Environment toggles
+      // -----------------------------
       if (this._els.obstaclesEnabled) {
         this._els.obstaclesEnabled.addEventListener("change", (e) => {
           const enabled = !!e.target.checked;
@@ -164,7 +203,83 @@
         });
       }
 
-      // Buttons: Pause / Spawn Burst / Reset
+      // -----------------------------
+      // Atmosphere sliders → ENV_FIELD
+      // -----------------------------
+      if (env) {
+        // Wind Speed
+        if (this._els.windSpeed) {
+          this._els.windSpeed.addEventListener("input", (e) => {
+            const v = parseFloat(e.target.value) || 0;
+            if (this._els.windSpeedLabel) {
+              this._els.windSpeedLabel.textContent = v.toFixed(2);
+            }
+            env.setWindSpeed && env.setWindSpeed(v);
+          });
+        }
+
+        // Wind Direction
+        if (this._els.windDir) {
+          this._els.windDir.addEventListener("input", (e) => {
+            const v = parseFloat(e.target.value) || 0;
+            if (this._els.windDirLabel) {
+              const deg = Math.round((v / Math.PI) * 180);
+              this._els.windDirLabel.textContent = deg + "°";
+            }
+            env.setWindDir && env.setWindDir(v);
+          });
+        }
+
+        // Turbulence
+        if (this._els.turbulence) {
+          this._els.turbulence.addEventListener("input", (e) => {
+            const v = parseFloat(e.target.value) || 0;
+            if (this._els.turbulenceLabel) {
+              this._els.turbulenceLabel.textContent = v.toFixed(1);
+            }
+            env.setTurbulence && env.setTurbulence(v);
+          });
+        }
+
+        // Vortices
+        if (this._els.vortices) {
+          this._els.vortices.addEventListener("input", (e) => {
+            const v = parseFloat(e.target.value) || 0;
+            if (this._els.vorticesLabel) {
+              this._els.vorticesLabel.textContent = v.toFixed(1);
+            }
+            env.setVortices && env.setVortices(v);
+          });
+        }
+
+        // Storm Mode
+        if (this._els.stormMode) {
+          this._els.stormMode.addEventListener("change", (e) => {
+            const enabled = !!e.target.checked;
+            env.setStormMode && env.setStormMode(enabled);
+            console.log("UI: Storm Mode →", enabled);
+          });
+        }
+
+        // Weather Presets
+        const bindWeather = (el, name) => {
+          if (!el) return;
+          el.addEventListener("click", () => {
+            env.setWeatherPreset && env.setWeatherPreset(name);
+            console.log("UI: Weather Preset →", name);
+          });
+        };
+
+        bindWeather(this._els.weatherCalm, "calm");
+        bindWeather(this._els.weatherGusty, "gusty");
+        bindWeather(this._els.weatherStorm, "storm");
+        bindWeather(this._els.weatherCyclone, "cyclone");
+        bindWeather(this._els.weatherSea, "turbulentSea");
+      }
+
+      // -----------------------------
+      // SIM Control Buttons
+      // -----------------------------
       if (this._els.pauseBtn) {
         this._els.pauseBtn.addEventListener("click", () => {
           if (!sim) return;
@@ -221,6 +336,27 @@
       if (this._els.fieldStrength && this._els.fieldStrengthLabel) {
         const v = parseFloat(this._els.fieldStrength.value) || 1.0;
         this._els.fieldStrengthLabel.textContent = v.toFixed(2);
+      }
+
+      if (this._els.windSpeed && this._els.windSpeedLabel) {
+        const v = parseFloat(this._els.windSpeed.value) || 0.15;
+        this._els.windSpeedLabel.textContent = v.toFixed(2);
+      }
+
+      if (this._els.windDir && this._els.windDirLabel) {
+        const v = parseFloat(this._els.windDir.value) || 0;
+        const deg = Math.round((v / Math.PI) * 180);
+        this._els.windDirLabel.textContent = deg + "°";
+      }
+
+      if (this._els.turbulence && this._els.turbulenceLabel) {
+        const v = parseFloat(this._els.turbulence.value) || 1.0;
+        this._els.turbulenceLabel.textContent = v.toFixed(1);
+      }
+
+      if (this._els.vortices && this._els.vorticesLabel) {
+        const v = parseFloat(this._els.vortices.value) || 1.0;
+        this._els.vorticesLabel.textContent = v.toFixed(1);
       }
     },
   };
