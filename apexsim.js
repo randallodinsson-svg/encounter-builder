@@ -1,6 +1,6 @@
 /*
-    APEXCORE v4.6 — APEXSIM Engine
-    Simplex Flow Field + Fractal Curl Noise (3 Layers, Different Speeds) + Resume Kick
+    APEXCORE v4.7 — APEXSIM Engine
+    Flow Field + Fractal Curl Noise + Attractor / Repulsor Fields + Resume Kick
 */
 
 (function () {
@@ -134,6 +134,9 @@
       curlStrengthMeso: 0.5,
       curlStrengthMicro: 0.25,
 
+      // Attractor / Repulsor fields
+      fields: [], // { x, y, strength, radius, type: "attractor" | "repulsor" }
+
       obstaclesEnabled: true,
       trailsEnabled: true,
       paused: false,
@@ -142,8 +145,9 @@
     },
 
     start() {
-      console.log("APEXCORE v4.6 — APEXSIM online.");
+      console.log("APEXCORE v4.7 — APEXSIM online.");
       this._initParticles();
+      this._initDefaultFields();
     },
 
     _initParticles() {
@@ -162,6 +166,22 @@
       }
     },
 
+    _initDefaultFields() {
+      const s = this._state;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      s.fields = [];
+
+      // Center attractor by default
+      s.fields.push({
+        x: w / 2,
+        y: h / 2,
+        strength: 1.5,
+        radius: Math.min(w, h) * 0.4,
+        type: "attractor",
+      });
+    },
+
     /* ----------------------------- */
     /*     UI CONTROL SURFACE        */
     /* ----------------------------- */
@@ -172,14 +192,16 @@
       const s = this._state;
       s.paused = false;
 
-      // Resume Kick — subtle reactivation
       for (const p of s.particles) {
         p.vx *= 1.05;
         p.vy *= 1.05;
       }
     },
 
-    reset() { this._initParticles(); },
+    reset() {
+      this._initParticles();
+      this._initDefaultFields();
+    },
 
     spawnBurst(count = 64) {
       const s = this._state;
@@ -210,11 +232,27 @@
     enableTrails(v) { this._state.trailsEnabled = v; },
 
     /* ----------------------------- */
+    /*       FIELD MANAGEMENT        */
+    /* ----------------------------- */
+
+    clearFields() {
+      this._state.fields = [];
+    },
+
+    addField(x, y, strength, radius, type = "attractor") {
+      this._state.fields.push({ x, y, strength, radius, type });
+    },
+
+    /* ----------------------------- */
     /*          PRESETS              */
     /* ----------------------------- */
 
     applyPreset(preset) {
       const s = this._state;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      s.fields = [];
 
       switch (preset) {
         case "swarm":
@@ -223,6 +261,13 @@
           s.curlStrengthMeso = 1.4;
           s.curlStrengthMicro = 0.8;
           s.particleSpeed = 1.0;
+
+          // Multiple attractors + one repulsor
+          s.fields.push(
+            { x: w * 0.3, y: h * 0.4, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "attractor" },
+            { x: w * 0.7, y: h * 0.6, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "attractor" },
+            { x: w * 0.5, y: h * 0.5, strength: 1.8, radius: Math.min(w, h) * 0.25, type: "repulsor" },
+          );
           break;
 
         case "drift":
@@ -231,6 +276,15 @@
           s.curlStrengthMeso = 0.4;
           s.curlStrengthMicro = 0.2;
           s.particleSpeed = 0.6;
+
+          // Soft center attractor
+          s.fields.push({
+            x: w / 2,
+            y: h / 2,
+            strength: 0.8,
+            radius: Math.min(w, h) * 0.5,
+            type: "attractor",
+          });
           break;
 
         case "pulse":
@@ -239,6 +293,13 @@
           s.curlStrengthMeso = 1.8;
           s.curlStrengthMicro = 1.0;
           s.particleSpeed = 1.7;
+
+          // Strong center attractor + outer repulsors
+          s.fields.push(
+            { x: w / 2, y: h / 2, strength: 3.0, radius: Math.min(w, h) * 0.35, type: "attractor" },
+            { x: w * 0.1, y: h * 0.1, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
+            { x: w * 0.9, y: h * 0.9, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
+          );
           break;
 
         case "orbit":
@@ -247,8 +308,50 @@
           s.curlStrengthMeso = 0.9;
           s.curlStrengthMicro = 0.4;
           s.particleSpeed = 2.0;
+
+          // Single strong attractor for orbital behavior
+          s.fields.push({
+            x: w / 2,
+            y: h / 2,
+            strength: 2.4,
+            radius: Math.min(w, h) * 0.45,
+            type: "attractor",
+          });
           break;
       }
+    },
+
+    /* ----------------------------- */
+    /*   ATTRACTOR / REPULSOR FORCE  */
+    /* ----------------------------- */
+
+    _sampleFields(x, y) {
+      const s = this._state;
+      let fx = 0;
+      let fy = 0;
+
+      for (const f of s.fields) {
+        const dx = f.x - x;
+        const dy = f.y - y;
+        const distSq = dx * dx + dy * dy;
+        const radiusSq = f.radius * f.radius;
+
+        if (distSq > radiusSq || distSq === 0) continue;
+
+        const dist = Math.sqrt(distSq);
+        const falloff = 1 - dist / f.radius; // linear falloff inside radius
+
+        let strength = f.strength * falloff;
+        if (f.type === "repulsor") strength *= -1;
+
+        const nx = dx / (dist || 1);
+        const ny = dy / (dist || 1);
+
+        fx += nx * strength;
+        fy += ny * strength;
+      }
+
+      return { fx, fy };
     },
 
     /* ----------------------------- */
@@ -260,38 +363,37 @@
       const baseScale = 0.0015;
       const time = performance.now();
 
-      // Different evolution speeds per layer
-      const tFlow = time * 0.00015;
+      const tFlow  = time * 0.00015;
       const tMacro = time * 0.00010;
-      const tMeso = time * 0.00030;
+      const tMeso  = time * 0.00030;
       const tMicro = time * 0.00090;
 
-      // Simplex directional flow (base field)
       const angle =
         noise.noise2D(x * baseScale + tFlow, y * baseScale) * Math.PI +
         noise.noise2D(x * baseScale, y * baseScale + tFlow) * Math.PI;
 
-      const fx = Math.cos(angle) * s.fieldStrength;
-      const fy = Math.sin(angle) * s.fieldStrength;
+      const fxFlow = Math.cos(angle) * s.fieldStrength;
+      const fyFlow = Math.sin(angle) * s.fieldStrength;
 
-      // Fractal curl noise: macro / meso / micro
       const curlMacro = curlNoise(x, y, tMacro, baseScale * 0.5);
       const curlMeso  = curlNoise(x, y, tMeso,  baseScale * 1.0);
       const curlMicro = curlNoise(x, y, tMicro, baseScale * 2.0);
 
-      const cx =
+      const fxCurl =
         curlMacro.x * s.curlStrengthMacro +
         curlMeso.x  * s.curlStrengthMeso +
         curlMicro.x * s.curlStrengthMicro;
 
-      const cy =
+      const fyCurl =
         curlMacro.y * s.curlStrengthMacro +
         curlMeso.y  * s.curlStrengthMeso +
         curlMicro.y * s.curlStrengthMicro;
 
+      const fieldForce = this._sampleFields(x, y);
+
       return {
-        fx: fx + cx,
-        fy: fy + cy,
+        fx: fxFlow + fxCurl + fieldForce.fx,
+        fy: fyFlow + fyCurl + fieldForce.fy,
       };
     },
   };
