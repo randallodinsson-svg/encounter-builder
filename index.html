@@ -1,96 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>APEXCORE v4.4 — HALO + APEXSIM</title>
-
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: black;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        #app-root {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        #haloCanvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* UI Deck container */
-        #apex-ui-root {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 320px;
-            height: 100%;
-            pointer-events: none;
-        }
-    </style>
-
-    <!-- APEXCORE UI Deck styles -->
-    <link rel="stylesheet" href="apex-ui.css?v=1">
+  <meta charset="UTF-8" />
+  <title>APEXCORE v4.4</title>
+  <link rel="stylesheet" href="apex.css" />
 </head>
 
 <body>
+  <div id="apex-root">
 
-    <!-- ROOT + CANVAS -->
-    <div id="app-root">
-        <canvas id="haloCanvas"></canvas>
-
-        <!-- UI Deck root -->
-        <div id="apex-ui-root"></div>
+    <!-- LEFT: HALO + APEXSIM CANVASES -->
+    <div id="apex-stage">
+      <canvas id="halo-canvas"></canvas>
+      <canvas id="apexsim-canvas"></canvas>
     </div>
 
-    <!-- CORE -->
-    <script src="core.js?v=2"></script>
+    <!-- RIGHT: UI DECK -->
+    <div id="apex-ui-deck">
 
-    <!-- RENDERER -->
-    <script src="halo-renderer.js?v=2"></script>
+      <!-- ENGINE DIAGNOSTICS -->
+      <div class="apex-card">
+        <div class="apex-card__header">
+          <div class="apex-card__title">ENGINE DIAGNOSTICS</div>
+          <div class="apex-card__subtitle">SYSTEM STATUS</div>
+        </div>
+        <div class="apex-card__body">
+          <div id="diag-fps">FPS: --</div>
+          <div id="diag-delta">Δ: --</div>
+          <div id="diag-entities">Entities: --</div>
+        </div>
+      </div>
 
-    <!-- SYSTEMS -->
-    <script src="entities.js?v=2"></script>
-    <script src="formations.js?v=2"></script>
-    <script src="formation-ai.js?v=2"></script>
+      <!-- HALO CONTROLS -->
+      <div class="apex-card">
+        <div class="apex-card__header">
+          <div class="apex-card__title">HALO</div>
+          <div class="apex-card__subtitle">FORMATION ENGINE</div>
+        </div>
+        <div class="apex-card__body">
+          <button id="halo-spawn" class="apex-btn">Spawn Entity</button>
+          <button id="halo-clear" class="apex-btn apex-btn--danger">Clear</button>
+        </div>
+      </div>
 
-    <!-- AUTO-SPAWN -->
-    <script src="auto-spawn.js?v=2"></script>
+      <!-- SIMULATION LAYER (NEW FULL PANEL) -->
+      <div class="apex-card apex-card--tall" id="sim-layer-card">
+        <div class="apex-card__header">
+          <div class="apex-card__title">SIMULATION LAYER</div>
+          <div class="apex-card__subtitle">APEXSIM CONTROL SURFACE</div>
+        </div>
 
-    <!-- OVERLAY -->
-    <script src="overlay.js?v=2"></script>
+        <div class="apex-card__body sim-layer-body">
 
-    <!-- APEXSIM MODULES -->
-    <script src="apexsim.js?v=1"></script>
-    <script src="apexsim-renderer.js?v=1"></script>
+          <!-- Preset -->
+          <div class="apex-field">
+            <label class="apex-label" for="sim-preset-select">Preset</label>
+            <select id="sim-preset-select" class="apex-select">
+              <option value="swarm">Swarm</option>
+              <option value="drift">Drift</option>
+              <option value="pulse">Pulse</option>
+              <option value="orbit">Orbit</option>
+            </select>
+          </div>
 
-    <!-- UI DECK -->
-    <script src="apex-ui.js?v=1"></script>
+          <!-- Particle Count -->
+          <div class="apex-field">
+            <label class="apex-label" for="sim-particle-count">
+              Particle Count
+              <span class="apex-label__value" id="sim-particle-count-value">512</span>
+            </label>
+            <input type="range" id="sim-particle-count" class="apex-slider"
+              min="64" max="2048" step="64" value="512" />
+          </div>
 
-    <!-- ENGINE (MUST BE LAST) -->
-    <script src="engine.js?v=2"></script>
+          <!-- Particle Speed -->
+          <div class="apex-field">
+            <label class="apex-label" for="sim-particle-speed">
+              Particle Speed
+              <span class="apex-label__value" id="sim-particle-speed-value">1.0x</span>
+            </label>
+            <input type="range" id="sim-particle-speed" class="apex-slider"
+              min="0.25" max="3.0" step="0.25" value="1.0" />
+          </div>
 
-    <!-- FORCE ENGINE START -->
-    <script>
-        (function () {
-            const engine = APEX.get("engine");
-            if (engine && typeof engine.start === "function") {
-                console.log("APEXCORE v4.4 — Forcing engine start from index.html");
-                engine.start();
-            }
-        })();
-    </script>
+          <!-- Field Strength -->
+          <div class="apex-field">
+            <label class="apex-label" for="sim-field-strength">
+              Field Strength
+              <span class="apex-label__value" id="sim-field-strength-value">1.0</span>
+            </label>
+            <input type="range" id="sim-field-strength" class="apex-slider"
+              min="0.0" max="3.0" step="0.25" value="1.0" />
+          </div>
 
+          <!-- Toggles -->
+          <div class="apex-field apex-field--row">
+            <label class="apex-toggle">
+              <input type="checkbox" id="sim-obstacles-toggle" checked />
+              <span class="apex-toggle__label">Obstacles</span>
+            </label>
+
+            <label class="apex-toggle">
+              <input type="checkbox" id="sim-trails-toggle" checked />
+              <span class="apex-toggle__label">Trails</span>
+            </label>
+          </div>
+
+          <!-- Buttons -->
+          <div class="apex-field apex-field--row sim-layer-buttons">
+            <button id="sim-pause-btn" class="apex-btn apex-btn--secondary">Pause</button>
+            <button id="sim-burst-btn" class="apex-btn apex-btn--secondary">Spawn Burst</button>
+            <button id="sim-reset-btn" class="apex-btn apex-btn--danger">Reset</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="apex-card apex-card--footer">
+        <div class="apex-card__title">VECTORCORE // APEXCORE</div>
+        <div class="apex-card__subtitle">v4.4</div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="apexsim.js"></script>
+  <script src="apexsim-renderer.js"></script>
+  <script src="halo.js"></script>
+  <script src="apex-ui.js"></script>
 </body>
 </html>
