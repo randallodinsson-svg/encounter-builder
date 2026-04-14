@@ -7,10 +7,18 @@
 (function () {
 
   const Renderer = {
+    canvas: null,
+    ctx: null,
+
     start() {
       console.log("APEXCORE v4.4 — APEXSIM Renderer online.");
 
       this.canvas = document.getElementById("haloCanvas");
+      if (!this.canvas) {
+        console.warn("APEXSIM Renderer — canvas #haloCanvas not found.");
+        return;
+      }
+
       this.ctx = this.canvas.getContext("2d");
 
       this.resize();
@@ -18,6 +26,7 @@
     },
 
     resize() {
+      if (!this.canvas) return;
       this.canvas.width = window.innerWidth;
       this.canvas.height = window.innerHeight;
     },
@@ -28,8 +37,9 @@
 
     updateParticles(delta) {
       const sim = window.APEXSIM;
-      const s = sim._state;
+      if (!sim) return;
 
+      const s = sim._state;
       const dt = delta / 16.67;
       const w = this.canvas.width;
       const h = this.canvas.height;
@@ -59,6 +69,8 @@
     /* -------------------------------------------------- */
 
     render() {
+      if (!this.ctx || !window.APEXSIM) return;
+
       const sim = window.APEXSIM;
       const s = sim._state;
       const ctx = this.ctx;
@@ -77,6 +89,16 @@
         ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
         ctx.fill();
       }
+    },
+
+    /* -------------------------------------------------- */
+    /*                 ENGINE TICK HOOK                   */
+    /* -------------------------------------------------- */
+
+    onTick(delta) {
+      if (!this.canvas || !this.ctx) return;
+      this.updateParticles(delta);
+      this.render();
     },
   };
 
