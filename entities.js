@@ -19,6 +19,18 @@
       return e;
     },
 
+    // New: used by HALO UI (#halo-spawn)
+    spawnRandom() {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      return this.create({
+        x: cx,
+        y: cy,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+      });
+    },
+
     clear() {
       this.list.length = 0;
     },
