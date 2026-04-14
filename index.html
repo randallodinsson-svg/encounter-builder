@@ -1,272 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — Encounter Builder</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8" />
+    <title>APEXCORE — Simulation</title>
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: radial-gradient(circle at top, #111 0%, #000 55%, #000 100%);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: #fff;
-    }
+    <!-- Core styling -->
+    <link rel="stylesheet" href="core.css" />
+    <link rel="stylesheet" href="apex-ui.css" />
 
-    canvas {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    #halo-canvas {
-      z-index: 1;
-    }
-
-    #haloCanvas {
-      z-index: 2;
-      mix-blend-mode: screen;
-    }
-
-    #apex-root {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      width: 320px;
-      background: rgba(5, 5, 10, 0.82);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      padding: 12px 12px 10px 12px;
-      border-radius: 10px;
-      backdrop-filter: blur(14px) saturate(130%);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.75);
-      z-index: 9999;
-    }
-
-    #apex-root h2 {
-      margin: 0 0 8px 0;
-      font-size: 13px;
-      color: #ffcc66;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    #apex-root h3 {
-      margin: 10px 0 4px 0;
-      font-size: 11px;
-      color: #9fd5ff;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    #apex-root label {
-      display: block;
-      margin-top: 8px;
-      font-size: 11px;
-      color: #d0d0d0;
-    }
-
-    #apex-root button {
-      margin-top: 6px;
-      width: 100%;
-      padding: 6px;
-      background: linear-gradient(135deg, #1b1b22, #252530);
-      color: #ffcc66;
-      border: 1px solid rgba(255, 204, 102, 0.45);
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    #apex-root button.secondary {
-      border-color: rgba(160, 200, 255, 0.35);
-      color: #c0e0ff;
-    }
-
-    #apex-root button:active {
-      transform: translateY(1px);
-      box-shadow: 0 0 0 rgba(0,0,0,0);
-    }
-
-    #apex-root select,
-    #apex-root input[type=range] {
-      width: 100%;
-      margin-top: 4px;
-    }
-
-    #apex-root input[type=checkbox] {
-      margin-right: 6px;
-    }
-
-    .row {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .row > button {
-      flex: 1 1 0;
-    }
-
-    #diag-fps-graph {
-      position: fixed;
-      left: 16px;
-      bottom: 16px;
-      width: 240px;
-      height: 80px;
-      background: rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 6px;
-      z-index: 9999;
-    }
-
-    #render-stats-panel {
-      position: fixed;
-      left: 16px;
-      bottom: 110px;
-      width: 240px;
-      background: rgba(5,5,10,0.78);
-      border: 1px solid rgba(255,255,255,0.18);
-      padding: 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      z-index: 9999;
-      backdrop-filter: blur(10px);
-    }
-
-    #render-stats-panel div {
-      margin: 2px 0;
-    }
-
-    #render-stats-panel span {
-      color: #ffcc66;
-    }
-  </style>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: sans-serif;
+        }
+    </style>
 </head>
 
 <body>
 
-  <!-- HALO Renderer -->
-  <canvas id="halo-canvas"></canvas>
+    <!-- UI Panel -->
+    <div id="apex-ui"></div>
 
-  <!-- APEXSIM Renderer -->
-  <canvas id="haloCanvas"></canvas>
+    <!-- CANVAS -->
+    <canvas id="apex-canvas"></canvas>
 
-  <!-- Overlay Root / Control Surface -->
-  <div id="apex-root">
+    <!-- CORE SYSTEM -->
+    <script src="core.js"></script>
+    <script src="engine.js"></script>
+    <script src="entities.js"></script>
+    <script src="formations.js"></script>
+    <script src="formation-ai.js"></script>
+    <script src="auto-spawn.js"></script>
 
-    <h2>HALO Controls</h2>
-    <div class="row">
-      <button id="halo-spawn">Spawn Entity</button>
-      <button id="halo-clear" class="secondary">Clear Entities</button>
-    </div>
+    <!-- HALO SYSTEM -->
+    <script src="halo-field.js"></script>
+    <script src="halo-renderer.js"></script>
 
-    <h3>Visibility</h3>
-    <label>
-      <input id="halo-visible-toggle" type="checkbox" checked />
-      HALO Visible
-    </label>
-    <label>
-      <input id="sim-visible-toggle" type="checkbox" checked />
-      SIM Visible
-    </label>
-    <label>
-      <input id="dual-mode-toggle" type="checkbox" checked />
-      Dual‑Field Mode
-    </label>
+    <!-- ⭐ ENVIRONMENT FIELD (MUST LOAD BEFORE SIM) ⭐ -->
+    <script src="environment-field.js"></script>
 
-    <h3>Simulation Preset</h3>
-    <select id="sim-preset-select">
-      <option value="drift">Drift</option>
-      <option value="swarm">Swarm</option>
-      <option value="pulse">Pulse</option>
-      <option value="orbit">Orbit</option>
-    </select>
+    <!-- SIMULATION ENGINE -->
+    <script src="apexsim.js"></script>
+    <script src="apexsim-renderer.js"></script>
 
-    <label>Particle Count:
-      <span id="sim-particle-count-value">512</span>
-    </label>
-    <input id="sim-particle-count" type="range" min="64" max="2000" value="512" />
+    <!-- DIAGNOSTICS + OVERLAYS -->
+    <script src="overlay.js"></script>
+    <script src="tick-profiler.js"></script>
+    <script src="event-timeline-visualizer.js"></script>
+    <script src="diag-fps-graph.js"></script>
+    <script src="debug-console.js"></script>
+    <script src="render-stats.js"></script>
+    <script src="module-inspector.js"></script>
+    <script src="registry-diff-viewer.js"></script>
 
-    <label>Particle Speed:
-      <span id="sim-particle-speed-value">1.00x</span>
-    </label>
-    <input id="sim-particle-speed" type="range" min="0.1" max="3" step="0.01" value="1" />
-
-    <label>Field Strength:
-      <span id="sim-field-strength-value">1.00</span>
-    </label>
-    <input id="sim-field-strength" type="range" min="0" max="3" step="0.01" value="1" />
-
-    <label>
-      <input id="sim-obstacles-toggle" type="checkbox" checked />
-      Obstacles Enabled
-    </label>
-
-    <label>
-      <input id="sim-trails-toggle" type="checkbox" checked />
-      Trails Enabled
-    </label>
-
-    <div class="row">
-      <button id="sim-pause-btn">Pause</button>
-      <button id="sim-burst-btn" class="secondary">Spawn Burst</button>
-    </div>
-    <button id="sim-reset-btn">Reset Simulation</button>
-
-  </div>
-
-  <!-- FPS Graph -->
-  <canvas id="diag-fps-graph"></canvas>
-
-  <!-- Render Stats -->
-  <div id="render-stats-panel">
-    <div>Draw Calls: <span id="rs-drawcalls">0</span></div>
-    <div>Batches: <span id="rs-batches">0</span></div>
-    <div>Clears: <span id="rs-clears">0</span></div>
-    <div>Frame Cost: <span id="rs-framecost">0 ms</span></div>
-    <div>Resolution: <span id="rs-resolution">0×0</span></div>
-    <div>Pixel Ratio: <span id="rs-pixelratio">1.00</span></div>
-  </div>
-
-  <!-- SCRIPT LOADING ORDER -->
-  <script src="core.js"></script>
-  <script src="engine.js"></script>
-
-  <script src="entities.js"></script>
-  <script src="formations.js"></script>
-  <script src="formation-ai.js"></script>
-  <script src="auto-spawn.js"></script>
-
-  <script src="halo-renderer.js"></script>
-
-  <script src="apexsim.js"></script>
-  <script src="apexsim-renderer.js"></script>
-
-  <script src="overlay.js"></script>
-  <script src="tick-profiler.js"></script>
-  <script src="event-timeline-visualizer.js"></script>
-  <script src="diag-fps-graph.js"></script>
-  <script src="debug-console.js"></script>
-  <script src="render-stats.js"></script>
-  <script src="apex-ui.js"></script>
-
-  <script>
-    window.APEX_VIS = {
-      halo: true,
-      sim: true,
-      dual: true,
-    };
-
-    document.addEventListener("DOMContentLoaded", () => {
-      APEX.startAll();
-    });
-  </script>
+    <!-- UI CONTROLLER (MUST LOAD LAST) -->
+    <script src="apex-ui.js"></script>
 
 </body>
 </html>
