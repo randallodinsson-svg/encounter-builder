@@ -47,7 +47,6 @@
       for (let i = 0; i < s.particles.length; i++) {
         const p = s.particles[i];
 
-        // ⭐ Flocking index passed into sampleFlow
         const flow = sim.sampleFlow(p.x, p.y, i);
 
         p.vx += flow.fx * 0.02;
@@ -56,7 +55,6 @@
         p.x += p.vx * s.particleSpeed * dt;
         p.y += p.vy * s.particleSpeed * dt;
 
-        // Wrap edges
         if (p.x < 0) p.x = w;
         if (p.x > w) p.x = 0;
         if (p.y < 0) p.y = h;
