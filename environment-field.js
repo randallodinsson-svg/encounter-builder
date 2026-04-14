@@ -1,161 +1,263 @@
 /*
-    APEXCORE v4.4 — Environmental Field Engine
-    Batch 3 — Step 3 (Environment Controls + Weather Presets)
+    APEXCORE v4.4 — Environmental Field
+    - Global atmospheric field for APEXSIM / HALO
+    - Supports:
+        • Base wind
+        • Turbulence
+        • Vortices
+        • Storm Mode
+        • Weather Presets
+        • Dynamic Storm Events (microbursts + rotating cells)
 */
 
 (function () {
 
-  const TWO_PI = Math.PI * 2;
-
   const ENV_FIELD = {
     _time: 0,
 
-    // Global multipliers
-    _strength: 1.0,
-
-    // Wind
+    // Base parameters
     _windSpeed: 0.15,
-    _windDir: Math.random() * TWO_PI,
-
-    // Turbulence
-    _turbulenceScale: 0.003,
-    _turbulenceIntensity: 1.0,
-
-    // Vortices
-    _vortexScale: 0.002,
-    _vortexIntensity: 1.0,
-
-    // Storm mode
+    _windDir: 0.0,          // radians
+    _turbulence: 1.0,
+    _vortices: 1.0,
     _stormMode: false,
-    _stormGustTimer: 0,
-    _stormGustValue: 0,
+
+    // Storm events
+    _stormEvents: [],       // array of { x, y, radius, strength, rot, life, type }
 
     start() {
       console.log("APEXCORE v4.4 — Environmental Field online.");
     },
 
+    // Called each tick by engine
     update(dt) {
-      this._time += dt * 0.001;
+      this._time += dt;
 
-      // Slowly rotate wind direction
-      this._windDir += 0.00015 * dt;
+      // Decay existing storm events
+      this._updateStormEvents(dt);
 
-      // Storm gusts
+      // If storm mode is on, occasionally spawn new events
       if (this._stormMode) {
-        this._stormGustTimer -= dt;
-        if (this._stormGustTimer <= 0) {
-          this._stormGustTimer = 500 + Math.random() * 1500;
-          this._stormGustValue = (Math.random() - 0.5) * 1.5;
-        }
+        this._maybeSpawnStormEvent(dt);
       }
     },
 
-    sample(x, y) {
-      const t = this._time;
+    // -----------------------------
+    // Public API — Controls
+    // -----------------------------
 
-      // -----------------------------
-      // 1. Global drifting wind
-      // -----------------------------
-      let windSpeed = this._windSpeed;
-
-      if (this._stormMode) {
-        windSpeed *= 2.0 + this._stormGustValue;
-      }
-
-      const windX = Math.cos(this._windDir) * windSpeed;
-      const windY = Math.sin(this._windDir) * windSpeed;
-
-      // -----------------------------
-      // 2. Turbulence pockets
-      // -----------------------------
-      const turbAngle =
-        this._hash2(
-          x * this._turbulenceScale,
-          y * this._turbulenceScale + t * 0.2
-        ) * TWO_PI;
-
-      const turbX = Math.cos(turbAngle) * 0.6 * this._turbulenceIntensity;
-      const turbY = Math.sin(turbAngle) * 0.6 * this._turbulenceIntensity;
-
-      // -----------------------------
-      // 3. Vortices
-      // -----------------------------
-      const vx = (x * this._vortexScale) + Math.sin(t * 0.1);
-      const vy = (y * this._vortexScale) + Math.cos(t * 0.1);
-
-      const vortexAngle = this._hash2(vx, vy) * TWO_PI;
-      const vortexX = -Math.sin(vortexAngle) * 0.4 * this._vortexIntensity;
-      const vortexY =  Math.cos(vortexAngle) * 0.4 * this._vortexIntensity;
-
-      // -----------------------------
-      // Combine forces
-      // -----------------------------
-      const fx = (windX + turbX + vortexX) * this._strength;
-      const fy = (windY + turbY + vortexY) * this._strength;
-
-      return { fx, fy };
+    setWindSpeed(v) {
+      this._windSpeed = Math.max(0, v || 0);
     },
 
-    // -----------------------------
-    // UI‑exposed controls
-    // -----------------------------
-    setStrength(v) { this._strength = v; },
-    setWindSpeed(v) { this._windSpeed = v; },
-    setWindDir(v) { this._windDir = v; },
-    setTurbulence(v) { this._turbulenceIntensity = v; },
-    setVortices(v) { this._vortexIntensity = v; },
-    setStormMode(v) { this._stormMode = !!v; },
+    setWindDir(rad) {
+      this._windDir = rad || 0;
+    },
 
-    // -----------------------------
-    // Weather Presets
-    // -----------------------------
+    setTurbulence(v) {
+      this._turbulence = Math.max(0, v || 0);
+    },
+
+    setVortices(v) {
+      this._vortices = Math.max(0, v || 0);
+    },
+
+    setStormMode(enabled) {
+      this._stormMode = !!enabled;
+    },
+
     setWeatherPreset(name) {
-      switch (name) {
+      // Normalize
+      const preset = String(name || "").toLowerCase();
 
+      switch (preset) {
         case "calm":
           this._windSpeed = 0.05;
-          this._turbulenceIntensity = 0.2;
-          this._vortexIntensity = 0.1;
+          this._turbulence = 0.3;
+          this._vortices = 0.2;
           this._stormMode = false;
           break;
 
         case "gusty":
           this._windSpeed = 0.4;
-          this._turbulenceIntensity = 1.2;
-          this._vortexIntensity = 0.6;
-          this._stormMode = false;
+          this._turbulence = 1.5;
+          this._vortices = 0.8;
+          this._stormMode = true;
           break;
 
         case "storm":
-          this._windSpeed = 0.8;
-          this._turbulenceIntensity = 2.0;
-          this._vortexIntensity = 1.5;
+          this._windSpeed = 0.7;
+          this._turbulence = 2.2;
+          this._vortices = 1.8;
+          this._stormMode = true;
+          break;
+
+        case "turbulentsea":
+        case "turbulentSea":
+          this._windSpeed = 0.9;
+          this._turbulence = 3.0;
+          this._vortices = 2.4;
           this._stormMode = true;
           break;
 
         case "cyclone":
-          this._windSpeed = 0.3;
-          this._turbulenceIntensity = 1.0;
-          this._vortexIntensity = 3.0;
+          this._windSpeed = 0.6;
+          this._turbulence = 2.5;
+          this._vortices = 3.0;
           this._stormMode = true;
           break;
 
-        case "turbulentSea":
-          this._windSpeed = 0.2;
-          this._turbulenceIntensity = 3.0;
-          this._vortexIntensity = 0.4;
+        default:
+          // Fallback to calm
+          this._windSpeed = 0.1;
+          this._turbulence = 0.6;
+          this._vortices = 0.5;
           this._stormMode = false;
           break;
-
-        default:
-          console.warn("Unknown weather preset:", name);
       }
 
-      console.log("ENV_FIELD: Weather Preset →", name);
+      console.log("ENV_FIELD: Weather Preset →", preset);
     },
 
-    _hash2(x, y) {
-      const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    // -----------------------------
+    // Public API — Sampling
+    // -----------------------------
+    // x, y are in "field space" (we treat them as arbitrary world units)
+    // Returns { fx, fy }
+    // -----------------------------
+    sample(x, y) {
+      const t = this._time * 0.001;
+
+      // Base wind
+      const baseDirX = Math.cos(this._windDir);
+      const baseDirY = Math.sin(this._windDir);
+      let fx = baseDirX * this._windSpeed;
+      let fy = baseDirY * this._windSpeed;
+
+      // Turbulence (simple time-varying noise)
+      if (this._turbulence > 0) {
+        const n1 = this._hashNoise(x * 0.003, y * 0.003, t * 0.7);
+        const n2 = this._hashNoise(x * -0.002, y * 0.0025, t * 0.9);
+        fx += (n1 - 0.5) * this._turbulence * 0.8;
+        fy += (n2 - 0.5) * this._turbulence * 0.8;
+      }
+
+      // Vortices (large-scale swirl)
+      if (this._vortices > 0) {
+        const scale = 0.0006;
+        const vx = x * scale;
+        const vy = y * scale;
+        const r2 = vx * vx + vy * vy + 1e-6;
+        const invR = 1 / Math.sqrt(r2);
+        const swirl = this._vortices * 0.9;
+
+        // Perpendicular to radius vector
+        fx += -vy * invR * swirl;
+        fy += vx * invR * swirl;
+      }
+
+      // Storm events (microbursts, rotating cells)
+      if (this._stormEvents.length > 0) {
+        const stormForce = this._sampleStormEvents(x, y);
+        fx += stormForce.fx;
+        fy += stormForce.fy;
+      }
+
+      return { fx, fy };
+    },
+
+    // -----------------------------
+    // Storm Events
+    // -----------------------------
+
+    _updateStormEvents(dt) {
+      const decay = dt * 0.0005;
+      for (let i = this._stormEvents.length - 1; i >= 0; i--) {
+        const e = this._stormEvents[i];
+        e.life -= decay;
+        if (e.life <= 0) {
+          this._stormEvents.splice(i, 1);
+        }
+      }
+    },
+
+    _maybeSpawnStormEvent(dt) {
+      // Probability scaled by turbulence + vortices
+      const intensity = (this._turbulence + this._vortices) * 0.5;
+      const baseRate = 0.0004; // events per ms
+      const chance = baseRate * dt * (0.5 + intensity);
+
+      if (Math.random() < chance) {
+        this._spawnStormEvent();
+      }
+    },
+
+    _spawnStormEvent() {
+      // Random position in a broad field space
+      const radius = 400 + Math.random() * 800;
+      const strength = 0.8 + Math.random() * 2.0;
+      const rot = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 1.5);
+      const life = 0.6 + Math.random() * 1.4; // in "life units", decays in _updateStormEvents
+
+      const type = Math.random() < 0.5 ? "microburst" : "rotor";
+
+      const e = {
+        x: (Math.random() * 2 - 1) * 2000,
+        y: (Math.random() * 2 - 1) * 2000,
+        radius,
+        strength,
+        rot,
+        life,
+        type,
+      };
+
+      this._stormEvents.push(e);
+    },
+
+    _sampleStormEvents(x, y) {
+      let fx = 0;
+      let fy = 0;
+
+      for (let i = 0; i < this._stormEvents.length; i++) {
+        const e = this._stormEvents[i];
+        const dx = x - e.x;
+        const dy = y - e.y;
+        const dist2 = dx * dx + dy * dy;
+        const r = e.radius;
+
+        if (dist2 > r * r) continue;
+
+        const dist = Math.sqrt(dist2) + 1e-6;
+        const norm = dist / r;
+
+        // Falloff: strong in center, fades to edge
+        const falloff = (1 - norm) * (1 - norm) * e.life;
+
+        if (e.type === "microburst") {
+          // Radial outburst
+          const dirX = dx / dist;
+          const dirY = dy / dist;
+          const s = e.strength * falloff;
+          fx += dirX * s;
+          fy += dirY * s;
+        } else {
+          // Rotating cell (tangential)
+          const dirX = -dy / dist;
+          const dirY = dx / dist;
+          const s = e.strength * falloff * e.rot;
+          fx += dirX * s;
+          fy += dirY * s;
+        }
+      }
+
+      return { fx, fy };
+    },
+
+    // -----------------------------
+    // Simple hash-based noise
+    // -----------------------------
+    _hashNoise(x, y, t) {
+      const s = Math.sin(x * 12.9898 + y * 78.233 + t * 37.719) * 43758.5453;
       return s - Math.floor(s);
     },
   };
