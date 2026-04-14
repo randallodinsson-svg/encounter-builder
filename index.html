@@ -15,18 +15,32 @@
             background: #000;
             font-family: sans-serif;
         }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
     </style>
 </head>
 
 <body>
 
+    <!-- ROOT FOR OVERLAYS -->
+    <div id="apex-root"></div>
+
+    <!-- UI PANEL -->
     <div id="apex-ui"></div>
-    <canvas id="apex-canvas"></canvas>
+
+    <!-- REQUIRED CANVASES -->
+    <canvas id="halo-canvas"></canvas>
+    <canvas id="haloCanvas"></canvas>
+    <canvas id="fps-canvas"></canvas>
 
     <!-- CORE REGISTRY -->
     <script src="core.js"></script>
 
-    <!-- ENGINE SHIM (defines APEX.start) -->
+    <!-- ENGINE SHIM -->
     <script src="apexcore-engine.js"></script>
 
     <!-- CORE SYSTEM MODULES -->
