@@ -1,15 +1,12 @@
 /*
-    APEXCORE v4.4 — HALO Renderer (Network Field)
+    APEXCORE v4.4 — HALO Renderer
+    Node/link visualizer for Entities registry.
 */
 
 (function () {
-  const Entities = APEX.get("entities");
-
-  const HaloRenderer = {
+  const Renderer = {
     canvas: null,
     ctx: null,
-    maxLinks: 6,
-    linkDistance: 160,
 
     start() {
       this.canvas = document.getElementById("halo-canvas");
@@ -17,68 +14,69 @@
         console.warn("HALO Renderer — canvas #halo-canvas not found.");
         return;
       }
+
       this.ctx = this.canvas.getContext("2d");
       this.resize();
       window.addEventListener("resize", () => this.resize());
+
       console.log("APEXCORE v4.4 — HALO Renderer online.");
-      requestAnimationFrame(this.loop.bind(this));
+      this.loop();
     },
 
     resize() {
+      if (!this.canvas) return;
       this.canvas.width = window.innerWidth;
       this.canvas.height = window.innerHeight;
     },
 
     loop() {
+      requestAnimationFrame(() => this.loop());
       this.render();
-      requestAnimationFrame(this.loop.bind(this));
     },
 
     render() {
-      const ctx = this.ctx;
-      if (!ctx) return;
+      const vis = window.APEX_VIS || {};
+      if (vis.halo === false && vis.dual !== true) return;
 
-      const ents = Entities.list;
+      const Entities = APEX.get("entities");
+      if (!Entities || !this.ctx) return;
+
+      const ctx = this.ctx;
       const w = this.canvas.width;
       const h = this.canvas.height;
 
       ctx.clearRect(0, 0, w, h);
 
-      // Background glow
-      ctx.fillStyle = "rgba(0, 0, 0, 1)";
-      ctx.fillRect(0, 0, w, h);
+      const list = Entities.getAll ? Entities.getAll() : Entities.list || [];
+      if (!list.length) return;
 
-      // Draw links
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i < ents.length; i++) {
-        const a = ents[i];
-        let links = 0;
-        for (let j = i + 1; j < ents.length && links < this.maxLinks; j++) {
-          const b = ents[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < this.linkDistance) {
-            const alpha = 1 - dist / this.linkDistance;
-            ctx.strokeStyle = `rgba(255, 200, 120, ${alpha * 0.6})`;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-            links++;
-          }
-        }
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+
+      // Links
+      ctx.strokeStyle = "rgba(255, 220, 120, 0.55)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+
+      for (let i = 0; i < list.length - 1; i++) {
+        const a = list[i];
+        const b = list[i + 1];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
       }
+      ctx.stroke();
 
-      // Draw nodes
-      ctx.fillStyle = "#ffcc66";
-      for (const e of ents) {
+      // Nodes
+      ctx.fillStyle = "rgba(255, 240, 180, 0.95)";
+      for (const e of list) {
         ctx.beginPath();
-        ctx.arc(e.x, e.y, 2, 0, Math.PI * 2);
+        ctx.arc(e.x, e.y, 4, 0, Math.PI * 2);
         ctx.fill();
       }
+
+      ctx.restore();
     },
   };
 
-  APEX.register("renderer", HaloRenderer);
+  APEX.register("renderer", Renderer);
 })();
