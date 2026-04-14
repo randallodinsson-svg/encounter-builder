@@ -1,7 +1,9 @@
-/* 
-    APEXSIM Renderer v4.4 (Flocking‑Ready)
-    Draws particles, trails, debug vectors, and obstacles.
-    Fully compatible with APEXSIM v4.9 (Flocking Intelligence Edition)
+/*
+    APEXSIM Renderer v4.4 — Species‑Colored Rendering
+    Works with:
+      - 5‑species behavior engine (apexsim.js)
+      - Dual‑field visibility system (index.html)
+      - Trails, pause, presets, etc.
 */
 
 (function () {
@@ -65,18 +67,21 @@
       const s = sim._state;
       const ctx = this.ctx;
 
-      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-      if (s.trailsEnabled) {
+      if (!s.trailsEnabled) {
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      } else {
         ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
 
-      ctx.fillStyle = "#ffffff";
+      const speciesDefs = sim._species;
 
       for (const p of s.particles) {
+        const sp = speciesDefs[p.speciesId] || speciesDefs[0];
+
+        ctx.fillStyle = sp.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2);
         ctx.fill();
       }
     },
