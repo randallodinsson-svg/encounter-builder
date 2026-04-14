@@ -1,80 +1,108 @@
-/*
-    APEXSIM v1.1 — Engine-Aligned
-*/
+// ------------------------------------------------------------
+// APEXCORE v4.4 — APEXSIM ENGINE
+// ------------------------------------------------------------
 
-(function () {
+window.APEXSIM = (function () {
+  const api = {};
 
-    const state = {
-        particles: [],
-        obstacles: [],
-        running: true,
-        tick: 0
-    };
+  // -----------------------------
+  // INTERNAL STATE
+  // -----------------------------
+  const state = {
+    fps: 0,
+    delta: 0,
+    particleCount: 512,
+    particleSpeed: 1.0,
+    fieldStrength: 1.0,
+    obstaclesEnabled: true,
+    trailsEnabled: true,
+    paused: false,
+    particles: [],
+    obstacles: []
+  };
 
-    function init() {
-        state.particles.length = 0;
-        state.obstacles.length = 0;
+  api._state = state;
 
-        for (let i = 0; i < 40; i++) {
-            state.particles.push({
-                x: 200 + Math.random() * 40,
-                y: 200 + Math.random() * 40,
-                vx: (Math.random() - 0.5) * 60,
-                vy: (Math.random() - 0.5) * 60,
-                size: 3 + Math.random() * 2,
-                color: "rgba(0,180,255,1)"
-            });
-        }
-
-        state.obstacles.push({ x: 400, y: 200, r: 40 });
-        state.obstacles.push({ x: 500, y: 300, r: 30 });
-        state.obstacles.push({ x: 300, y: 350, r: 50 });
-
-        console.log("APEXSIM v1.1 — Simulation initialized");
+  // -----------------------------
+  // PARTICLE SYSTEM
+  // -----------------------------
+  function initParticles() {
+    state.particles = [];
+    for (let i = 0; i < state.particleCount; i++) {
+      state.particles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random() - 0.5) * state.particleSpeed,
+        vy: (Math.random() - 0.5) * state.particleSpeed
+      });
     }
+  }
 
-    function update(dt) {
-        if (!state.running) return;
+  initParticles();
 
-        const p = state.particles;
-        const obs = state.obstacles;
+  // -----------------------------
+  // CONTROL SURFACE API
+  // -----------------------------
+  api.setParticleCount = function (count) {
+    state.particleCount = count;
+    initParticles();
+  };
 
-        for (let i = 0; i < p.length; i++) {
-            const a = p[i];
+  api.setParticleSpeed = function (speed) {
+    state.particleSpeed = speed;
+  };
 
-            a.x += a.vx * dt;
-            a.y += a.vy * dt;
+  api.setFieldStrength = function (strength) {
+    state.fieldStrength = strength;
+  };
 
-            if (a.x < 0 || a.x > 800) a.vx *= -1;
-            if (a.y < 0 || a.y > 600) a.vy *= -1;
+  api.setObstaclesEnabled = function (enabled) {
+    state.obstaclesEnabled = enabled;
+  };
 
-            for (let j = 0; j < obs.length; j++) {
-                const o = obs[j];
-                const dx = a.x - o.x;
-                const dy = a.y - o.y;
-                const dist = Math.hypot(dx, dy);
+  api.setTrailsEnabled = function (enabled) {
+    state.trailsEnabled = enabled;
+  };
 
-                if (dist < o.r + 20) {
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    a.vx += nx * 40 * dt;
-                    a.vy += ny * 40 * dt;
-                }
-            }
-        }
+  api.setPaused = function (paused) {
+    state.paused = paused;
+  };
 
-        state.tick++;
+  api.spawnBurst = function () {
+    for (let i = 0; i < 50; i++) {
+      state.particles.push({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4
+      });
     }
+  };
 
-    function getState() {
-        return state;
+  api.resetSimulation = function () {
+    initParticles();
+  };
+
+  api.applyPreset = function (preset) {
+    switch (preset) {
+      case "swarm":
+        state.fieldStrength = 1.5;
+        state.particleSpeed = 1.0;
+        break;
+      case "drift":
+        state.fieldStrength = 0.5;
+        state.particleSpeed = 0.5;
+        break;
+      case "pulse":
+        state.fieldStrength = 2.0;
+        state.particleSpeed = 1.5;
+        break;
+      case "orbit":
+        state.fieldStrength = 1.0;
+        state.particleSpeed = 2.0;
+        break;
     }
+  };
 
-    APEX.register("apexsim", {
-        type: "simulation",
-        init,
-        update,
-        getState
-    });
-
+  return api;
 })();
