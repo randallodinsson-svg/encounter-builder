@@ -21,6 +21,15 @@
             top: 0;
             left: 0;
         }
+
+        /* Ensures UI panel overlays correctly */
+        #apex-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 50;
+            pointer-events: auto;
+        }
     </style>
 </head>
 
@@ -29,8 +38,13 @@
     <!-- ROOT FOR OVERLAYS -->
     <div id="apex-root"></div>
 
-    <!-- UI PANEL -->
-    <div id="apex-ui"></div>
+    <!-- FULL APEX UI PANEL (RESTORED) -->
+    <div id="apex-ui">
+        <div class="apex-ui-panel">
+            <div class="apex-ui-section" id="apex-ui-main"></div>
+            <div class="apex-ui-section" id="apex-ui-secondary"></div>
+        </div>
+    </div>
 
     <!-- REQUIRED CANVASES -->
     <canvas id="halo-canvas"></canvas>
@@ -40,7 +54,7 @@
     <!-- CORE REGISTRY -->
     <script src="core.js"></script>
 
-    <!-- ENGINE SHIM -->
+    <!-- ENGINE SHIM (defines APEX.start) -->
     <script src="apexcore-engine.js"></script>
 
     <!-- CORE SYSTEM MODULES -->
