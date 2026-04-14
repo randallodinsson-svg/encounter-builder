@@ -1,530 +1,373 @@
 /*
-    APEXCORE v4.9 — APEXSIM Engine
-    Flow Field + Fractal Curl Noise + Attractor / Repulsor Fields + Vortex Cores + Additive Flocking + Resume Kick
+    APEXSIM v4.9 — Species Behavior Engine
+    5 Species, Strong Differences, Fast Predators
+    Compatible with:
+      - apexsim-renderer.js (sampleFlow API)
+      - apex-ui.js (SIM control API)
 */
 
 (function () {
 
-  /* ----------------------------- */
-  /*      SIMPLEX NOISE (2D)       */
-  /* ----------------------------- */
+  const TWO_PI = Math.PI * 2;
 
-  function Simplex2D(seed = 1) {
-    const grad3 = [
-      [1, 1], [-1, 1], [1, -1], [-1, -1],
-      [1, 0], [-1, 0], [0, 1], [0, -1],
-    ];
-
-    const p = new Uint8Array(256);
-    for (let i = 0; i < 256; i++) p[i] = i;
-
-    let s = seed >>> 0;
-    function rand() {
-      s = (s * 1664525 + 1013904223) >>> 0;
-      return s / 0xffffffff;
-    }
-
-    for (let i = 255; i > 0; i--) {
-      const j = (rand() * (i + 1)) | 0;
-      const tmp = p[i];
-      p[i] = p[j];
-      p[j] = tmp;
-    }
-
-    const perm = new Uint8Array(512);
-    const permMod12 = new Uint8Array(512);
-    for (let i = 0; i < 512; i++) {
-      perm[i] = p[i & 255];
-      permMod12[i] = perm[i] % 12;
-    }
-
-    const F2 = 0.5 * (Math.sqrt(3) - 1);
-    const G2 = (3 - Math.sqrt(3)) / 6;
-
-    function noise2D(xin, yin) {
-      let n0, n1, n2;
-
-      const s = (xin + yin) * F2;
-      const i = Math.floor(xin + s);
-      const j = Math.floor(yin + s);
-      const t = (i + j) * G2;
-      const X0 = i - t;
-      const Y0 = j - t;
-      const x0 = xin - X0;
-      const y0 = yin - Y0;
-
-      let i1, j1;
-      if (x0 > y0) { i1 = 1; j1 = 0; }
-      else { i1 = 0; j1 = 1; }
-
-      const x1 = x0 - i1 + G2;
-      const y1 = y0 - j1 + G2;
-      const x2 = x0 - 1 + 2 * G2;
-      const y2 = y0 - 1 + 2 * G2;
-
-      const ii = i & 255;
-      const jj = j & 255;
-      const gi0 = permMod12[ii + perm[jj]] % grad3.length;
-      const gi1 = permMod12[ii + i1 + perm[jj + j1]] % grad3.length;
-      const gi2 = permMod12[ii + 1 + perm[jj + 1]] % grad3.length;
-
-      let t0 = 0.5 - x0 * x0 - y0 * y0;
-      if (t0 < 0) n0 = 0;
-      else {
-        t0 *= t0;
-        const g = grad3[gi0];
-        n0 = t0 * t0 * (g[0] * x0 + g[1] * y0);
-      }
-
-      let t1 = 0.5 - x1 * x1 - y1 * y1;
-      if (t1 < 0) n1 = 0;
-      else {
-        t1 *= t1;
-        const g = grad3[gi1];
-        n1 = t1 * t1 * (g[0] * x1 + g[1] * y1);
-      }
-
-      let t2 = 0.5 - x2 * x2 - y2 * y2;
-      if (t2 < 0) n2 = 0;
-      else {
-        t2 *= t2;
-        const g = grad3[gi2];
-        n2 = t2 * t2 * (g[0] * x2 + g[1] * y2);
-      }
-
-      return 70 * (n0 + n1 + n2);
-    }
-
-    return { noise2D };
-  }
-
-  const noise = Simplex2D(1337);
-
-  /* ----------------------------- */
-  /*        CURL NOISE (2D)        */
-  /* ----------------------------- */
-
-  function curlNoise(x, y, t, scale) {
-    const eps = 0.0005;
-
-    const n1 = noise.noise2D((x + eps) * scale, y * scale + t);
-    const n2 = noise.noise2D((x - eps) * scale, y * scale + t);
-    const a = (n1 - n2) / (2 * eps);
-
-    const n3 = noise.noise2D(x * scale + t, (y + eps) * scale);
-    const n4 = noise.noise2D(x * scale + t, (y - eps) * scale);
-    const b = (n3 - n4) / (2 * eps);
-
-    return { x: b, y: -a };
-  }
-
-  /* ----------------------------- */
-  /*        APEXSIM ENGINE         */
-  /* ----------------------------- */
-
-  const APEXSIM = {
+  const SIM = {
     _state: {
-      fps: 0,
-      delta: 0,
+      particles: [],
       particleCount: 512,
       particleSpeed: 1.0,
-
       fieldStrength: 1.0,
-      curlStrengthMacro: 1.0,
-      curlStrengthMeso: 0.5,
-      curlStrengthMicro: 0.25,
-
-      // Fields: attractor, repulsor, vortex
-      // { x, y, strength, radius, type: "attractor" | "repulsor" | "vortex", spin?: 1|-1 }
-      fields: [],
-
-      // Flocking parameters
-      flockEnabled: true,
-      flockRadius: 80,
-      flockSeparationRadius: 30,
-      flockSeparationWeight: 1.2,
-      flockAlignmentWeight: 0.7,
-      flockCohesionWeight: 0.6,
-
-      obstaclesEnabled: true,
       trailsEnabled: true,
+      obstaclesEnabled: true,
       paused: false,
-      particles: [],
       preset: "drift",
+      time: 0,
     },
+
+    // 5 species with strong differences
+    _species: [
+      {
+        id: 0,
+        name: "Alpha",
+        color: "#ffe9a3",
+        maxSpeed: 1.0,
+        cohesion: 1.0,
+        alignment: 1.0,
+        separation: 0.6,
+        noise: 0.2,
+        fieldSensitivity: 0.6,
+      },
+      {
+        id: 1,
+        name: "Beta",
+        color: "#ff9f80",
+        maxSpeed: 1.6,      // fast predators
+        cohesion: 0.7,
+        alignment: 0.8,
+        separation: 0.4,
+        noise: 0.3,
+        fieldSensitivity: 0.4,
+      },
+      {
+        id: 2,
+        name: "Gamma",
+        color: "#80c8ff",
+        maxSpeed: 1.1,
+        cohesion: 0.5,
+        alignment: 0.6,
+        separation: 1.2,    // strong avoidance
+        noise: 0.3,
+        fieldSensitivity: 0.7,
+      },
+      {
+        id: 3,
+        name: "Delta",
+        color: "#b080ff",
+        maxSpeed: 1.3,
+        cohesion: 0.4,
+        alignment: 0.3,
+        separation: 0.5,
+        noise: 1.0,         // chaotic
+        fieldSensitivity: 0.5,
+      },
+      {
+        id: 4,
+        name: "Epsilon",
+        color: "#7dffb3",
+        maxSpeed: 1.0,
+        cohesion: 0.8,
+        alignment: 0.7,
+        separation: 0.7,
+        noise: 0.4,
+        fieldSensitivity: 1.2, // very sensitive to fields
+      },
+    ],
+
+    // aggression matrix: who hunts who (predator → prey)
+    // values: 0 = ignore, 1 = mild, 2 = strong
+    _aggression: [
+      //  A   B   G   D   E
+      [ 0,  0,  0,  0,  0 ], // Alpha
+      [ 0,  0,  2,  1,  2 ], // Beta (predator)
+      [ 0,  0,  0,  0,  0 ], // Gamma
+      [ 0,  1,  0,  0,  0 ], // Delta (harasses Betas a bit)
+      [ 0,  0,  0,  0,  0 ], // Epsilon
+    ],
 
     start() {
       console.log("APEXCORE v4.9 — APEXSIM online.");
-      this._initParticles();
-      this._initDefaultFields();
+
+      this._state.preset = "drift";
+      this._rebuildParticles();
     },
 
-    _initParticles() {
-      const s = this._state;
-      s.particles = [];
-      const w = window.innerWidth;
-      const h = window.innerHeight;
+    /* -------------------------------------------------- */
+    /*                 PUBLIC CONTROL API                 */
+    /* -------------------------------------------------- */
 
-      for (let i = 0; i < s.particleCount; i++) {
-        s.particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vx: (Math.random() - 0.5) * s.particleSpeed,
-          vy: (Math.random() - 0.5) * s.particleSpeed,
-        });
-      }
+    setPreset(name) {
+      this._state.preset = name || "drift";
     },
 
-    _initDefaultFields() {
-      const s = this._state;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      s.fields = [];
-
-      // Default: soft center vortex
-      s.fields.push({
-        x: w / 2,
-        y: h / 2,
-        strength: 1.5,
-        radius: Math.min(w, h) * 0.4,
-        type: "vortex",
-        spin: 1,
-      });
+    setParticleCount(count) {
+      this._state.particleCount = Math.max(16, Math.min(5000, count | 0));
+      this._rebuildParticles();
     },
 
-    /* ----------------------------- */
-    /*     UI CONTROL SURFACE        */
-    /* ----------------------------- */
+    setSpeed(speed) {
+      this._state.particleSpeed = Math.max(0.05, Math.min(5, speed));
+    },
 
-    pause() { this._state.paused = true; },
+    setFieldStrength(strength) {
+      this._state.fieldStrength = Math.max(0, Math.min(5, strength));
+    },
+
+    enableObstacles(enabled) {
+      this._state.obstaclesEnabled = !!enabled;
+    },
+
+    enableTrails(enabled) {
+      this._state.trailsEnabled = !!enabled;
+    },
+
+    pause() {
+      this._state.paused = true;
+    },
 
     resume() {
-      const s = this._state;
-      s.paused = false;
+      this._state.paused = false;
+    },
 
-      for (const p of s.particles) {
-        p.vx *= 1.05;
-        p.vy *= 1.05;
+    spawnBurst(count) {
+      const n = count || 64;
+      const w = window.innerWidth || 1920;
+      const h = window.innerHeight || 1080;
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      for (let i = 0; i < n; i++) {
+        const angle = Math.random() * TWO_PI;
+        const radius = 40 + Math.random() * 80;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+
+        const speciesId = (i % this._species.length);
+        this._state.particles.push(this._makeParticle(x, y, speciesId));
       }
     },
 
     reset() {
-      this._initParticles();
-      this._initDefaultFields();
+      this._rebuildParticles();
     },
 
-    spawnBurst(count = 64) {
+    /* -------------------------------------------------- */
+    /*              CORE FIELD / FLOW FUNCTION            */
+    /* -------------------------------------------------- */
+
+    /**
+     * Called by apexsim-renderer.js for each particle per frame.
+     * Returns a flow vector { fx, fy }.
+     */
+    sampleFlow(x, y, index) {
       const s = this._state;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const cx = w / 2;
-      const cy = h / 2;
-
-      for (let i = 0; i < count; i++) {
-        s.particles.push({
-          x: cx,
-          y: cy,
-          vx: (Math.random() - 0.5) * 6,
-          vy: (Math.random() - 0.5) * 6,
-        });
-      }
-    },
-
-    setPreset(name) {
-      this._state.preset = name;
-      this.applyPreset(name);
-    },
-
-    setSpeed(v) { this._state.particleSpeed = v; },
-    setParticleCount(v) { this._state.particleCount = v; this._initParticles(); },
-    setFieldStrength(v) { this._state.fieldStrength = v; },
-    enableObstacles(v) { this._state.obstaclesEnabled = v; },
-    enableTrails(v) { this._state.trailsEnabled = v; },
-
-    /* ----------------------------- */
-    /*       FIELD MANAGEMENT        */
-    /* ----------------------------- */
-
-    clearFields() {
-      this._state.fields = [];
-    },
-
-    addField(x, y, strength, radius, type = "attractor", spin = 1) {
-      this._state.fields.push({ x, y, strength, radius, type, spin });
-    },
-
-    /* ----------------------------- */
-    /*          PRESETS              */
-    /* ----------------------------- */
-
-    applyPreset(preset) {
-      const s = this._state;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-
-      s.fields = [];
-
-      switch (preset) {
-        case "swarm":
-          s.fieldStrength = 1.0;
-          s.curlStrengthMacro = 2.2;
-          s.curlStrengthMeso = 1.4;
-          s.curlStrengthMicro = 0.8;
-          s.particleSpeed = 1.0;
-
-          s.flockEnabled = true;
-          s.flockRadius = 90;
-          s.flockSeparationRadius = 32;
-          s.flockSeparationWeight = 1.4;
-          s.flockAlignmentWeight = 0.9;
-          s.flockCohesionWeight = 0.8;
-
-          s.fields.push(
-            { x: w * 0.3, y: h * 0.4, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "vortex", spin: 1 },
-            { x: w * 0.7, y: h * 0.6, strength: 2.0, radius: Math.min(w, h) * 0.3, type: "vortex", spin: -1 },
-            { x: w * 0.5, y: h * 0.5, strength: 1.8, radius: Math.min(w, h) * 0.25, type: "repulsor" },
-          );
-          break;
-
-        case "drift":
-          s.fieldStrength = 0.7;
-          s.curlStrengthMacro = 0.8;
-          s.curlStrengthMeso = 0.4;
-          s.curlStrengthMicro = 0.2;
-          s.particleSpeed = 0.6;
-
-          s.flockEnabled = true;
-          s.flockRadius = 70;
-          s.flockSeparationRadius = 26;
-          s.flockSeparationWeight = 0.9;
-          s.flockAlignmentWeight = 0.6;
-          s.flockCohesionWeight = 0.5;
-
-          s.fields.push({
-            x: w / 2,
-            y: h / 2,
-            strength: 0.9,
-            radius: Math.min(w, h) * 0.5,
-            type: "vortex",
-            spin: 1,
-          });
-          break;
-
-        case "pulse":
-          s.fieldStrength = 2.0;
-          s.curlStrengthMacro = 2.8;
-          s.curlStrengthMeso = 1.8;
-          s.curlStrengthMicro = 1.0;
-          s.particleSpeed = 1.7;
-
-          s.flockEnabled = true;
-          s.flockRadius = 85;
-          s.flockSeparationRadius = 30;
-          s.flockSeparationWeight = 1.5;
-          s.flockAlignmentWeight = 0.8;
-          s.flockCohesionWeight = 0.7;
-
-          s.fields.push(
-            { x: w / 2, y: h / 2, strength: 3.0, radius: Math.min(w, h) * 0.35, type: "vortex", spin: 1 },
-            { x: w * 0.1, y: h * 0.1, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
-            { x: w * 0.9, y: h * 0.9, strength: 2.0, radius: Math.min(w, h) * 0.25, type: "repulsor" },
-          );
-          break;
-
-        case "orbit":
-          s.fieldStrength = 1.2;
-          s.curlStrengthMacro = 1.6;
-          s.curlStrengthMeso = 0.9;
-          s.curlStrengthMicro = 0.4;
-          s.particleSpeed = 2.0;
-
-          s.flockEnabled = true;
-          s.flockRadius = 80;
-          s.flockSeparationRadius = 28;
-          s.flockSeparationWeight = 1.0;
-          s.flockAlignmentWeight = 0.7;
-          s.flockCohesionWeight = 0.7;
-
-          s.fields.push({
-            x: w / 2,
-            y: h / 2,
-            strength: 2.4,
-            radius: Math.min(w, h) * 0.45,
-            type: "vortex",
-            spin: 1,
-          });
-          break;
-      }
-    },
-
-    /* ----------------------------- */
-    /*   FIELD FORCE SAMPLING        */
-    /* ----------------------------- */
-
-    _sampleFields(x, y) {
-      const s = this._state;
-      let fx = 0;
-      let fy = 0;
-
-      for (const f of s.fields) {
-        const dx = f.x - x;
-        const dy = f.y - y;
-        const distSq = dx * dx + dy * dy;
-        const radiusSq = f.radius * f.radius;
-
-        if (distSq > radiusSq || distSq === 0) continue;
-
-        const dist = Math.sqrt(distSq);
-        const falloff = 1 - dist / f.radius;
-
-        if (f.type === "attractor" || f.type === "repulsor") {
-          let strength = f.strength * falloff;
-          if (f.type === "repulsor") strength *= -1;
-
-          const nx = dx / (dist || 1);
-          const ny = dy / (dist || 1);
-
-          fx += nx * strength;
-          fy += ny * strength;
-        } else if (f.type === "vortex") {
-          const nx = dx / (dist || 1);
-          const ny = dy / (dist || 1);
-
-          const tx = -ny * (f.spin || 1);
-          const ty = nx * (f.spin || 1);
-
-          const strength = f.strength * falloff;
-
-          fx += tx * strength;
-          fy += ty * strength;
-        }
-      }
-
-      return { fx, fy };
-    },
-
-    /* ----------------------------- */
-    /*       FLOCKING LAYER          */
-    /* ----------------------------- */
-
-    _sampleFlocking(index) {
-      const s = this._state;
-      if (!s.flockEnabled) return { fx: 0, fy: 0 };
-
       const particles = s.particles;
       const p = particles[index];
+      if (!p) {
+        return { fx: 0, fy: 0 };
+      }
 
-      const radius = s.flockRadius;
-      const sepRadius = s.flockSeparationRadius;
-      const radiusSq = radius * radius;
-      const sepRadiusSq = sepRadius * sepRadius;
+      const species = this._species[p.speciesId] || this._species[0];
+
+      // Neighborhood parameters
+      const neighborRadius = 80;
+      const separationRadius = 24;
 
       let count = 0;
-      let avgVX = 0, avgVY = 0;
-      let avgX = 0, avgY = 0;
-      let sepX = 0, sepY = 0;
+      let avgX = 0;
+      let avgY = 0;
+      let avgVX = 0;
+      let avgVY = 0;
+      let sepX = 0;
+      let sepY = 0;
+
+      // Predator / prey forces
+      let fleeX = 0;
+      let fleeY = 0;
+      let chaseX = 0;
+      let chaseY = 0;
 
       for (let i = 0; i < particles.length; i++) {
         if (i === index) continue;
         const o = particles[i];
 
-        const dx = o.x - p.x;
-        const dy = o.y - p.y;
+        const dx = o.x - x;
+        const dy = o.y - y;
         const distSq = dx * dx + dy * dy;
+        if (distSq > neighborRadius * neighborRadius) continue;
 
-        if (distSq > radiusSq) continue;
+        const dist = Math.sqrt(distSq) || 0.0001;
+        const nx = dx / dist;
+        const ny = dy / dist;
 
-        count++;
-
-        avgVX += o.vx;
-        avgVY += o.vy;
-
+        // Flocking accumulation
         avgX += o.x;
         avgY += o.y;
+        avgVX += o.vx;
+        avgVY += o.vy;
+        count++;
 
-        if (distSq < sepRadiusSq && distSq > 0) {
-          const dist = Math.sqrt(distSq);
-          const nx = dx / (dist || 1);
-          const ny = dy / (dist || 1);
-          const strength = 1 - dist / sepRadius;
-          sepX -= nx * strength;
-          sepY -= ny * strength;
+        // Separation
+        if (dist < separationRadius) {
+          sepX -= nx / dist;
+          sepY -= ny / dist;
+        }
+
+        // Species interaction
+        const mySpecies = p.speciesId;
+        const otherSpecies = o.speciesId;
+
+        const aggression = this._aggression[mySpecies][otherSpecies] || 0;
+        const reverseAggression = this._aggression[otherSpecies][mySpecies] || 0;
+
+        // If this species hunts the other → chase
+        if (aggression > 0) {
+          const strength = aggression === 2 ? 1.0 : 0.5;
+          chaseX += dx * strength / dist;
+          chaseY += dy * strength / dist;
+        }
+
+        // If the other species hunts this → flee
+        if (reverseAggression > 0) {
+          const strength = reverseAggression === 2 ? 1.2 : 0.7;
+          fleeX -= dx * strength / dist;
+          fleeY -= dy * strength / dist;
         }
       }
 
-      if (count === 0) return { fx: 0, fy: 0 };
+      let cohX = 0, cohY = 0;
+      let aliX = 0, aliY = 0;
 
-      const invCount = 1 / count;
+      if (count > 0) {
+        const inv = 1 / count;
 
-      avgVX *= invCount;
-      avgVY *= invCount;
-      avgX  *= invCount;
-      avgY  *= invCount;
+        const centerX = avgX * inv;
+        const centerY = avgY * inv;
 
-      const alignX = (avgVX - p.vx) * s.flockAlignmentWeight;
-      const alignY = (avgVY - p.vy) * s.flockAlignmentWeight;
+        cohX = (centerX - x);
+        cohY = (centerY - y);
 
-      const cohX = (avgX - p.x) * s.flockCohesionWeight * 0.01;
-      const cohY = (avgY - p.y) * s.flockCohesionWeight * 0.01;
+        aliX = (avgVX * inv) - p.vx;
+        aliY = (avgVY * inv) - p.vy;
+      }
 
-      const sepFX = sepX * s.flockSeparationWeight;
-      const sepFY = sepY * s.flockSeparationWeight;
+      // Base flow field (preset‑driven)
+      const base = this._sampleBaseField(x, y, p.speciesId);
+
+      // Noise
+      const noiseAngle = this._hash2(x * 0.007, y * 0.007) * TWO_PI;
+      const noiseX = Math.cos(noiseAngle);
+      const noiseY = Math.sin(noiseAngle);
+
+      // Combine forces
+      let fx = 0;
+      let fy = 0;
+
+      fx += cohX * species.cohesion * 0.002;
+      fy += cohY * species.cohesion * 0.002;
+
+      fx += aliX * species.alignment * 0.02;
+      fy += aliY * species.alignment * 0.02;
+
+      fx += sepX * species.separation * 0.08;
+      fy += sepY * species.separation * 0.08;
+
+      fx += fleeX * 0.12;
+      fy += fleeY * 0.12;
+
+      fx += chaseX * 0.06;
+      fy += chaseY * 0.06;
+
+      fx += base.fx * species.fieldSensitivity * this._state.fieldStrength;
+      fy += base.fy * species.fieldSensitivity * this._state.fieldStrength;
+
+      fx += noiseX * species.noise * 0.15;
+      fy += noiseY * species.noise * 0.15;
+
+      return { fx, fy };
+    },
+
+    /* -------------------------------------------------- */
+    /*                 INTERNAL UTILITIES                 */
+    /* -------------------------------------------------- */
+
+    _rebuildParticles() {
+      const s = this._state;
+      s.particles.length = 0;
+
+      const w = window.innerWidth || 1920;
+      const h = window.innerHeight || 1080;
+
+      for (let i = 0; i < s.particleCount; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const speciesId = i % this._species.length;
+        s.particles.push(this._makeParticle(x, y, speciesId));
+      }
+    },
+
+    _makeParticle(x, y, speciesId) {
+      const sp = this._species[speciesId] || this._species[0];
+
+      const angle = Math.random() * TWO_PI;
+      const speed = 0.2 + Math.random() * sp.maxSpeed;
 
       return {
-        fx: alignX + cohX + sepFX,
-        fy: alignY + cohY + sepFY,
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        speciesId,
       };
     },
 
-    /* ----------------------------- */
-    /*     FLOW + FRACTAL CURL       */
-    /* ----------------------------- */
+    _sampleBaseField(x, y, speciesId) {
+      const preset = this._state.preset;
 
-    sampleFlow(x, y, indexForFlocking = null) {
-      const s = this._state;
-      const baseScale = 0.0015;
-      const time = performance.now();
+      const w = window.innerWidth || 1920;
+      const h = window.innerHeight || 1080;
+      const nx = (x / w) - 0.5;
+      const ny = (y / h) - 0.5;
 
-      const tFlow  = time * 0.00015;
-      const tMacro = time * 0.00010;
-      const tMeso  = time * 0.00030;
-      const tMicro = time * 0.00090;
-
-      const angle =
-        noise.noise2D(x * baseScale + tFlow, y * baseScale) * Math.PI +
-        noise.noise2D(x * baseScale, y * baseScale + tFlow) * Math.PI;
-
-      const fxFlow = Math.cos(angle) * s.fieldStrength;
-      const fyFlow = Math.sin(angle) * s.fieldStrength;
-
-      const curlMacro = curlNoise(x, y, tMacro, baseScale * 0.5);
-      const curlMeso  = curlNoise(x, y, tMeso,  baseScale * 1.0);
-      const curlMicro = curlNoise(x, y, tMicro, baseScale * 2.0);
-
-      const fxCurl =
-        curlMacro.x * s.curlStrengthMacro +
-        curlMeso.x  * s.curlStrengthMeso +
-        curlMicro.x * s.curlStrengthMicro;
-
-      const fyCurl =
-        curlMacro.y * s.curlStrengthMacro +
-        curlMeso.y  * s.curlStrengthMeso +
-        curlMicro.y * s.curlStrengthMicro;
-
-      const fieldForce = this._sampleFields(x, y);
-
-      let flockForce = { fx: 0, fy: 0 };
-      if (indexForFlocking !== null) {
-        flockForce = this._sampleFlocking(indexForFlocking);
+      if (preset === "orbit") {
+        const r = Math.sqrt(nx * nx + ny * ny) + 0.0001;
+        const tx = -ny / r;
+        const ty = nx / r;
+        return { fx: tx * 0.8, fy: ty * 0.8 };
       }
 
-      return {
-        fx: fxFlow + fxCurl + fieldForce.fx + flockForce.fx,
-        fy: fyFlow + fyCurl + fieldForce.fy + flockForce.fy,
-      };
+      if (preset === "pulse") {
+        const r = Math.sqrt(nx * nx + ny * ny) + 0.0001;
+        const scale = Math.sin(r * 18 - this._state.time * 0.02);
+        return { fx: nx * scale * 1.2, fy: ny * scale * 1.2 };
+      }
+
+      if (preset === "swarm") {
+        const angle = this._hash2(nx * 8, ny * 8 + speciesId * 13.37) * TWO_PI;
+        return { fx: Math.cos(angle), fy: Math.sin(angle) };
+      }
+
+      // default: drift
+      const angle = this._hash2(nx * 4 + 10.3, ny * 4 - 7.1) * TWO_PI;
+      return { fx: Math.cos(angle) * 0.6, fy: Math.sin(angle) * 0.6 };
+    },
+
+    _hash2(x, y) {
+      // simple 2D hash → [0,1)
+      const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+      return s - Math.floor(s);
     },
   };
 
-  window.APEXSIM = APEXSIM;
-  APEX.register("apexsim", APEXSIM);
+  window.APEXSIM = SIM;
+  APEX.register("apexsim", SIM);
+
 })();
