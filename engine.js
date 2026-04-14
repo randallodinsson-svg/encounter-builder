@@ -1,8 +1,8 @@
 /*
-    APEXCORE v4.4 — Engine (Tick-Enabled)
-    - Adds tick(dt) support for all modules
-    - Ensures consistent timing across HALO + APEXSIM
-    - Stable render order
+    APEXCORE v4.4 — Engine (Data-Aligned)
+    - Calls init() where present
+    - Calls update(dtSeconds) on all modules
+    - Stable render order: HALO -> APEXSIM -> HUD
 */
 
 (function () {
@@ -21,11 +21,24 @@
 
         const modules = APEX.all();
 
-        console.log("APEXCORE v4.4 — Starting all modules...");
+        console.log("APEXCORE v4.4 — Initializing modules...");
         for (const key in modules) {
             const mod = modules[key];
-            if (mod && typeof mod.start === "function") {
-                console.log("APEXCORE v4.4 — Starting module:", key);
+            if (!mod) continue;
+
+            if (typeof mod.init === "function") {
+                console.log("APEXCORE v4.4 — init():", key);
+                mod.init();
+            }
+        }
+
+        console.log("APEXCORE v4.4 — Starting modules...");
+        for (const key in modules) {
+            const mod = modules[key];
+            if (!mod) continue;
+
+            if (typeof mod.start === "function") {
+                console.log("APEXCORE v4.4 — start():", key);
                 mod.start();
             }
         }
@@ -36,16 +49,15 @@
     function loop(now) {
         if (!state.running) return;
 
-        state.delta = (now - state.lastTime) / 1000;
+        state.delta = (now - state.lastTime) / 1000; // seconds
         state.lastTime = now;
 
         const dt = state.delta;
         const modules = APEX.all();
 
-        // UPDATE + TICK PHASE
+        // UPDATE PHASE
         for (const key in modules) {
             const mod = modules[key];
-
             if (!mod) continue;
 
             if (typeof mod.update === "function") {
@@ -62,8 +74,8 @@
         const sim  = APEX.get("apexsim-renderer");
         const hud  = APEX.get("overlay");
 
-        if (halo && typeof halo.render === "function") halo.render();
         if (sim  && typeof sim.render  === "function") sim.render();
+        if (halo && typeof halo.render === "function") halo.render();
         if (hud  && typeof hud.render  === "function") hud.render();
 
         requestAnimationFrame(loop);
