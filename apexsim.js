@@ -1,6 +1,6 @@
 /*
-    APEXCORE v4.5 — APEXSIM Engine
-    Simplex Flow Field + Curl Noise (Vorticity) + Resume Kick
+    APEXCORE v4.6 — APEXSIM Engine
+    Simplex Flow Field + Fractal Curl Noise (3 Layers, Different Speeds) + Resume Kick
 */
 
 (function () {
@@ -128,8 +128,12 @@
       delta: 0,
       particleCount: 512,
       particleSpeed: 1.0,
+
       fieldStrength: 1.0,
-      curlStrength: 1.0,
+      curlStrengthMacro: 1.0,
+      curlStrengthMeso: 0.5,
+      curlStrengthMicro: 0.25,
+
       obstaclesEnabled: true,
       trailsEnabled: true,
       paused: false,
@@ -138,7 +142,7 @@
     },
 
     start() {
-      console.log("APEXCORE v4.5 — APEXSIM online.");
+      console.log("APEXCORE v4.6 — APEXSIM online.");
       this._initParticles();
     },
 
@@ -168,7 +172,7 @@
       const s = this._state;
       s.paused = false;
 
-      // Resume Kick
+      // Resume Kick — subtle reactivation
       for (const p of s.particles) {
         p.vx *= 1.05;
         p.vy *= 1.05;
@@ -214,52 +218,76 @@
 
       switch (preset) {
         case "swarm":
-          s.fieldStrength = 1.2;
-          s.curlStrength = 2.0;
+          s.fieldStrength = 1.0;
+          s.curlStrengthMacro = 2.2;
+          s.curlStrengthMeso = 1.4;
+          s.curlStrengthMicro = 0.8;
           s.particleSpeed = 1.0;
           break;
 
         case "drift":
-          s.fieldStrength = 0.6;
-          s.curlStrength = 0.8;
+          s.fieldStrength = 0.7;
+          s.curlStrengthMacro = 0.8;
+          s.curlStrengthMeso = 0.4;
+          s.curlStrengthMicro = 0.2;
           s.particleSpeed = 0.6;
           break;
 
         case "pulse":
           s.fieldStrength = 2.0;
-          s.curlStrength = 3.0;
-          s.particleSpeed = 1.6;
+          s.curlStrengthMacro = 2.8;
+          s.curlStrengthMeso = 1.8;
+          s.curlStrengthMicro = 1.0;
+          s.particleSpeed = 1.7;
           break;
 
         case "orbit":
-          s.fieldStrength = 1.0;
-          s.curlStrength = 2.5;
+          s.fieldStrength = 1.2;
+          s.curlStrengthMacro = 1.6;
+          s.curlStrengthMeso = 0.9;
+          s.curlStrengthMicro = 0.4;
           s.particleSpeed = 2.0;
           break;
       }
     },
 
     /* ----------------------------- */
-    /*     FLOW + CURL SAMPLER       */
+    /*     FLOW + FRACTAL CURL       */
     /* ----------------------------- */
 
     sampleFlow(x, y) {
       const s = this._state;
-      const scale = 0.0015;
-      const t = performance.now() * 0.00015;
+      const baseScale = 0.0015;
+      const time = performance.now();
 
-      // Simplex directional flow
+      // Different evolution speeds per layer
+      const tFlow = time * 0.00015;
+      const tMacro = time * 0.00010;
+      const tMeso = time * 0.00030;
+      const tMicro = time * 0.00090;
+
+      // Simplex directional flow (base field)
       const angle =
-        noise.noise2D(x * scale + t, y * scale) * Math.PI +
-        noise.noise2D(x * scale, y * scale + t) * Math.PI;
+        noise.noise2D(x * baseScale + tFlow, y * baseScale) * Math.PI +
+        noise.noise2D(x * baseScale, y * baseScale + tFlow) * Math.PI;
 
       const fx = Math.cos(angle) * s.fieldStrength;
       const fy = Math.sin(angle) * s.fieldStrength;
 
-      // Curl noise (vorticity)
-      const curl = curlNoise(x, y, t, scale);
-      const cx = curl.x * s.curlStrength;
-      const cy = curl.y * s.curlStrength;
+      // Fractal curl noise: macro / meso / micro
+      const curlMacro = curlNoise(x, y, tMacro, baseScale * 0.5);
+      const curlMeso  = curlNoise(x, y, tMeso,  baseScale * 1.0);
+      const curlMicro = curlNoise(x, y, tMicro, baseScale * 2.0);
+
+      const cx =
+        curlMacro.x * s.curlStrengthMacro +
+        curlMeso.x  * s.curlStrengthMeso +
+        curlMicro.x * s.curlStrengthMicro;
+
+      const cy =
+        curlMacro.y * s.curlStrengthMacro +
+        curlMeso.y  * s.curlStrengthMeso +
+        curlMicro.y * s.curlStrengthMicro;
 
       return {
         fx: fx + cx,
