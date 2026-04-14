@@ -1,5 +1,6 @@
-/* APEXCORE v4.4 — Core Layout */
+/* APEXCORE v4.4 — Core Layout (Corrected) */
 
+/* RESET */
 *,
 *::before,
 *::after {
@@ -23,7 +24,6 @@ body {
 }
 
 /* ROOT LAYOUT: LEFT = STAGE, RIGHT = UI DECK */
-
 #apex-root {
   display: flex;
   flex-direction: row;
@@ -32,7 +32,6 @@ body {
 }
 
 /* LEFT: CANVAS STAGE */
-
 #apex-stage {
   position: relative;
   flex: 1 1 auto;
@@ -41,7 +40,6 @@ body {
 }
 
 /* HALO + APEXSIM CANVASES */
-
 #halo-canvas,
 #apexsim-canvas {
   position: absolute;
@@ -49,14 +47,17 @@ body {
   width: 100%;
   height: 100%;
   display: block;
-  z-index: 1; /* BELOW UI */
+
+  /* ⭐ CRITICAL FIX ⭐ */
+  pointer-events: none; /* canvases no longer block UI clicks */
+
+  z-index: 1; /* UI deck sits above this */
 }
 
 /* RIGHT: UI DECK */
-
 #apex-ui-deck {
   position: relative;
-  z-index: 1000; /* ABOVE CANVASES */
+  z-index: 1000; /* UI above canvases */
   width: 340px;
   min-width: 320px;
   max-width: 380px;
@@ -69,8 +70,7 @@ body {
   overflow-y: auto;
 }
 
-/* Scrollbar styling (optional) */
-
+/* Scrollbar styling */
 #apex-ui-deck::-webkit-scrollbar {
   width: 6px;
 }
@@ -84,8 +84,7 @@ body {
   border-radius: 3px;
 }
 
-/* Ensure debug console always wins if needed */
-
+/* Debug console always wins */
 #apex-debug-console {
   z-index: 200000 !important;
 }
