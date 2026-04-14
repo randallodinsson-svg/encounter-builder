@@ -1,5 +1,5 @@
 /*
-    APEXCORE v4.4 — Entity System (Stable HALO Crew)
+    APEXCORE v4.4 — Entity System (Renderer-Aligned)
 */
 
 (function () {
@@ -9,8 +9,10 @@
     function createEntity(x, y, options = {}) {
         const e = {
             id: crypto.randomUUID ? crypto.randomUUID() : ("ent-" + Math.random().toString(36).slice(2)),
-            x: x || 0,
-            y: y || 0,
+            position: {
+                x: x || 0,
+                y: y || 0
+            },
             vx: 0,
             vy: 0,
             speed: options.speed || 80,
@@ -26,12 +28,14 @@
         return entities;
     }
 
-    function update(state) {
-        const dt = (state.delta || 16.67) / 1000;
+    function getAll() {
+        return entities;
+    }
 
+    function update(dt) {
         for (const e of entities) {
-            e.x += e.vx * dt;
-            e.y += e.vy * dt;
+            e.position.x += e.vx * dt;
+            e.position.y += e.vy * dt;
         }
     }
 
@@ -39,6 +43,7 @@
         type: "entities",
         create: createEntity,
         all,
+        getAll,
         update
     });
 
