@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>APEXCORE v4.4</title>
 
-  <!-- Correct CSS files that actually exist -->
+  <!-- Correct CSS files -->
   <link rel="stylesheet" href="core.css" />
   <link rel="stylesheet" href="apex-ui.css" />
 </head>
@@ -21,20 +21,65 @@
     <!-- RIGHT: UI DECK -->
     <div id="apex-ui-deck">
 
-      <!-- ENGINE DIAGNOSTICS -->
-      <div class="apex-card">
+      <!-- ========================= -->
+      <!--   DIAGNOSTICS PANEL      -->
+      <!-- ========================= -->
+      <div class="apex-card" id="diag-panel">
         <div class="apex-card__header">
-          <div class="apex-card__title">ENGINE DIAGNOSTICS</div>
-          <div class="apex-card__subtitle">SYSTEM STATUS</div>
+          <div class="apex-card__title">DIAGNOSTICS</div>
+          <div class="apex-card__subtitle">ENGINE PROFILER</div>
         </div>
+
         <div class="apex-card__body">
-          <div id="diag-fps">FPS: --</div>
-          <div id="diag-delta">Δ: --</div>
-          <div id="diag-entities">Entities: --</div>
+
+          <!-- FPS GRAPH -->
+          <canvas id="diag-fps-graph" width="260" height="60"></canvas>
+
+          <div class="diag-row">
+            <span>FPS</span>
+            <span id="diag-fps">0</span>
+          </div>
+
+          <div class="diag-row">
+            <span>Δ‑Time</span>
+            <span id="diag-delta">0 ms</span>
+          </div>
+
+          <div class="diag-row">
+            <span>Avg Δ</span>
+            <span id="diag-avg">0 ms</span>
+          </div>
+
+          <div class="diag-row">
+            <span>Min Δ</span>
+            <span id="diag-min">0 ms</span>
+          </div>
+
+          <div class="diag-row">
+            <span>Max Δ</span>
+            <span id="diag-max">0 ms</span>
+          </div>
+
+          <div class="diag-row">
+            <span>Entities</span>
+            <span id="diag-entities">0</span>
+          </div>
+
+          <div class="diag-row">
+            <span>Timeline Events</span>
+            <span id="diag-events">0</span>
+          </div>
+
+          <div id="diag-timeline-box">
+            <div id="diag-timeline-feed"></div>
+          </div>
+
         </div>
       </div>
 
-      <!-- HALO CONTROLS -->
+      <!-- ========================= -->
+      <!--       HALO PANEL         -->
+      <!-- ========================= -->
       <div class="apex-card">
         <div class="apex-card__header">
           <div class="apex-card__title">HALO</div>
@@ -46,7 +91,9 @@
         </div>
       </div>
 
-      <!-- SIMULATION LAYER (NEW FULL PANEL) -->
+      <!-- ========================= -->
+      <!--    SIMULATION LAYER      -->
+      <!-- ========================= -->
       <div class="apex-card apex-card--tall" id="sim-layer-card">
         <div class="apex-card__header">
           <div class="apex-card__title">SIMULATION LAYER</div>
@@ -119,7 +166,9 @@
         </div>
       </div>
 
-      <!-- FOOTER -->
+      <!-- ========================= -->
+      <!--          FOOTER          -->
+      <!-- ========================= -->
       <div class="apex-card apex-card--footer">
         <div class="apex-card__title">VECTORCORE // APEXCORE</div>
         <div class="apex-card__subtitle">v4.4</div>
@@ -128,7 +177,7 @@
     </div>
   </div>
 
-  <!-- Correct JS files that actually exist -->
+  <!-- Correct JS files -->
   <script src="core.js"></script>
   <script src="engine.js"></script>
   <script src="apexcore.js"></script>
