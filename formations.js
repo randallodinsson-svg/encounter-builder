@@ -1,70 +1,45 @@
 /*
-    APEXCORE v4.4 — Formation System (Renderer-Aligned, AI-Ready)
+    APEXCORE v4.4 — Formation Library
 */
 
 (function () {
-
-    const formations = [];
-
-    function createFormation(x, y, radius = 100, count = 8) {
-        const f = {
-            id: crypto.randomUUID ? crypto.randomUUID() : ("form-" + Math.random().toString(36).slice(2)),
-            center: { x, y },
-            radius,
-            count,
-            members: [],
-            vx: 0,
-            vy: 0
-        };
-
-        formations.push(f);
-        return f;
-    }
-
-    function assign(formation, entities) {
-        formation.members = entities;
-
-        const step = (Math.PI * 2) / formation.count;
-
-        for (let i = 0; i < entities.length; i++) {
-            const angle = i * step;
-            entities[i].position.x = formation.center.x + Math.cos(angle) * formation.radius;
-            entities[i].position.y = formation.center.y + Math.sin(angle) * formation.radius;
+  const Formations = {
+    patterns: {
+      line(count, width) {
+        const out = [];
+        for (let i = 0; i < count; i++) {
+          const t = count === 1 ? 0.5 : i / (count - 1);
+          out.push({ x: (t - 0.5) * width, y: 0 });
         }
-    }
-
-    function all() {
-        return formations;
-    }
-
-    function getAll() {
-        return formations;
-    }
-
-    function update(dt) {
-        for (const f of formations) {
-            f.center.x += f.vx * dt;
-            f.center.y += f.vy * dt;
-
-            const step = (Math.PI * 2) / f.count;
-
-            for (let i = 0; i < f.members.length; i++) {
-                const angle = i * step;
-                const e = f.members[i];
-
-                e.position.x = f.center.x + Math.cos(angle) * f.radius;
-                e.position.y = f.center.y + Math.sin(angle) * f.radius;
-            }
+        return out;
+      },
+      circle(count, radius) {
+        const out = [];
+        for (let i = 0; i < count; i++) {
+          const a = (i / count) * Math.PI * 2;
+          out.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius });
         }
-    }
+        return out;
+      },
+      grid(cols, rows, spacing) {
+        const out = [];
+        const w = (cols - 1) * spacing;
+        const h = (rows - 1) * spacing;
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            out.push({
+              x: x * spacing - w / 2,
+              y: y * spacing - h / 2,
+            });
+          }
+        }
+        return out;
+      },
+    },
+    get(name) {
+      return this.patterns[name] || null;
+    },
+  };
 
-    APEX.register("formations", {
-        type: "formations",
-        create: createFormation,
-        assign,
-        all,
-        getAll,
-        update
-    });
-
+  APEX.register("formations", Formations);
 })();
