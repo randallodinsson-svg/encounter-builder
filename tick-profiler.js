@@ -1,69 +1,41 @@
 /*
-    APEXCORE — Tick Profiler
-    Measures per-module update cost on each tick.
+    APEXCORE v4.4 — Tick Profiler (Updated)
+    Measures engine tick delta, rolling average, min/max.
 */
 
 (function () {
-    if (typeof APEXCORE === "undefined") {
-        console.warn("APEXCORE Tick Profiler: APEXCORE not found.");
-        return;
-    }
+  const TickProfiler = {
+    lastDelta: 0,
+    avgDelta: 0,
+    minDelta: Infinity,
+    maxDelta: 0,
+    sampleCount: 0,
 
-    const samples = {};
-    const SAMPLE_WINDOW = 60; // frames
+    start() {
+      console.log("APEXCORE v4.4 — Tick Profiler attached");
+    },
 
-    function recordSample(name, duration) {
-        if (!samples[name]) {
-            samples[name] = [];
-        }
-        samples[name].push(duration);
-        if (samples[name].length > SAMPLE_WINDOW) {
-            samples[name].shift();
-        }
-    }
+    onTick(delta) {
+      this.lastDelta = delta;
+      this.sampleCount++;
 
-    function summarize() {
-        const rows = Object.keys(samples).map((name) => {
-            const arr = samples[name];
-            const sum = arr.reduce((a, b) => a + b, 0);
-            const avg = arr.length ? sum / arr.length : 0;
-            const max = arr.length ? Math.max(...arr) : 0;
-            return {
-                module: name,
-                avgMs: +avg.toFixed(3),
-                maxMs: +max.toFixed(3),
-                samples: arr.length
-            };
-        });
+      // Rolling average
+      this.avgDelta += (delta - this.avgDelta) * 0.05;
 
-        console.group("APEXCORE — Tick Profiler");
-        console.table(rows);
-        console.groupEnd();
-    }
+      // Min / Max
+      if (delta < this.minDelta) this.minDelta = delta;
+      if (delta > this.maxDelta) this.maxDelta = delta;
 
-    APEXCORE.onTick(() => {
-        const snapshot = APEXCORE.snapshot();
-        const modules = snapshot.modules;
+      // Optional: expose to window for UI panels
+      window.APEX_TICK_PROFILER = {
+        last: this.lastDelta,
+        avg: this.avgDelta,
+        min: this.minDelta,
+        max: this.maxDelta,
+        samples: this.sampleCount,
+      };
+    },
+  };
 
-        for (const name of modules) {
-            const mod = APEXCORE.get(name);
-            if (!mod || typeof mod.update !== "function") continue;
-
-            const start = performance.now();
-            try {
-                mod.update({}); // profiling call with dummy state
-            } catch (err) {
-                console.error(`APEXCORE Tick Profiler: error in "${name}"`, err);
-            }
-            const end = performance.now();
-            recordSample(name, end - start);
-        }
-
-        // Occasionally print summary
-        if (snapshot.frame % 120 === 0) {
-            summarize();
-        }
-    });
-
-    console.log("APEXCORE — Tick Profiler attached");
+  APEX.register("tick-profiler", TickProfiler);
 })();
