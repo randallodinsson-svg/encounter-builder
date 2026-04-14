@@ -1,22 +1,18 @@
 /*
-    APEXCORE v4.4 — APEXSIM Engine (Flow Field Edition + Resume Kick)
+    APEXCORE v4.5 — APEXSIM Engine
+    Simplex Flow Field + Curl Noise (Vorticity) + Resume Kick
 */
 
 (function () {
+
   /* ----------------------------- */
   /*      SIMPLEX NOISE (2D)       */
   /* ----------------------------- */
 
   function Simplex2D(seed = 1) {
     const grad3 = [
-      [1, 1],
-      [-1, 1],
-      [1, -1],
-      [-1, -1],
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
+      [1, 1], [-1, 1], [1, -1], [-1, -1],
+      [1, 0], [-1, 0], [0, 1], [0, -1],
     ];
 
     const p = new Uint8Array(256);
@@ -58,13 +54,8 @@
       const y0 = yin - Y0;
 
       let i1, j1;
-      if (x0 > y0) {
-        i1 = 1;
-        j1 = 0;
-      } else {
-        i1 = 0;
-        j1 = 1;
-      }
+      if (x0 > y0) { i1 = 1; j1 = 0; }
+      else { i1 = 0; j1 = 1; }
 
       const x1 = x0 - i1 + G2;
       const y1 = y0 - j1 + G2;
@@ -78,27 +69,24 @@
       const gi2 = permMod12[ii + 1 + perm[jj + 1]] % grad3.length;
 
       let t0 = 0.5 - x0 * x0 - y0 * y0;
-      if (t0 < 0) {
-        n0 = 0;
-      } else {
+      if (t0 < 0) n0 = 0;
+      else {
         t0 *= t0;
         const g = grad3[gi0];
         n0 = t0 * t0 * (g[0] * x0 + g[1] * y0);
       }
 
       let t1 = 0.5 - x1 * x1 - y1 * y1;
-      if (t1 < 0) {
-        n1 = 0;
-      } else {
+      if (t1 < 0) n1 = 0;
+      else {
         t1 *= t1;
         const g = grad3[gi1];
         n1 = t1 * t1 * (g[0] * x1 + g[1] * y1);
       }
 
       let t2 = 0.5 - x2 * x2 - y2 * y2;
-      if (t2 < 0) {
-        n2 = 0;
-      } else {
+      if (t2 < 0) n2 = 0;
+      else {
         t2 *= t2;
         const g = grad3[gi2];
         n2 = t2 * t2 * (g[0] * x2 + g[1] * y2);
@@ -113,6 +101,24 @@
   const noise = Simplex2D(1337);
 
   /* ----------------------------- */
+  /*        CURL NOISE (2D)        */
+  /* ----------------------------- */
+
+  function curlNoise(x, y, t, scale) {
+    const eps = 0.0005;
+
+    const n1 = noise.noise2D((x + eps) * scale, y * scale + t);
+    const n2 = noise.noise2D((x - eps) * scale, y * scale + t);
+    const a = (n1 - n2) / (2 * eps);
+
+    const n3 = noise.noise2D(x * scale + t, (y + eps) * scale);
+    const n4 = noise.noise2D(x * scale + t, (y - eps) * scale);
+    const b = (n3 - n4) / (2 * eps);
+
+    return { x: b, y: -a };
+  }
+
+  /* ----------------------------- */
   /*        APEXSIM ENGINE         */
   /* ----------------------------- */
 
@@ -123,6 +129,7 @@
       particleCount: 512,
       particleSpeed: 1.0,
       fieldStrength: 1.0,
+      curlStrength: 1.0,
       obstaclesEnabled: true,
       trailsEnabled: true,
       paused: false,
@@ -131,13 +138,9 @@
     },
 
     start() {
-      console.log("APEXCORE v4.4 — APEXSIM online.");
+      console.log("APEXCORE v4.5 — APEXSIM online.");
       this._initParticles();
     },
-
-    /* ----------------------------- */
-    /*      INTERNAL INITIALIZER     */
-    /* ----------------------------- */
 
     _initParticles() {
       const s = this._state;
@@ -156,27 +159,23 @@
     },
 
     /* ----------------------------- */
-    /*     RECOMMENDED UI API        */
+    /*     UI CONTROL SURFACE        */
     /* ----------------------------- */
 
-    pause() {
-      this._state.paused = true;
-    },
+    pause() { this._state.paused = true; },
 
     resume() {
       const s = this._state;
       s.paused = false;
 
-      // ⭐ Resume Kick — subtle velocity boost so motion is visible
+      // Resume Kick
       for (const p of s.particles) {
         p.vx *= 1.05;
         p.vy *= 1.05;
       }
     },
 
-    reset() {
-      this.resetSimulation();
-    },
+    reset() { this._initParticles(); },
 
     spawnBurst(count = 64) {
       const s = this._state;
@@ -200,75 +199,48 @@
       this.applyPreset(name);
     },
 
-    setSpeed(v) {
-      this.setParticleSpeed(v);
-    },
-
-    enableObstacles(v) {
-      this.setObstaclesEnabled(v);
-    },
-
-    enableTrails(v) {
-      this.setTrailsEnabled(v);
-    },
+    setSpeed(v) { this._state.particleSpeed = v; },
+    setParticleCount(v) { this._state.particleCount = v; this._initParticles(); },
+    setFieldStrength(v) { this._state.fieldStrength = v; },
+    enableObstacles(v) { this._state.obstaclesEnabled = v; },
+    enableTrails(v) { this._state.trailsEnabled = v; },
 
     /* ----------------------------- */
-    /*   ORIGINAL ENGINE FUNCTIONS   */
+    /*          PRESETS              */
     /* ----------------------------- */
-
-    setParticleCount(count) {
-      this._state.particleCount = count;
-      this._initParticles();
-    },
-
-    setParticleSpeed(speed) {
-      this._state.particleSpeed = speed;
-    },
-
-    setFieldStrength(strength) {
-      this._state.fieldStrength = strength;
-    },
-
-    setObstaclesEnabled(enabled) {
-      this._state.obstaclesEnabled = enabled;
-    },
-
-    setTrailsEnabled(enabled) {
-      this._state.trailsEnabled = enabled;
-    },
-
-    setPaused(paused) {
-      this._state.paused = paused;
-    },
-
-    resetSimulation() {
-      this._initParticles();
-    },
 
     applyPreset(preset) {
       const s = this._state;
+
       switch (preset) {
         case "swarm":
-          s.fieldStrength = 1.8;
+          s.fieldStrength = 1.2;
+          s.curlStrength = 2.0;
           s.particleSpeed = 1.0;
           break;
+
         case "drift":
-          s.fieldStrength = 0.7;
+          s.fieldStrength = 0.6;
+          s.curlStrength = 0.8;
           s.particleSpeed = 0.6;
           break;
+
         case "pulse":
-          s.fieldStrength = 2.4;
+          s.fieldStrength = 2.0;
+          s.curlStrength = 3.0;
           s.particleSpeed = 1.6;
           break;
+
         case "orbit":
-          s.fieldStrength = 1.2;
+          s.fieldStrength = 1.0;
+          s.curlStrength = 2.5;
           s.particleSpeed = 2.0;
           break;
       }
     },
 
     /* ----------------------------- */
-    /*   FLOW FIELD ACCESSOR         */
+    /*     FLOW + CURL SAMPLER       */
     /* ----------------------------- */
 
     sampleFlow(x, y) {
@@ -276,19 +248,22 @@
       const scale = 0.0015;
       const t = performance.now() * 0.00015;
 
-      const nx = x * scale;
-      const ny = y * scale;
-
+      // Simplex directional flow
       const angle =
-        noise.noise2D(nx + t, ny) * Math.PI * 0.5 +
-        noise.noise2D(nx, ny + t) * Math.PI * 0.5;
+        noise.noise2D(x * scale + t, y * scale) * Math.PI +
+        noise.noise2D(x * scale, y * scale + t) * Math.PI;
 
-      const fx = Math.cos(angle);
-      const fy = Math.sin(angle);
+      const fx = Math.cos(angle) * s.fieldStrength;
+      const fy = Math.sin(angle) * s.fieldStrength;
+
+      // Curl noise (vorticity)
+      const curl = curlNoise(x, y, t, scale);
+      const cx = curl.x * s.curlStrength;
+      const cy = curl.y * s.curlStrength;
 
       return {
-        fx: fx * s.fieldStrength,
-        fy: fy * s.fieldStrength,
+        fx: fx + cx,
+        fy: fy + cy,
       };
     },
   };
