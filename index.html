@@ -35,45 +35,37 @@
           <!-- FPS GRAPH -->
           <canvas id="diag-fps-graph" width="260" height="60"></canvas>
 
-          <div class="diag-row">
-            <span>FPS</span>
-            <span id="diag-fps">0</span>
-          </div>
-
-          <div class="diag-row">
-            <span>Δ‑Time</span>
-            <span id="diag-delta">0 ms</span>
-          </div>
-
-          <div class="diag-row">
-            <span>Avg Δ</span>
-            <span id="diag-avg">0 ms</span>
-          </div>
-
-          <div class="diag-row">
-            <span>Min Δ</span>
-            <span id="diag-min">0 ms</span>
-          </div>
-
-          <div class="diag-row">
-            <span>Max Δ</span>
-            <span id="diag-max">0 ms</span>
-          </div>
-
-          <div class="diag-row">
-            <span>Entities</span>
-            <span id="diag-entities">0</span>
-          </div>
-
-          <div class="diag-row">
-            <span>Timeline Events</span>
-            <span id="diag-events">0</span>
-          </div>
+          <div class="diag-row"><span>FPS</span><span id="diag-fps">0</span></div>
+          <div class="diag-row"><span>Δ‑Time</span><span id="diag-delta">0 ms</span></div>
+          <div class="diag-row"><span>Avg Δ</span><span id="diag-avg">0 ms</span></div>
+          <div class="diag-row"><span>Min Δ</span><span id="diag-min">0 ms</span></div>
+          <div class="diag-row"><span>Max Δ</span><span id="diag-max">0 ms</span></div>
+          <div class="diag-row"><span>Entities</span><span id="diag-entities">0</span></div>
+          <div class="diag-row"><span>Timeline Events</span><span id="diag-events">0</span></div>
 
           <div id="diag-timeline-box">
             <div id="diag-timeline-feed"></div>
           </div>
 
+        </div>
+      </div>
+
+      <!-- ========================= -->
+      <!--     RENDER STATS PANEL    -->
+      <!-- ========================= -->
+      <div class="apex-card" id="render-stats-panel">
+        <div class="apex-card__header">
+          <div class="apex-card__title">RENDER STATS</div>
+          <div class="apex-card__subtitle">HALO / APEXSIM</div>
+        </div>
+
+        <div class="apex-card__body">
+          <div class="diag-row"><span>Draw Calls</span><span id="rs-drawcalls">0</span></div>
+          <div class="diag-row"><span>Batches</span><span id="rs-batches">0</span></div>
+          <div class="diag-row"><span>Canvas Clears</span><span id="rs-clears">0</span></div>
+          <div class="diag-row"><span>Frame Cost</span><span id="rs-framecost">0 ms</span></div>
+          <div class="diag-row"><span>Resolution</span><span id="rs-resolution">0×0</span></div>
+          <div class="diag-row"><span>Pixel Ratio</span><span id="rs-pixelratio">1.0</span></div>
         </div>
       </div>
 
@@ -102,7 +94,6 @@
 
         <div class="apex-card__body sim-layer-body">
 
-          <!-- Preset -->
           <div class="apex-field">
             <label class="apex-label" for="sim-preset-select">Preset</label>
             <select id="sim-preset-select" class="apex-select">
@@ -113,58 +104,33 @@
             </select>
           </div>
 
-          <!-- Particle Count -->
           <div class="apex-field">
             <label class="apex-label" for="sim-particle-count">
               Particle Count
               <span class="apex-label__value" id="sim-particle-count-value">512</span>
             </label>
-            <input
-              type="range"
-              id="sim-particle-count"
-              class="apex-slider"
-              min="64"
-              max="2048"
-              step="64"
-              value="512"
-            />
+            <input type="range" id="sim-particle-count" class="apex-slider"
+              min="64" max="2048" step="64" value="512" />
           </div>
 
-          <!-- Particle Speed -->
           <div class="apex-field">
             <label class="apex-label" for="sim-particle-speed">
               Particle Speed
               <span class="apex-label__value" id="sim-particle-speed-value">1.0x</span>
             </label>
-            <input
-              type="range"
-              id="sim-particle-speed"
-              class="apex-slider"
-              min="0.25"
-              max="3.0"
-              step="0.25"
-              value="1.0"
-            />
+            <input type="range" id="sim-particle-speed" class="apex-slider"
+              min="0.25" max="3.0" step="0.25" value="1.0" />
           </div>
 
-          <!-- Field Strength -->
           <div class="apex-field">
             <label class="apex-label" for="sim-field-strength">
               Field Strength
               <span class="apex-label__value" id="sim-field-strength-value">1.0</span>
             </label>
-            <input
-              type="range"
-              id="sim-field-strength"
-              class="apex-slider"
-              min="0.0"
-              max="3.0"
-              step="0.25"
-              value="1.0"
-            />
+            <input type="range" id="sim-field-strength" class="apex-slider"
+              min="0.0" max="3.0" step="0.25" value="1.0" />
           </div>
 
-          <!-- Toggles -->
           <div class="apex-field apex-field--row">
             <label class="apex-toggle">
               <input type="checkbox" id="sim-obstacles-toggle" checked />
@@ -177,7 +143,6 @@
             </label>
           </div>
 
-          <!-- Buttons -->
           <div class="apex-field apex-field--row sim-layer-buttons">
             <button id="sim-pause-btn" class="apex-btn apex-btn--secondary">Pause</button>
             <button id="sim-burst-btn" class="apex-btn apex-btn--secondary">Spawn Burst</button>
@@ -222,5 +187,6 @@
   <script src="apex-ui.js"></script>
   <script src="diag-fps-graph.js"></script>
   <script src="debug-console.js"></script>
+  <script src="render-stats.js"></script>
 </body>
 </html>
