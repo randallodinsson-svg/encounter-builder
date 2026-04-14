@@ -39,7 +39,7 @@
     <script src="halo-field.js"></script>
     <script src="halo-renderer.js"></script>
 
-    <!-- ⭐ ENVIRONMENT FIELD (MUST LOAD BEFORE SIM) ⭐ -->
+    <!-- ENVIRONMENT FIELD -->
     <script src="environment-field.js"></script>
 
     <!-- SIMULATION ENGINE -->
@@ -56,8 +56,13 @@
     <script src="module-inspector.js"></script>
     <script src="registry-diff-viewer.js"></script>
 
-    <!-- UI CONTROLLER (MUST LOAD LAST) -->
+    <!-- UI CONTROLLER -->
     <script src="apex-ui.js"></script>
+
+    <!-- ⭐ REQUIRED: START THE ENGINE ⭐ -->
+    <script>
+        APEX.start();
+    </script>
 
 </body>
 </html>
