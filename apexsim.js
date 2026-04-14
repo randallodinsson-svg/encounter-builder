@@ -1,9 +1,6 @@
 /*
-    APEXSIM v4.9 — Species Behavior Engine
-    5 Species, Strong Differences, Fast Predators
-    Compatible with:
-      - apexsim-renderer.js (sampleFlow API)
-      - apex-ui.js (SIM control API)
+    APEXSIM v5.0 — Species Behavior Engine + HALO Field Integration
+    5 Species, Strong Differences, Fast Predators, Species‑Specific HALO Reactions
 */
 
 (function () {
@@ -35,17 +32,19 @@
         separation: 0.6,
         noise: 0.2,
         fieldSensitivity: 0.6,
+        haloReaction: "stabilize",
       },
       {
         id: 1,
         name: "Beta",
         color: "#ff9f80",
-        maxSpeed: 1.6,      // fast predators
+        maxSpeed: 1.6,
         cohesion: 0.7,
         alignment: 0.8,
         separation: 0.4,
         noise: 0.3,
         fieldSensitivity: 0.4,
+        haloReaction: "attract",
       },
       {
         id: 2,
@@ -54,9 +53,10 @@
         maxSpeed: 1.1,
         cohesion: 0.5,
         alignment: 0.6,
-        separation: 1.2,    // strong avoidance
+        separation: 1.2,
         noise: 0.3,
         fieldSensitivity: 0.7,
+        haloReaction: "repel",
       },
       {
         id: 3,
@@ -66,8 +66,9 @@
         cohesion: 0.4,
         alignment: 0.3,
         separation: 0.5,
-        noise: 1.0,         // chaotic
+        noise: 1.0,
         fieldSensitivity: 0.5,
+        haloReaction: "orbit",
       },
       {
         id: 4,
@@ -78,24 +79,22 @@
         alignment: 0.7,
         separation: 0.7,
         noise: 0.4,
-        fieldSensitivity: 1.2, // very sensitive to fields
+        fieldSensitivity: 1.4,
+        haloReaction: "strong",
       },
     ],
 
-    // aggression matrix: who hunts who (predator → prey)
-    // values: 0 = ignore, 1 = mild, 2 = strong
+    // aggression matrix: who hunts who
     _aggression: [
-      //  A   B   G   D   E
-      [ 0,  0,  0,  0,  0 ], // Alpha
-      [ 0,  0,  2,  1,  2 ], // Beta (predator)
-      [ 0,  0,  0,  0,  0 ], // Gamma
-      [ 0,  1,  0,  0,  0 ], // Delta (harasses Betas a bit)
-      [ 0,  0,  0,  0,  0 ], // Epsilon
+      [0,0,0,0,0],
+      [0,0,2,1,2],
+      [0,0,0,0,0],
+      [0,1,0,0,0],
+      [0,0,0,0,0],
     ],
 
     start() {
-      console.log("APEXCORE v4.9 — APEXSIM online.");
-
+      console.log("APEXCORE v5.0 — APEXSIM online.");
       this._state.preset = "drift";
       this._rebuildParticles();
     },
@@ -104,39 +103,17 @@
     /*                 PUBLIC CONTROL API                 */
     /* -------------------------------------------------- */
 
-    setPreset(name) {
-      this._state.preset = name || "drift";
-    },
-
+    setPreset(name) { this._state.preset = name || "drift"; }
     setParticleCount(count) {
       this._state.particleCount = Math.max(16, Math.min(5000, count | 0));
       this._rebuildParticles();
-    },
-
-    setSpeed(speed) {
-      this._state.particleSpeed = Math.max(0.05, Math.min(5, speed));
-    },
-
-    setFieldStrength(strength) {
-      this._state.fieldStrength = Math.max(0, Math.min(5, strength));
-    },
-
-    enableObstacles(enabled) {
-      this._state.obstaclesEnabled = !!enabled;
-    },
-
-    enableTrails(enabled) {
-      this._state.trailsEnabled = !!enabled;
-    },
-
-    pause() {
-      this._state.paused = true;
-    },
-
-    resume() {
-      this._state.paused = false;
-    },
-
+    }
+    setSpeed(speed) { this._state.particleSpeed = Math.max(0.05, Math.min(5, speed)); }
+    setFieldStrength(strength) { this._state.fieldStrength = Math.max(0, Math.min(5, strength)); }
+    enableObstacles(enabled) { this._state.obstaclesEnabled = !!enabled; }
+    enableTrails(enabled) { this._state.trailsEnabled = !!enabled; }
+    pause() { this._state.paused = true; }
+    resume() { this._state.paused = false; }
     spawnBurst(count) {
       const n = count || 64;
       const w = window.innerWidth || 1920;
@@ -149,31 +126,21 @@
         const radius = 40 + Math.random() * 80;
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius;
-
         const speciesId = (i % this._species.length);
         this._state.particles.push(this._makeParticle(x, y, speciesId));
       }
-    },
-
-    reset() {
-      this._rebuildParticles();
-    },
+    }
+    reset() { this._rebuildParticles(); }
 
     /* -------------------------------------------------- */
     /*              CORE FIELD / FLOW FUNCTION            */
     /* -------------------------------------------------- */
 
-    /**
-     * Called by apexsim-renderer.js for each particle per frame.
-     * Returns a flow vector { fx, fy }.
-     */
     sampleFlow(x, y, index) {
       const s = this._state;
       const particles = s.particles;
       const p = particles[index];
-      if (!p) {
-        return { fx: 0, fy: 0 };
-      }
+      if (!p) return { fx: 0, fy: 0 };
 
       const species = this._species[p.speciesId] || this._species[0];
 
@@ -182,18 +149,13 @@
       const separationRadius = 24;
 
       let count = 0;
-      let avgX = 0;
-      let avgY = 0;
-      let avgVX = 0;
-      let avgVY = 0;
-      let sepX = 0;
-      let sepY = 0;
+      let avgX = 0, avgY = 0;
+      let avgVX = 0, avgVY = 0;
+      let sepX = 0, sepY = 0;
 
       // Predator / prey forces
-      let fleeX = 0;
-      let fleeY = 0;
-      let chaseX = 0;
-      let chaseY = 0;
+      let fleeX = 0, fleeY = 0;
+      let chaseX = 0, chaseY = 0;
 
       for (let i = 0; i < particles.length; i++) {
         if (i === index) continue;
@@ -208,34 +170,29 @@
         const nx = dx / dist;
         const ny = dy / dist;
 
-        // Flocking accumulation
         avgX += o.x;
         avgY += o.y;
         avgVX += o.vx;
         avgVY += o.vy;
         count++;
 
-        // Separation
         if (dist < separationRadius) {
           sepX -= nx / dist;
           sepY -= ny / dist;
         }
 
-        // Species interaction
         const mySpecies = p.speciesId;
         const otherSpecies = o.speciesId;
 
         const aggression = this._aggression[mySpecies][otherSpecies] || 0;
         const reverseAggression = this._aggression[otherSpecies][mySpecies] || 0;
 
-        // If this species hunts the other → chase
         if (aggression > 0) {
           const strength = aggression === 2 ? 1.0 : 0.5;
           chaseX += dx * strength / dist;
           chaseY += dy * strength / dist;
         }
 
-        // If the other species hunts this → flee
         if (reverseAggression > 0) {
           const strength = reverseAggression === 2 ? 1.2 : 0.7;
           fleeX -= dx * strength / dist;
@@ -248,7 +205,6 @@
 
       if (count > 0) {
         const inv = 1 / count;
-
         const centerX = avgX * inv;
         const centerY = avgY * inv;
 
@@ -259,7 +215,7 @@
         aliY = (avgVY * inv) - p.vy;
       }
 
-      // Base flow field (preset‑driven)
+      // Base flow field
       const base = this._sampleBaseField(x, y, p.speciesId);
 
       // Noise
@@ -267,9 +223,42 @@
       const noiseX = Math.cos(noiseAngle);
       const noiseY = Math.sin(noiseAngle);
 
+      // HALO field
+      let haloFX = 0, haloFY = 0;
+      if (window.HALO_FIELD) {
+        const hf = window.HALO_FIELD.sample(x, y, p.speciesId);
+
+        switch (species.haloReaction) {
+          case "attract":
+            haloFX += hf.fx * 1.4;
+            haloFY += hf.fy * 1.4;
+            break;
+
+          case "repel":
+            haloFX -= hf.fx * 1.2;
+            haloFY -= hf.fy * 1.2;
+            break;
+
+          case "orbit":
+            haloFX += -hf.fy * 1.0;
+            haloFY +=  hf.fx * 1.0;
+            break;
+
+          case "strong":
+            haloFX += hf.fx * 1.8;
+            haloFY += hf.fy * 1.8;
+            break;
+
+          case "stabilize":
+          default:
+            haloFX += hf.fx * 0.6;
+            haloFY += hf.fy * 0.6;
+            break;
+        }
+      }
+
       // Combine forces
-      let fx = 0;
-      let fy = 0;
+      let fx = 0, fy = 0;
 
       fx += cohX * species.cohesion * 0.002;
       fy += cohY * species.cohesion * 0.002;
@@ -291,6 +280,9 @@
 
       fx += noiseX * species.noise * 0.15;
       fy += noiseY * species.noise * 0.15;
+
+      fx += haloFX;
+      fy += haloFY;
 
       return { fx, fy };
     },
@@ -355,13 +347,11 @@
         return { fx: Math.cos(angle), fy: Math.sin(angle) };
       }
 
-      // default: drift
       const angle = this._hash2(nx * 4 + 10.3, ny * 4 - 7.1) * TWO_PI;
       return { fx: Math.cos(angle) * 0.6, fy: Math.sin(angle) * 0.6 };
     },
 
     _hash2(x, y) {
-      // simple 2D hash → [0,1)
       const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
       return s - Math.floor(s);
     },
