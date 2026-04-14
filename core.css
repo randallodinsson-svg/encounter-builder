@@ -1,42 +1,91 @@
-/* APEXCORE v4.2 — Core Layout & Minimal Styling */
+/* APEXCORE v4.4 — Core Layout */
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-html, body {
-    width: 100%;
-    height: 100%;
-    background: #050505;
-    color: #e6e6e6;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+html,
+body {
+  width: 100%;
+  height: 100%;
 }
 
-#app-root {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+body {
+  background: #000;
+  color: #e0e0e0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  overflow: hidden;
 }
 
-/* Canvas host */
-.apex-canvas-host {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    background: radial-gradient(circle at top, #202020 0, #050505 55%, #000000 100%);
+/* ROOT LAYOUT: LEFT = STAGE, RIGHT = UI DECK */
+
+#apex-root {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100vh;
 }
 
-/* Debug overlay text (bottom-left) */
-.apex-debug-label {
-    position: absolute;
-    left: 12px;
-    bottom: 10px;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #8a8a8a;
-    pointer-events: none;
+/* LEFT: CANVAS STAGE */
+
+#apex-stage {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: #000;
+}
+
+/* HALO + APEXSIM CANVASES */
+
+#halo-canvas,
+#apexsim-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1; /* BELOW UI */
+}
+
+/* RIGHT: UI DECK */
+
+#apex-ui-deck {
+  position: relative;
+  z-index: 1000; /* ABOVE CANVASES */
+  width: 340px;
+  min-width: 320px;
+  max-width: 380px;
+  padding: 16px;
+  background: radial-gradient(circle at top left, #151515 0, #050505 55%);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+/* Scrollbar styling (optional) */
+
+#apex-ui-deck::-webkit-scrollbar {
+  width: 6px;
+}
+
+#apex-ui-deck::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#apex-ui-deck::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+/* Ensure debug console always wins if needed */
+
+#apex-debug-console {
+  z-index: 200000 !important;
 }
