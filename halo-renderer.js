@@ -1,7 +1,7 @@
 /*
-    HALO Renderer v4.4 — Unified
-    - Transparent fade
-    - Absolute screen coordinates
+    HALO Renderer v4.4 — Fixed
+    - Transparent fade ONCE per frame (top layer)
+    - HALO draws AFTER APEXSIM
     - Guaranteed visibility
 */
 
@@ -40,13 +40,12 @@
         const entities = entitiesModule.getAll ? entitiesModule.getAll() : [];
         const formations = formationsModule.getAll ? formationsModule.getAll() : [];
 
-        // Transparent fade
-        ctx.fillStyle = "rgba(0,0,0,0.12)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // ⭐ DO NOT CLEAR HERE — APEXSIM handles trails
+        // HALO draws cleanly on top
 
-        // Draw formations (absolute coords)
-        ctx.strokeStyle = "rgba(255,60,60,0.7)";
-        ctx.lineWidth = 1.5;
+        // Draw formations
+        ctx.strokeStyle = "rgba(255,60,60,0.9)";
+        ctx.lineWidth = 2;
 
         for (const f of formations) {
             if (!f.radius || !f.center) continue;
@@ -56,13 +55,13 @@
             ctx.stroke();
         }
 
-        // Draw entities (absolute coords)
+        // Draw entities
         for (const e of entities) {
             if (!e.position) continue;
 
             ctx.fillStyle = "rgba(255,80,80,1)";
             ctx.beginPath();
-            ctx.arc(e.position.x, e.position.y, 4, 0, Math.PI * 2);
+            ctx.arc(e.position.x, e.position.y, 5, 0, Math.PI * 2);
             ctx.fill();
         }
     }
