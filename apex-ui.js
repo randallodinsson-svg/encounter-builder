@@ -1,72 +1,138 @@
 /*
     APEXCORE v4.4 — UI Controller
-    Handles Diagnostics Panel updates + UI bindings
+    Wires all UI controls to HALO + APEXSIM recommended API.
 */
 
 (function () {
+  const UI = {
+    start() {
+      console.log("APEXCORE v4.4 — UI online.");
 
-    const UI = {
-        fpsEl: null,
-        deltaEl: null,
-        avgEl: null,
-        minEl: null,
-        maxEl: null,
-        entitiesEl: null,
-        eventsEl: null,
-        timelineFeed: null,
+      this.bindHALO();
+      this.bindSIM();
+    },
 
-        deltas: [],
+    /* ----------------------------- */
+    /*           HALO UI             */
+    /* ----------------------------- */
+    bindHALO() {
+      const Entities = APEX.get("entities");
 
-        start() {
-            // Bind elements
-            this.fpsEl = document.getElementById("diag-fps");
-            this.deltaEl = document.getElementById("diag-delta");
-            this.avgEl = document.getElementById("diag-avg");
-            this.minEl = document.getElementById("diag-min");
-            this.maxEl = document.getElementById("diag-max");
-            this.entitiesEl = document.getElementById("diag-entities");
-            this.eventsEl = document.getElementById("diag-events");
-            this.timelineFeed = document.getElementById("diag-timeline-feed");
+      this.bind("#halo-spawn", () => {
+        console.log("UI: Spawn Entity");
+        Entities.spawnRandom();
+      });
 
-            console.log("APEXCORE v4.4 — UI online.");
-        },
+      this.bind("#halo-clear", () => {
+        console.log("UI: Clear HALO");
+        Entities.clear();
+      });
+    },
 
-        onTick(delta, fps, entityCount, eventCount) {
-            if (!this.fpsEl) return;
+    /* ----------------------------- */
+    /*        SIMULATION UI          */
+    /* ----------------------------- */
+    bindSIM() {
+      const SIM = APEX.get("apexsim");
 
-            // Update FPS + Δ
-            this.fpsEl.textContent = Math.round(fps);
-            this.deltaEl.textContent = `${delta.toFixed(2)} ms`;
+      /* Preset selector */
+      this.bind("#sim-preset-select", (e) => {
+        const preset = e.target.value;
+        console.log("UI: Set Preset →", preset);
+        SIM.setPreset(preset);
+      });
 
-            // Track rolling deltas
-            this.deltas.push(delta);
-            if (this.deltas.length > 120) this.deltas.shift();
+      /* Particle Count */
+      const countSlider = document.getElementById("sim-particle-count");
+      const countLabel = document.getElementById("sim-particle-count-value");
 
-            const avg = this.deltas.reduce((a, b) => a + b, 0) / this.deltas.length;
-            const min = Math.min(...this.deltas);
-            const max = Math.max(...this.deltas);
+      if (countSlider) {
+        countSlider.addEventListener("input", (e) => {
+          const v = Number(e.target.value);
+          countLabel.textContent = v;
+          SIM.setParticleCount(v);
+        });
+      }
 
-            this.avgEl.textContent = `${avg.toFixed(2)} ms`;
-            this.minEl.textContent = `${min.toFixed(2)} ms`;
-            this.maxEl.textContent = `${max.toFixed(2)} ms`;
+      /* Particle Speed */
+      const speedSlider = document.getElementById("sim-particle-speed");
+      const speedLabel = document.getElementById("sim-particle-speed-value");
 
-            // Entities + Events
-            this.entitiesEl.textContent = entityCount;
-            this.eventsEl.textContent = eventCount;
-        },
+      if (speedSlider) {
+        speedSlider.addEventListener("input", (e) => {
+          const v = Number(e.target.value);
+          speedLabel.textContent = v.toFixed(2) + "x";
+          SIM.setSpeed(v);
+        });
+      }
 
-        pushTimelineEvent(text) {
-            if (!this.timelineFeed) return;
+      /* Field Strength */
+      const fieldSlider = document.getElementById("sim-field-strength");
+      const fieldLabel = document.getElementById("sim-field-strength-value");
 
-            const time = new Date().toLocaleTimeString();
-            this.timelineFeed.textContent += `[${time}] ${text}\n`;
+      if (fieldSlider) {
+        fieldSlider.addEventListener("input", (e) => {
+          const v = Number(e.target.value);
+          fieldLabel.textContent = v.toFixed(2);
+          SIM.setFieldStrength(v);
+        });
+      }
 
-            // Auto-scroll
-            this.timelineFeed.parentElement.scrollTop =
-                this.timelineFeed.parentElement.scrollHeight;
-        }
-    };
+      /* Obstacles toggle */
+      this.bind("#sim-obstacles-toggle", (e) => {
+        const checked = e.target.checked;
+        console.log("UI: Obstacles →", checked);
+        SIM.enableObstacles(checked);
+      });
 
-    APEX.register("ui", UI);
+      /* Trails toggle */
+      this.bind("#sim-trails-toggle", (e) => {
+        const checked = e.target.checked;
+        console.log("UI: Trails →", checked);
+        SIM.enableTrails(checked);
+      });
 
+      /* Pause button */
+      const pauseBtn = document.getElementById("sim-pause-btn");
+      if (pauseBtn) {
+        pauseBtn.addEventListener("click", () => {
+          if (SIM.paused) {
+            console.log("UI: Resume SIM");
+            SIM.resume();
+            pauseBtn.textContent = "Pause";
+          } else {
+            console.log("UI: Pause SIM");
+            SIM.pause();
+            pauseBtn.textContent = "Resume";
+          }
+        });
+      }
+
+      /* Burst button */
+      this.bind("#sim-burst-btn", () => {
+        console.log("UI: Spawn Burst");
+        SIM.spawnBurst(64);
+      });
+
+      /* Reset button */
+      this.bind("#sim-reset-btn", () => {
+        console.log("UI: Reset SIM");
+        SIM.reset();
+      });
+    },
+
+    /* ----------------------------- */
+    /*       Utility Binder          */
+    /* ----------------------------- */
+    bind(selector, handler) {
+      const el = document.querySelector(selector);
+      if (!el) {
+        console.warn("UI: Missing element", selector);
+        return;
+      }
+      el.addEventListener("click", handler);
+    },
+  };
+
+  APEX.register("ui", UI);
 })();
