@@ -1,7 +1,5 @@
 /*
-    APEXSIM Renderer v1.0
-    - Draws particles, trails, debug vectors, obstacles
-    - Renders on top of HALO but below UI Deck
+    APEXSIM Renderer v1.1 — Single Fade Owner
 */
 
 (function () {
@@ -17,7 +15,7 @@
         }
 
         ctx = canvas.getContext("2d");
-        console.log("APEXSIM Renderer v1.0 initialized");
+        console.log("APEXSIM Renderer v1.1 initialized");
     }
 
     function render() {
@@ -30,8 +28,8 @@
         const p = state.particles;
         const obs = state.obstacles;
 
-        // Trails
-        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        // Single fade layer
+        ctx.fillStyle = "rgba(0,0,0,0.15)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Obstacles
