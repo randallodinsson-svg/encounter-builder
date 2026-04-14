@@ -1,47 +1,37 @@
 /*
-    APEXCORE — Event Timeline Visualizer
-    Records engine events and prints a rolling timeline.
+    APEXCORE v4.4 — Event Timeline Visualizer (Updated)
+    Records timestamped engine events for debugging.
 */
 
 (function () {
-    if (typeof APEXCORE === "undefined") {
-        console.warn("APEXCORE Event Timeline: APEXCORE not found.");
-        return;
-    }
+  const Timeline = {
+    events: [],
+    maxEvents: 200,
 
-    const MAX_EVENTS = 100;
-    const events = [];
+    start() {
+      console.log("APEXCORE v4.4 — Event Timeline Visualizer registered");
+    },
 
-    function record(evt) {
-        events.push(evt);
-        if (events.length > MAX_EVENTS) {
-            events.shift();
-        }
-    }
+    onTick(delta, tick) {
+      this.push(`tick:${tick}`, delta);
+    },
 
-    function dump() {
-        const rows = events.map((e, i) => ({
-            idx: i,
-            type: e.type,
-            time: Math.round(e.time),
-            payload: e.payload
-        }));
+    push(label, data) {
+      const entry = {
+        t: performance.now(),
+        label,
+        data,
+      };
 
-        console.group("APEXCORE — Event Timeline");
-        console.table(rows);
-        console.groupEnd();
-    }
+      this.events.push(entry);
+      if (this.events.length > this.maxEvents) {
+        this.events.shift();
+      }
 
-    APEXCORE.onEvent((evt) => {
-        record(evt);
-    });
+      // Optional global for UI panels
+      window.APEX_TIMELINE = this.events;
+    },
+  };
 
-    // Expose a small control module
-    const EventTimeline = {
-        type: "tool",
-        dump
-    };
-
-    APEXCORE.register("eventTimeline", EventTimeline);
-    console.log("APEXCORE — Event Timeline Visualizer registered");
+  APEX.register("event-timeline", Timeline);
 })();
