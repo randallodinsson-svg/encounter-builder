@@ -1,58 +1,87 @@
 /*
-    APEXCORE v4.4 — Entity Registry (Diagnostics‑Ready Edition)
+    APEXCORE v4.4 — Entities Registry
+    5‑Species, HALO‑Compatible, Behavior‑Ready
 */
 
 (function () {
   const Entities = {
-    list: [],
+    _list: [],
+    _nextId: 1,
 
-    create(props = {}) {
-      const e = {
-        id: crypto.randomUUID ? crypto.randomUUID() : `e-${Date.now()}-${Math.random()}`,
-        x: props.x || 0,
-        y: props.y || 0,
-        vx: props.vx || 0,
-        vy: props.vy || 0,
-        data: props.data || {},
-      };
-      this.list.push(e);
-      return e;
+    // 5 species scaffold — behavior will hook into this later
+    _species: [
+      { id: 0, name: "Alpha",  color: "#ffe9a3" },
+      { id: 1, name: "Beta",   color: "#ff9f80" },
+      { id: 2, name: "Gamma",  color: "#80c8ff" },
+      { id: 3, name: "Delta",  color: "#b080ff" },
+      { id: 4, name: "Epsilon",color: "#7dffb3" },
+    ],
+
+    start() {
+      console.log("APEXCORE v4.4 — Entities online.");
     },
 
-    // New: used by HALO UI (#halo-spawn)
-    spawnRandom() {
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-      return this.create({
-        x: cx,
-        y: cy,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
-      });
+    /* ----------------------------- */
+    /*          Public API           */
+    /* ----------------------------- */
+
+    getAll() {
+      return this._list;
+    },
+
+    getSpeciesDefs() {
+      return this._species;
     },
 
     clear() {
-      this.list.length = 0;
+      this._list.length = 0;
     },
 
-    forEach(fn) {
-      this.list.forEach(fn);
+    spawnRandom() {
+      const w = window.innerWidth || 1920;
+      const h = window.innerHeight || 1080;
+
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+
+      const speciesId = Math.floor(Math.random() * this._species.length);
+
+      return this._spawn({
+        x,
+        y,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        speciesId,
+      });
     },
 
-    count() {
-      return this.list.length;
+    spawnAt(x, y, speciesId = 0) {
+      speciesId = Math.max(0, Math.min(this._species.length - 1, speciesId));
+      return this._spawn({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        speciesId,
+      });
     },
 
-    getAll() {
-      return this.list;
-    },
+    /* ----------------------------- */
+    /*        Internal Helpers       */
+    /* ----------------------------- */
 
-    onTick(delta) {
-      const dt = delta / 16.67;
-      for (const e of this.list) {
-        e.x += e.vx * dt;
-        e.y += e.vy * dt;
-      }
+    _spawn(opts) {
+      const e = {
+        id: this._nextId++,
+        x: opts.x,
+        y: opts.y,
+        vx: opts.vx,
+        vy: opts.vy,
+        speciesId: opts.speciesId,
+      };
+
+      this._list.push(e);
+      return e;
     },
   };
 
