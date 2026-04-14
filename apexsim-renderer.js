@@ -1,66 +1,87 @@
-// ------------------------------------------------------------
-// APEXCORE v4.4 — APEXSIM RENDERER
-// ------------------------------------------------------------
+/*
+    APEXCORE v4.4 — APEXSIM Renderer
+*/
 
 (function () {
   const sim = window.APEXSIM;
-  const canvas = document.getElementById("apexsim-canvas");
-  const ctx = canvas.getContext("2d");
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  window.addEventListener("resize", resize);
-  resize();
+  const SimRenderer = {
+    canvas: null,
+    ctx: null,
+    lastTime: performance.now(),
 
-  let lastTime = performance.now();
+    start() {
+      this.canvas = document.getElementById("apexsim-canvas");
+      if (!this.canvas) {
+        console.warn("APEXSIM Renderer — canvas #apexsim-canvas not found.");
+        return;
+      }
+      this.ctx = this.canvas.getContext("2d");
+      this.resize();
+      window.addEventListener("resize", () => this.resize());
+      console.log("APEXCORE v4.4 — APEXSIM Renderer online.");
+      requestAnimationFrame(this.loop.bind(this));
+    },
 
-  function loop(now) {
-    const delta = now - lastTime;
-    lastTime = now;
+    resize() {
+      this.canvas.width = window.innerWidth;
+      this.canvas.height = window.innerHeight;
+    },
 
-    sim._state.delta = delta;
-    sim._state.fps = 1000 / delta;
+    loop(now) {
+      const delta = now - this.lastTime;
+      this.lastTime = now;
 
-    if (!sim._state.paused) updateParticles(delta);
-    renderParticles();
+      const s = sim._state;
+      s.delta = delta;
+      s.fps = 1000 / (delta || 1);
 
-    requestAnimationFrame(loop);
-  }
+      if (!s.paused) {
+        this.updateParticles(delta);
+      }
+      this.renderParticles();
 
-  function updateParticles(delta) {
-    const s = sim._state;
+      requestAnimationFrame(this.loop.bind(this));
+    },
 
-    for (let p of s.particles) {
-      p.x += p.vx * s.particleSpeed;
-      p.y += p.vy * s.particleSpeed;
+    updateParticles(delta) {
+      const s = sim._state;
+      const dt = delta / 16.67;
+      const w = this.canvas.width;
+      const h = this.canvas.height;
 
-      if (p.x < 0) p.x = canvas.width;
-      if (p.x > canvas.width) p.x = 0;
-      if (p.y < 0) p.y = canvas.height;
-      if (p.y > canvas.height) p.y = 0;
-    }
-  }
+      for (const p of s.particles) {
+        p.x += p.vx * s.particleSpeed * dt;
+        p.y += p.vy * s.particleSpeed * dt;
 
-  function renderParticles() {
-    const s = sim._state;
+        if (p.x < 0) p.x = w;
+        if (p.x > w) p.x = 0;
+        if (p.y < 0) p.y = h;
+        if (p.y > h) p.y = 0;
+      }
+    },
 
-    if (!s.trailsEnabled) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    } else {
-      ctx.fillStyle = "rgba(0,0,0,0.1)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    renderParticles() {
+      const s = sim._state;
+      const ctx = this.ctx;
+      const w = this.canvas.width;
+      const h = this.canvas.height;
 
-    ctx.fillStyle = "#ffb347";
+      if (!s.trailsEnabled) {
+        ctx.clearRect(0, 0, w, h);
+      } else {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.fillRect(0, 0, w, h);
+      }
 
-    for (let p of s.particles) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
+      ctx.fillStyle = "#ffb347";
+      for (const p of s.particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+  };
 
-  requestAnimationFrame(loop);
+  APEX.register("apexsim-renderer", SimRenderer);
 })();
