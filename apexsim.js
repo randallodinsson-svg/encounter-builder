@@ -103,17 +103,32 @@
     /*                 PUBLIC CONTROL API                 */
     /* -------------------------------------------------- */
 
-    setPreset(name) { this._state.preset = name || "drift"; }
+    setPreset(name) { this._state.preset = name || "drift"; },
+
     setParticleCount(count) {
       this._state.particleCount = Math.max(16, Math.min(5000, count | 0));
       this._rebuildParticles();
-    }
-    setSpeed(speed) { this._state.particleSpeed = Math.max(0.05, Math.min(5, speed)); }
-    setFieldStrength(strength) { this._state.fieldStrength = Math.max(0, Math.min(5, strength)); }
-    enableObstacles(enabled) { this._state.obstaclesEnabled = !!enabled; }
-    enableTrails(enabled) { this._state.trailsEnabled = !!enabled; }
-    pause() { this._state.paused = true; }
-    resume() { this._state.paused = false; }
+    },
+
+    setSpeed(speed) {
+      this._state.particleSpeed = Math.max(0.05, Math.min(5, speed));
+    },
+
+    setFieldStrength(strength) {
+      this._state.fieldStrength = Math.max(0, Math.min(5, strength));
+    },
+
+    enableObstacles(enabled) {
+      this._state.obstaclesEnabled = !!enabled;
+    },
+
+    enableTrails(enabled) {
+      this._state.trailsEnabled = !!enabled;
+    },
+
+    pause() { this._state.paused = true; },
+    resume() { this._state.paused = false; },
+
     spawnBurst(count) {
       const n = count || 64;
       const w = window.innerWidth || 1920;
@@ -129,8 +144,9 @@
         const speciesId = (i % this._species.length);
         this._state.particles.push(this._makeParticle(x, y, speciesId));
       }
-    }
-    reset() { this._rebuildParticles(); }
+    },
+
+    reset() { this._rebuildParticles(); },
 
     /* -------------------------------------------------- */
     /*              CORE FIELD / FLOW FUNCTION            */
