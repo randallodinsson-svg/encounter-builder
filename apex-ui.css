@@ -1,242 +1,77 @@
-/* APEXCORE v4.4 — UI Deck & Cards */
+/* APEXCORE v4.4 — UI Panel */
 
-/* CARD SHELL */
-
-.apex-card {
-  background: linear-gradient(145deg, #101010, #050505);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 18px rgba(0, 0, 0, 0.7);
-  padding: 10px 10px 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+#apex-ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    pointer-events: auto;
+    font-family: sans-serif;
 }
 
-.apex-card--tall {
-  flex: 1 1 auto;
+/* Main panel container */
+.apex-ui-panel {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
 }
 
-.apex-card--footer {
-  align-items: center;
-  justify-content: space-between;
-  flex-direction: row;
+/* Each column */
+.apex-ui-section {
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 12px;
+    width: 240px;
+    color: #fff;
+    font-size: 13px;
+    border-radius: 6px;
 }
 
-/* HEADERS */
-
-.apex-card__header {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 4px;
+/* Section headers */
+.apex-ui-section h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #7fc8ff;
 }
 
-.apex-card__title {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #f5f5f5;
+/* Groups */
+.apex-ui-group {
+    margin-bottom: 14px;
 }
 
-.apex-card__subtitle {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #888;
+/* Rows */
+.apex-ui-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
 }
 
-/* BODY */
-
-.apex-card__body {
-  padding-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Buttons */
+.apex-ui-buttons button {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
-/* DIAGNOSTICS PANEL */
-
-#diag-panel {
-  /* sits at top of deck */
+.apex-ui-buttons button:hover {
+    background: #2a2a2a;
 }
 
-#diag-fps-graph {
-  width: 100%;
-  height: 60px;
-  background: #050505;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+/* Sliders */
+.apex-ui-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-/* DIAG ROWS */
-
-.diag-row {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #d0d0d0;
-}
-
-.diag-row span:first-child {
-  color: #888;
-}
-
-.diag-row span:last-child {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-}
-
-/* TIMELINE BOX */
-
-#diag-timeline-box {
-  margin-top: 4px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #050505;
-  max-height: 120px;
-  overflow-y: auto;
-  padding: 4px 6px;
-}
-
-#diag-timeline-feed {
-  font-size: 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  color: #b0b0b0;
-}
-
-/* FIELDS / SLIDERS / SELECTS */
-
-.apex-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.apex-field--row {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.apex-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #aaa;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.apex-label__value {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  color: #f0f0f0;
-  font-size: 10px;
-}
-
-.apex-select,
-.apex-slider {
-  width: 100%;
-}
-
-/* SELECT */
-
-.apex-select {
-  background: #050505;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #e0e0e0;
-  font-size: 11px;
-  padding: 4px 6px;
-}
-
-/* SLIDER */
-
-.apex-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: #202020;
-  outline: none;
-}
-
-.apex-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ffcc66;
-  cursor: pointer;
-}
-
-/* TOGGLES */
-
-.apex-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #ccc;
-}
-
-.apex-toggle input[type="checkbox"] {
-  accent-color: #ffcc66;
-}
-
-.apex-toggle__label {
-  font-size: 11px;
-}
-
-/* BUTTONS */
-
-.apex-btn {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: #101010;
-  color: #f0f0f0;
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 3px;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.apex-btn--secondary {
-  background: #181818;
-}
-
-.apex-btn--danger {
-  background: #3b1111;
-  border-color: rgba(255, 120, 120, 0.6);
-}
-
-/* SIM LAYER BODY */
-
-.sim-layer-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sim-layer-buttons {
-  justify-content: space-between;
-}
-
-/* FOOTER */
-
-.apex-card--footer .apex-card__title {
-  font-size: 10px;
-}
-
-.apex-card--footer .apex-card__subtitle {
-  font-size: 10px;
-  color: #777;
+.apex-ui-slider-row span {
+    min-width: 40px;
+    text-align: right;
 }
