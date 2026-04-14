@@ -1,6 +1,6 @@
 /*
-    APEXCORE v4.4 — UI Controller
-    Wires all UI controls to HALO + APEXSIM recommended API.
+    APEXCORE v4.4 — UI Controller (Corrected Full File)
+    Fully wired to APEXSIM + HALO with proper pause/resume logic.
 */
 
 (function () {
@@ -92,11 +92,13 @@
         SIM.enableTrails(checked);
       });
 
-      /* Pause button */
+      /* Pause / Resume button */
       const pauseBtn = document.getElementById("sim-pause-btn");
       if (pauseBtn) {
         pauseBtn.addEventListener("click", () => {
-          if (SIM.paused) {
+          const s = SIM._state;
+
+          if (s.paused) {
             console.log("UI: Resume SIM");
             SIM.resume();
             pauseBtn.textContent = "Pause";
