@@ -31,10 +31,6 @@
       this.canvas.height = window.innerHeight;
     },
 
-    /* -------------------------------------------------- */
-    /*                PARTICLE UPDATE LOOP                */
-    /* -------------------------------------------------- */
-
     updateParticles(delta) {
       const sim = window.APEXSIM;
       if (!sim) return;
@@ -62,10 +58,6 @@
       }
     },
 
-    /* -------------------------------------------------- */
-    /*                     RENDER LOOP                    */
-    /* -------------------------------------------------- */
-
     render() {
       if (!this.ctx || !window.APEXSIM) return;
 
@@ -89,12 +81,17 @@
       }
     },
 
-    /* -------------------------------------------------- */
-    /*                 ENGINE TICK HOOK                   */
-    /* -------------------------------------------------- */
-
     onTick(delta) {
       if (!this.canvas || !this.ctx) return;
+
+      const vis = window.APEX_VIS || {};
+      if (vis.sim === false) return;
+
+      const sim = window.APEXSIM;
+      if (!sim) return;
+
+      if (sim._state.paused) return;
+
       this.updateParticles(delta);
       this.render();
     },
