@@ -1,192 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>APEXCORE v4.4</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>APEXCORE — Encounter Builder</title>
 
-  <!-- Correct CSS files -->
-  <link rel="stylesheet" href="core.css" />
-  <link rel="stylesheet" href="apex-ui.css" />
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+
+        #haloCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* UI container */
+        #uiContainer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 320px;
+            height: 100vh;
+            background: rgba(20, 20, 20, 0.85);
+            color: #fff;
+            padding: 12px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+    </style>
 </head>
 
 <body>
-  <div id="apex-root">
 
-    <!-- LEFT: HALO + APEXSIM CANVASES -->
-    <div id="apex-stage">
-      <canvas id="halo-canvas"></canvas>
-      <canvas id="apexsim-canvas"></canvas>
-    </div>
+    <!-- Simulation Canvas -->
+    <canvas id="haloCanvas"></canvas>
 
-    <!-- RIGHT: UI DECK -->
-    <div id="apex-ui-deck">
+    <!-- UI Panel -->
+    <div id="uiContainer"></div>
 
-      <!-- ========================= -->
-      <!--   DIAGNOSTICS PANEL      -->
-      <!-- ========================= -->
-      <div class="apex-card" id="diag-panel">
-        <div class="apex-card__header">
-          <div class="apex-card__title">DIAGNOSTICS</div>
-          <div class="apex-card__subtitle">ENGINE PROFILER</div>
-        </div>
+    <!-- APEXCORE + Modules -->
+    <script src="core.js"></script>
+    <script src="apexcore.js"></script>
 
-        <div class="apex-card__body">
+    <script src="engine.js"></script>
+    <script src="entities.js"></script>
+    <script src="formations.js"></script>
+    <script src="formation-ai.js"></script>
+    <script src="auto-spawn.js"></script>
 
-          <!-- FPS GRAPH -->
-          <canvas id="diag-fps-graph" width="260" height="60"></canvas>
+    <script src="halo-renderer.js"></script>
 
-          <div class="diag-row"><span>FPS</span><span id="diag-fps">0</span></div>
-          <div class="diag-row"><span>Δ‑Time</span><span id="diag-delta">0 ms</span></div>
-          <div class="diag-row"><span>Avg Δ</span><span id="diag-avg">0 ms</span></div>
-          <div class="diag-row"><span>Min Δ</span><span id="diag-min">0 ms</span></div>
-          <div class="diag-row"><span>Max Δ</span><span id="diag-max">0 ms</span></div>
-          <div class="diag-row"><span>Entities</span><span id="diag-entities">0</span></div>
-          <div class="diag-row"><span>Timeline Events</span><span id="diag-events">0</span></div>
+    <script src="apexsim.js"></script>
+    <script src="apexsim-renderer.js"></script>
 
-          <div id="diag-timeline-box">
-            <div id="diag-timeline-feed"></div>
-          </div>
+    <script src="overlay.js"></script>
+    <script src="tick-profiler.js"></script>
+    <script src="event-timeline-visualizer.js"></script>
+    <script src="diag-fps-graph.js"></script>
+    <script src="debug-console.js"></script>
+    <script src="render-stats.js"></script>
 
-        </div>
-      </div>
+    <script src="apex-ui.js"></script>
 
-      <!-- ========================= -->
-      <!--     RENDER STATS PANEL    -->
-      <!-- ========================= -->
-      <div class="apex-card" id="render-stats-panel">
-        <div class="apex-card__header">
-          <div class="apex-card__title">RENDER STATS</div>
-          <div class="apex-card__subtitle">HALO / APEXSIM</div>
-        </div>
+    <!-- ⭐ DOM-READY BOOT FIX -->
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        APEX.start();
+    });
+    </script>
 
-        <div class="apex-card__body">
-          <div class="diag-row"><span>Draw Calls</span><span id="rs-drawcalls">0</span></div>
-          <div class="diag-row"><span>Batches</span><span id="rs-batches">0</span></div>
-          <div class="diag-row"><span>Canvas Clears</span><span id="rs-clears">0</span></div>
-          <div class="diag-row"><span>Frame Cost</span><span id="rs-framecost">0 ms</span></div>
-          <div class="diag-row"><span>Resolution</span><span id="rs-resolution">0×0</span></div>
-          <div class="diag-row"><span>Pixel Ratio</span><span id="rs-pixelratio">1.0</span></div>
-        </div>
-      </div>
-
-      <!-- ========================= -->
-      <!--       HALO PANEL         -->
-      <!-- ========================= -->
-      <div class="apex-card">
-        <div class="apex-card__header">
-          <div class="apex-card__title">HALO</div>
-          <div class="apex-card__subtitle">FORMATION ENGINE</div>
-        </div>
-        <div class="apex-card__body">
-          <button id="halo-spawn" class="apex-btn">Spawn Entity</button>
-          <button id="halo-clear" class="apex-btn apex-btn--danger">Clear</button>
-        </div>
-      </div>
-
-      <!-- ========================= -->
-      <!--    SIMULATION LAYER      -->
-      <!-- ========================= -->
-      <div class="apex-card apex-card--tall" id="sim-layer-card">
-        <div class="apex-card__header">
-          <div class="apex-card__title">SIMULATION LAYER</div>
-          <div class="apex-card__subtitle">APEXSIM CONTROL SURFACE</div>
-        </div>
-
-        <div class="apex-card__body sim-layer-body">
-
-          <div class="apex-field">
-            <label class="apex-label" for="sim-preset-select">Preset</label>
-            <select id="sim-preset-select" class="apex-select">
-              <option value="swarm">Swarm</option>
-              <option value="drift">Drift</option>
-              <option value="pulse">Pulse</option>
-              <option value="orbit">Orbit</option>
-            </select>
-          </div>
-
-          <div class="apex-field">
-            <label class="apex-label" for="sim-particle-count">
-              Particle Count
-              <span class="apex-label__value" id="sim-particle-count-value">512</span>
-            </label>
-            <input type="range" id="sim-particle-count" class="apex-slider"
-              min="64" max="2048" step="64" value="512" />
-          </div>
-
-          <div class="apex-field">
-            <label class="apex-label" for="sim-particle-speed">
-              Particle Speed
-              <span class="apex-label__value" id="sim-particle-speed-value">1.0x</span>
-            </label>
-            <input type="range" id="sim-particle-speed" class="apex-slider"
-              min="0.25" max="3.0" step="0.25" value="1.0" />
-          </div>
-
-          <div class="apex-field">
-            <label class="apex-label" for="sim-field-strength">
-              Field Strength
-              <span class="apex-label__value" id="sim-field-strength-value">1.0</span>
-            </label>
-            <input type="range" id="sim-field-strength" class="apex-slider"
-              min="0.0" max="3.0" step="0.25" value="1.0" />
-          </div>
-
-          <div class="apex-field apex-field--row">
-            <label class="apex-toggle">
-              <input type="checkbox" id="sim-obstacles-toggle" checked />
-              <span class="apex-toggle__label">Obstacles</span>
-            </label>
-
-            <label class="apex-toggle">
-              <input type="checkbox" id="sim-trails-toggle" checked />
-              <span class="apex-toggle__label">Trails</span>
-            </label>
-          </div>
-
-          <div class="apex-field apex-field--row sim-layer-buttons">
-            <button id="sim-pause-btn" class="apex-btn apex-btn--secondary">Pause</button>
-            <button id="sim-burst-btn" class="apex-btn apex-btn--secondary">Spawn Burst</button>
-            <button id="sim-reset-btn" class="apex-btn apex-btn--danger">Reset</button>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- ========================= -->
-      <!--          FOOTER          -->
-      <!-- ========================= -->
-      <div class="apex-card apex-card--footer">
-        <div class="apex-card__title">VECTORCORE // APEXCORE</div>
-        <div class="apex-card__subtitle">v4.4</div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Correct JS files -->
-  <script src="core.js"></script>
-  <script src="engine.js"></script>
-  <script src="apexcore.js"></script>
-
-  <script src="entities.js"></script>
-  <script src="formations.js"></script>
-  <script src="formation-ai.js"></script>
-  <script src="auto-spawn.js"></script>
-
-  <script src="halo-renderer.js"></script>
-
-  <script src="apexsim.js"></script>
-  <script src="apexsim-renderer.js"></script>
-
-  <script src="overlay.js"></script>
-  <script src="tick-profiler.js"></script>
-  <script src="event-timeline-visualizer.js"></script>
-  <script src="registry-diff-viewer.js"></script>
-  <script src="module-inspector.js"></script>
-
-  <script src="apex-ui.js"></script>
-  <script src="diag-fps-graph.js"></script>
-  <script src="debug-console.js"></script>
-  <script src="render-stats.js"></script>
 </body>
 </html>
