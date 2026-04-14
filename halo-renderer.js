@@ -1,8 +1,5 @@
 /*
-    HALO Renderer v4.4 — Fixed
-    - Transparent fade ONCE per frame (top layer)
-    - HALO draws AFTER APEXSIM
-    - Guaranteed visibility
+    HALO Renderer v4.4 — Data-Aligned
 */
 
 (function () {
@@ -33,17 +30,16 @@
     function render() {
         if (!ctx) return;
 
-        const entitiesModule = APEX.get("entities");
+        const entitiesModule   = APEX.get("entities");
         const formationsModule = APEX.get("formations");
         if (!entitiesModule || !formationsModule) return;
 
-        const entities = entitiesModule.getAll ? entitiesModule.getAll() : [];
+        const entities   = entitiesModule.getAll ? entitiesModule.getAll() : [];
         const formations = formationsModule.getAll ? formationsModule.getAll() : [];
 
-        // ⭐ DO NOT CLEAR HERE — APEXSIM handles trails
-        // HALO draws cleanly on top
+        // HALO draws on top of APEXSIM; no clear here
 
-        // Draw formations
+        // Formations
         ctx.strokeStyle = "rgba(255,60,60,0.9)";
         ctx.lineWidth = 2;
 
@@ -55,7 +51,7 @@
             ctx.stroke();
         }
 
-        // Draw entities
+        // Entities
         for (const e of entities) {
             if (!e.position) continue;
 
