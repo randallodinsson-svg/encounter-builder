@@ -1,9 +1,8 @@
 /*
-    APEXCORE v4.4 — Engine
-    Corrected Render Order:
-    1. HALO Renderer
-    2. APEXSIM Renderer
-    3. Overlay
+    APEXCORE v4.4 — Engine (Tick-Enabled)
+    - Adds tick(dt) support for all modules
+    - Ensures consistent timing across HALO + APEXSIM
+    - Stable render order
 */
 
 (function () {
@@ -22,7 +21,6 @@
 
         const modules = APEX.all();
 
-        // Start all modules that have a start() function
         console.log("APEXCORE v4.4 — Starting all modules...");
         for (const key in modules) {
             const mod = modules[key];
@@ -42,42 +40,37 @@
         state.lastTime = now;
 
         const dt = state.delta;
-
         const modules = APEX.all();
 
-        // UPDATE PHASE (order does not matter)
+        // UPDATE + TICK PHASE
         for (const key in modules) {
             const mod = modules[key];
-            if (mod && typeof mod.update === "function") {
+
+            if (!mod) continue;
+
+            if (typeof mod.update === "function") {
                 mod.update(dt);
+            }
+
+            if (typeof mod.tick === "function") {
+                mod.tick(dt);
             }
         }
 
-        // RENDER PHASE (order DOES matter)
-        const halo = APEX.get("renderer");            // HALO renderer
-        const sim = APEX.get("apexsim-renderer");    // APEXSIM renderer
-        const overlay = APEX.get("overlay");         // HUD overlay
+        // RENDER PHASE (strict order)
+        const halo = APEX.get("renderer");
+        const sim  = APEX.get("apexsim-renderer");
+        const hud  = APEX.get("overlay");
 
-        // 1. HALO (background)
-        if (halo && typeof halo.render === "function") {
-            halo.render();
-        }
-
-        // 2. APEXSIM (draws on top of HALO)
-        if (sim && typeof sim.render === "function") {
-            sim.render();
-        }
-
-        // 3. Overlay (HUD text)
-        if (overlay && typeof overlay.render === "function") {
-            overlay.render();
-        }
+        if (halo && typeof halo.render === "function") halo.render();
+        if (sim  && typeof sim.render  === "function") sim.render();
+        if (hud  && typeof hud.render  === "function") hud.render();
 
         requestAnimationFrame(loop);
     }
 
     function getDelta() {
-        return state.delta * 1000; // ms
+        return state.delta * 1000;
     }
 
     APEX.register("engine", {
