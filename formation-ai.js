@@ -1,88 +1,49 @@
 /*
-    APEXCORE v4.4 — Formation AI (Classic HALO, Stable Orbit)
-    - Fixed ring
-    - Smooth easing into slots
-    - No collapse, no drift, no disappearing dots
+    APEXCORE v4.4 — Formation AI
 */
 
 (function () {
+  const Entities = APEX.get("entities");
+  const Formations = APEX.get("formations");
 
-    // Classic HALO anchor position (center-ish)
-    const target = { x: 350, y: 250 };
+  const FormationAI = {
+    mode: "idle",
+    targetPattern: null,
+    center: { x: 0, y: 0 },
+    stiffness: 0.05,
 
-    function setTarget(x, y) {
-        target.x = x;
-        target.y = y;
-    }
+    setMode(mode) {
+      this.mode = mode;
+      console.log(`APEXCORE v4.4 — Formation AI mode: ${mode}`);
+    },
 
-    function update(state) {
-        const formations = APEX.get("formations");
-        const entities = APEX.get("entities");
+    applyPattern(name, options = {}) {
+      const patternFn = Formations.get(name);
+      if (!patternFn) return;
+      const count = Entities.list.length || options.count || 64;
+      const pattern = patternFn(count, options.radius || 200, options.spacing || 32);
+      this.targetPattern = pattern;
+      this.center.x = options.cx ?? window.innerWidth / 2;
+      this.center.y = options.cy ?? window.innerHeight / 2;
+    },
 
-        if (!formations || !entities) return;
-        if (typeof formations.all !== "function" || typeof entities.all !== "function") return;
+    onTick(delta) {
+      if (!this.targetPattern) return;
+      const ents = Entities.list;
+      const pattern = this.targetPattern;
+      const n = Math.min(ents.length, pattern.length);
+      const dt = delta / 16.67;
 
-        const forms = formations.all();
-        const ents = entities.all();
-        if (!forms.length || !ents.length) return;
+      for (let i = 0; i < n; i++) {
+        const e = ents[i];
+        const p = pattern[i];
+        const tx = this.center.x + p.x;
+        const ty = this.center.y + p.y;
+        e.x += (tx - e.x) * this.stiffness * dt;
+        e.y += (ty - e.y) * this.stiffness * dt;
+      }
+    },
+  };
 
-        const dt = (state.delta || 16.67) / 1000;
-
-        for (const f of forms) {
-            // Anchor stays locked on target for Classic HALO
-            f.x = target.x;
-            f.y = target.y;
-
-            const members = f.members;
-            const count = members.length;
-            if (!count) continue;
-
-            for (let i = 0; i < count; i++) {
-                const e = members[i];
-                if (!e) continue;
-
-                // Fixed slot angle for Classic HALO
-                const angle = (Math.PI * 2 * i) / count;
-
-                const slotX = f.x + Math.cos(angle) * f.radius;
-                const slotY = f.y + Math.sin(angle) * f.radius;
-
-                const ex = slotX - e.x;
-                const ey = slotY - e.y;
-                const edist = Math.hypot(ex, ey) || 1;
-
-                // If close enough, snap and stop
-                const snapThreshold = 2.0;
-                if (edist < snapThreshold) {
-                    e.x = slotX;
-                    e.y = slotY;
-                    e.vx = 0;
-                    e.vy = 0;
-                    continue;
-                }
-
-                // Smooth easing toward slot
-                const followSpeed = e.speed || 80;
-                const maxStep = followSpeed * dt;
-
-                // Clamp movement so they don't overshoot
-                const step = Math.min(maxStep, edist);
-                const nx = ex / edist;
-                const ny = ey / edist;
-
-                e.vx = nx * followSpeed;
-                e.vy = ny * followSpeed;
-
-                e.x += nx * step;
-                e.y += ny * step;
-            }
-        }
-    }
-
-    APEX.register("formation-ai", {
-        type: "formation-ai",
-        setTarget,
-        update
-    });
-
+  APEX.register("formation-ai", FormationAI);
 })();
