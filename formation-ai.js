@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–16 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–17 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -35,7 +35,7 @@
       APEX.Evolution.updateFormationEvolution(formation, dt);
     }
 
-    // Phase 16 Meta‑Orchestration (formation‑of‑formations)
+    // Phase 16 Meta‑Orchestration
     if (APEX.Meta && APEX.Meta.updateFormationMetaState) {
       APEX.Meta.updateFormationMetaState(formation, formations, dt);
     }
@@ -51,11 +51,16 @@
       updateFormation(formations[i], dt);
     }
 
-    // Global meta‑pass (optional, but cheap)
+    // Global meta pass
     if (APEX.Meta && APEX.Meta.updateGlobalMeta) {
       APEX.Meta.updateGlobalMeta(formations, dt);
     }
+
+    // Phase 17 Scenario Director — global pass
+    if (APEX.Scenario && APEX.Scenario.updateGlobalScenario) {
+      APEX.Scenario.updateGlobalScenario(formations, dt);
+    }
   };
 
-  console.log("FORMATION_AI — online (Phase 9–16).");
+  console.log("FORMATION_AI — online (Phase 9–17).");
 })(this);
