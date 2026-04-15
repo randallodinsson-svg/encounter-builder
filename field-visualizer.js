@@ -1,16 +1,13 @@
-// FILE: field-visualizer.js
-// FIELD_VISUALIZER v4.4 — Phase 5 (Vector Field + Curl + Halo Influence)
+// field-visualizer.js — debug field vectors
 
 (function () {
   const Visualizer = {
     canvas: null,
     ctx: null,
-
-    gridSize: 80, // spacing between vector samples
+    density: 64,
 
     start() {
       console.log("FIELD_VISUALIZER — online.");
-
       this.canvas = document.createElement("canvas");
       this.canvas.id = "fieldOverlay";
       Object.assign(this.canvas.style, {
@@ -20,16 +17,10 @@
         height: "100%",
         pointerEvents: "none",
       });
-
       document.body.appendChild(this.canvas);
       this.ctx = this.canvas.getContext("2d");
-
       this.resize();
       window.addEventListener("resize", () => this.resize());
-    },
-
-    update(dt) {
-      this.render();
     },
 
     resize() {
@@ -37,41 +28,44 @@
       this.canvas.height = window.innerHeight;
     },
 
-    render() {
+    update(dt) {
       const ctx = this.ctx;
       const w = this.canvas.width;
       const h = this.canvas.height;
-
       ctx.clearRect(0, 0, w, h);
 
       const env = APEX.getModule("environment-field");
-      const halo = APEX.getModule("halo-field");
-      if (!env || !halo) return;
+      const haloSystem = APEX.getModule("halo-system");
+      const haloField = APEX.getModule("halo-field");
+      if (!env) return;
 
-      const step = this.gridSize;
-
+      const step = this.density;
+      ctx.lineWidth = 1;
       for (let y = step * 0.5; y < h; y += step) {
         for (let x = step * 0.5; x < w; x += step) {
-          const f = env.sample(x, y);
-          const hF = halo.sample(x, y);
+          let f = env.sample(x, y);
+          if (haloSystem && haloSystem.halos.length > 0) {
+            const hf = haloSystem.sample(x, y);
+            f.fx += hf.fx;
+            f.fy += hf.fy;
+          } else if (haloField) {
+            const hf = haloField.sample(x, y);
+            f.fx += hf.fx;
+            f.fy += hf.fy;
+          }
 
-          const fx = f.fx + hF.fx;
-          const fy = f.fy + hF.fy;
+          const len = Math.sqrt(f.fx * f.fx + f.fy * f.fy);
+          if (len < 1) continue;
 
-          const mag = Math.sqrt(fx * fx + fy * fy);
+          const scale = 0.08;
+          const tx = x + f.fx * scale;
+          const ty = y + f.fy * scale;
 
-          // Draw vector arrow
+          ctx.strokeStyle = "rgba(0,180,255,0.35)";
           ctx.beginPath();
           ctx.moveTo(x, y);
-          ctx.lineTo(x + fx * 40, y + fy * 40);
-          ctx.strokeStyle = `rgba(0,255,255,${0.25 + mag * 0.4})`;
-          ctx.lineWidth = 1.2;
+          ctx.lineTo(tx, ty);
           ctx.stroke();
-
-          // Curl visualization (simple perpendicular magnitude)
-          const curl = Math.abs(fx * fy);
-          ctx.fillStyle = `rgba(255,0,150,${Math.min(0.35, curl * 2)})`;
-          ctx.fillRect(x - 3, y - 3, 6, 6);
         }
       }
     },
