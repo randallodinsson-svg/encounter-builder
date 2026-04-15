@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — NUKE BASELINE</title>
+  <title>APEXCORE v4.4 — NUKE BASELINE (Phase 10)</title>
 
   <style>
     html, body {
@@ -62,14 +62,17 @@
 
 <body>
 
+  <!-- MAIN SIM CANVAS -->
   <canvas id="haloCanvas"></canvas>
 
+  <!-- HUD -->
   <div class="hud">
-    APEXCORE v4.4 — NUKE BASELINE<br/>
+    APEXCORE v4.4 — NUKE BASELINE (Phase 10)<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span>
   </div>
 
+  <!-- CONTROL PANEL -->
   <div class="controls">
     <button data-ui="reset">Reset</button>
     <button data-ui="burst">Burst</button>
@@ -87,6 +90,10 @@
     <button data-ui="halo-net">Swarm Net</button>
     <button data-ui="halo-collapse">Collapse Core</button>
   </div>
+
+  <!-- ===================================================== -->
+  <!--  APEXCORE v4.4 — MODULE STACK (Phase 10 Integrated)   -->
+  <!-- ===================================================== -->
 
   <!-- CORE + ENGINE -->
   <script src="core.js"></script>
@@ -117,7 +124,10 @@
   <!-- PHASE 7 -->
   <script src="halo-system.js"></script>
 
-  <!-- PHASE 9 -->
+  <!-- PHASE 10 — NEW MODULE -->
+  <script src="influence-maps.js"></script>
+
+  <!-- PHASE 9 + 10 — FORMATION INTELLIGENCE -->
   <script src="formation-commands.js"></script>
   <script src="formation-ai.js"></script>
   <script src="formation-renderer.js"></script>
