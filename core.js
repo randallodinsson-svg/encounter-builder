@@ -1,23 +1,38 @@
-// FILE: core.js
-// Minimal APEX registry for NUKE baseline
+// core.js — APEXCORE module registry
 
-(function () {
+window.APEX = (function () {
   const modules = {};
+  const ordered = [];
 
-  const APEX = {
-    register(name, mod) {
-      modules[name] = mod;
-    },
-    getModule(name) {
-      return modules[name] || null;
-    },
-    listModules() {
-      return Object.keys(modules);
-    },
-    _all() {
-      return modules;
-    },
+  function register(name, mod) {
+    modules[name] = mod;
+    ordered.push({ name, mod });
+  }
+
+  function getModule(name) {
+    return modules[name] || null;
+  }
+
+  function startAll() {
+    for (const { mod } of ordered) {
+      if (typeof mod.start === "function") {
+        mod.start();
+      }
+    }
+  }
+
+  function updateAll(dt) {
+    for (const { mod } of ordered) {
+      if (typeof mod.update === "function") {
+        mod.update(dt);
+      }
+    }
+  }
+
+  return {
+    register,
+    getModule,
+    startAll,
+    updateAll,
   };
-
-  window.APEX = APEX;
 })();
