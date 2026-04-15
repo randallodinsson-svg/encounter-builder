@@ -1,5 +1,7 @@
+// FILE: auto-spawn.js
 /*
-    APEXCORE v4.4 — Auto Spawn (Updated for 5‑Species Entities)
+    APEXCORE v4.4 — Auto Spawn
+    Updated for engine lifecycle compatibility
 */
 
 (function () {
@@ -10,6 +12,10 @@
 
     start() {
       console.log("APEXCORE v4.4 — Auto Spawn online.");
+    },
+
+    update(dt) {
+      this.onTick(dt);
     },
 
     onTick(delta) {
@@ -24,7 +30,6 @@
       const Entities = APEX.get("entities");
       if (!Entities) return;
 
-      // NEW: use spawnRandom() instead of create()
       for (let i = 0; i < 3; i++) {
         Entities.spawnRandom();
       }
