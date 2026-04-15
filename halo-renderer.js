@@ -1,14 +1,15 @@
-// halo-renderer.js — visual halo overlay
+// halo-renderer.js — Phase 12 (Safe Gradient + NaN Protection)
 
 (function () {
-  const Renderer = {
+  const HaloRenderer = {
     canvas: null,
     ctx: null,
 
     start() {
       console.log("HALO Renderer — online.");
+
       this.canvas = document.createElement("canvas");
-      this.canvas.id = "haloOverlay";
+      this.canvas.id = "haloCanvas";
       Object.assign(this.canvas.style, {
         position: "fixed",
         inset: "0",
@@ -16,8 +17,10 @@
         height: "100%",
         pointerEvents: "none",
       });
+
       document.body.appendChild(this.canvas);
       this.ctx = this.canvas.getContext("2d");
+
       this.resize();
       window.addEventListener("resize", () => this.resize());
     },
@@ -31,37 +34,60 @@
       const ctx = this.ctx;
       const w = this.canvas.width;
       const h = this.canvas.height;
+
       ctx.clearRect(0, 0, w, h);
 
       const haloSystem = APEX.getModule("halo-system");
-      const haloField = APEX.getModule("halo-field");
+      if (!haloSystem || !haloSystem.halos) return;
 
-      ctx.save();
-      ctx.globalCompositeOperation = "screen";
-
-      if (haloSystem && haloSystem.halos.length > 0) {
-        for (const hObj of haloSystem.halos) {
-          this.drawHalo(ctx, hObj.x, hObj.y, 220, hObj.strength);
-        }
-      } else if (haloField) {
-        this.drawHalo(ctx, haloField.x, haloField.y, 260, haloField.strength);
+      for (const hObj of haloSystem.halos) {
+        this.drawHalo(hObj);
       }
-
-      ctx.restore();
     },
 
-    drawHalo(ctx, x, y, radius, strength) {
-      const grd = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      grd.addColorStop(0, `rgba(80,200,255,${0.35 * strength})`);
-      grd.addColorStop(0.4, `rgba(40,120,255,${0.25 * strength})`);
-      grd.addColorStop(1, "rgba(0,0,0,0)");
+    // ---------------------------------------------------------
+    // SAFE HALO DRAWING — prevents NaN crashes
+    // ---------------------------------------------------------
+    drawHalo(hObj) {
+      const ctx = this.ctx;
 
-      ctx.fillStyle = grd;
+      // Validate halo data
+      if (
+        !hObj ||
+        !isFinite(hObj.x) ||
+        !isFinite(hObj.y) ||
+        !isFinite(hObj.strength)
+      ) {
+        return; // skip invalid halo
+      }
+
+      // Compute radius from strength
+      const radius = Math.max(40, Math.abs(hObj.strength) * 120);
+
+      if (!isFinite(radius)) return;
+
+      // Create gradient safely
+      const grad = ctx.createRadialGradient(
+        hObj.x, hObj.y, 0,
+        hObj.x, hObj.y, radius
+      );
+
+      grad.addColorStop(0, "rgba(0, 200, 255, 0.35)");
+      grad.addColorStop(0.4, "rgba(0, 150, 255, 0.22)");
+      grad.addColorStop(1, "rgba(0, 80, 200, 0)");
+
       ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.arc(hObj.x, hObj.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Halo core
+      ctx.beginPath();
+      ctx.arc(hObj.x, hObj.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,255,255,0.9)";
       ctx.fill();
     },
   };
 
-  APEX.register("halo-renderer", Renderer);
+  APEX.register("halo-renderer", HaloRenderer);
 })();
