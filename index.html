@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — Phase 26: Atmosphere & Mood Layer</title>
+  <title>APEXCORE v4.4 — Phase 27: Formation Relationship Layer</title>
 
   <style>
     html, body {
@@ -70,57 +70,6 @@
       pointer-events: none;
       z-index: 20;
     }
-
-    .dash-root {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      width: 320px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: none;
-      font-size: 11px;
-    }
-
-    .dash-panel {
-      background: rgba(0,0,0,0.7);
-      border: 1px solid rgba(255,255,255,0.15);
-      padding: 8px 10px;
-    }
-
-    .dash-title {
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #7fd0ff;
-      margin-bottom: 4px;
-    }
-
-    .dash-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 2px;
-    }
-
-    .dash-label {
-      opacity: 0.7;
-    }
-
-    .dash-value {
-      font-weight: 500;
-    }
-
-    .mood-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 5;
-      mix-blend-mode: screen;
-      opacity: 0;
-      background: radial-gradient(circle at 50% 50%, rgba(0,180,255,0.4), transparent 60%);
-      transition: opacity 0.4s ease, background 0.4s ease;
-    }
   </style>
 </head>
 
@@ -131,7 +80,7 @@
   <canvas id="diagCanvas"></canvas>
 
   <div class="hud">
-    APEXCORE v4.4 — Phase 26: Atmosphere & Mood Layer<br/>
+    APEXCORE v4.4 — Phase 27: Formation Relationship Layer<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span>
   </div>
@@ -235,6 +184,9 @@
 
   <!-- PHASE 26 -->
   <script src="phase26-atmosphere-mood.js"></script>
+
+  <!-- PHASE 27 -->
+  <script src="phase27-formation-relationships.js"></script>
 
   <!-- FORMATION INTELLIGENCE -->
   <script src="formation-commands.js"></script>
