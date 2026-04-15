@@ -1,276 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <title>APEXCORE v4.4 — Encounter Builder</title>
+<!-- DELETE ALL + PASTE ALL INTO index.html (script section) -->
 
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #000;
-            font-family: sans-serif;
-        }
+<!-- CORE + ENGINE -->
+<script src="core.js"></script>
+<script src="apexcore-engine.js"></script>
+<script src="apexcore.js"></script>
 
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
+<!-- SYSTEM MODULES -->
+<script src="apexcore-events.js"></script>
+<script src="apexops.js"></script>
+<script src="apexai.js"></script>
 
-        /* UI PANEL */
-        #apex-ui {
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 50;
-            pointer-events: auto;
-        }
+<!-- SIMULATION LAYER -->
+<script src="apexsim.js"></script>
+<script src="apexsim-renderer.js"></script>
+<script src="entities.js"></script>
+<script src="auto-spawn.js"></script>
 
-        .apex-ui-panel {
-            display: flex;
-            gap: 12px;
-            padding: 12px;
-        }
+<!-- ENVIRONMENTAL + HALO FIELDS -->
+<script src="environment-field.js"></script>
+<script src="halo-field.js"></script>
+<script src="halo-renderer.js"></script>
 
-        .apex-ui-section {
-            background: rgba(0, 0, 0, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            padding: 12px;
-            width: 240px;
-            color: #fff;
-            font-size: 13px;
-            border-radius: 6px;
-        }
+<!-- UI + OVERLAYS -->
+<script src="apex-ui.js"></script>
+<script src="overlay.js"></script>
+<script src="tier4-hud.js"></script>
 
-        .apex-ui-section h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            font-weight: bold;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: #7fc8ff;
-        }
+<!-- DEBUG + DIAGNOSTICS -->
+<script src="debug-console.js"></script>
+<script src="diag-fps-graph.js"></script>
+<script src="event-timeline-visualizer.js"></script>
+<script src="module-inspector.js"></script>
+<script src="registry-diff-viewer.js"></script>
+<script src="render-stats.js"></script>
+<script src="tick-profiler.js"></script>
 
-        .apex-ui-group {
-            margin-bottom: 14px;
-        }
+<!-- FORMATIONS + AI -->
+<script src="formations.js"></script>
+<script src="formation-ai.js"></script>
 
-        .apex-ui-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
-        }
+<!-- REMOVE THIS FOREVER (DO NOT RE-ADD) -->
+<!-- <script src="engine.js"></script> -->
 
-        .apex-ui-buttons button {
-            background: #1a1a1a;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .apex-ui-buttons button:hover {
-            background: #2a2a2a;
-        }
-
-        .apex-ui-slider-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .apex-ui-slider-row span {
-            min-width: 40px;
-            text-align: right;
-        }
-    </style>
-</head>
-
-<body>
-
-    <!-- ROOT FOR OVERLAYS -->
-    <div id="apex-root"></div>
-
-    <!-- FULL APEX UI PANEL -->
-    <div id="apex-ui">
-        <div class="apex-ui-panel">
-
-            <!-- MAIN COLUMN -->
-            <div class="apex-ui-section" id="apex-ui-main">
-                <h3>Visibility</h3>
-                <div class="apex-ui-group">
-                    <div class="apex-ui-row">
-                        <input type="checkbox" id="haloVisible" checked />
-                        <label for="haloVisible">HALO Visible</label>
-                    </div>
-                    <div class="apex-ui-row">
-                        <input type="checkbox" id="simVisible" checked />
-                        <label for="simVisible">SIM Visible</label>
-                    </div>
-                    <div class="apex-ui-row">
-                        <input type="checkbox" id="dualMode" checked />
-                        <label for="dualMode">Dual-Field Mode</label>
-                    </div>
-                </div>
-
-                <h3>Presets</h3>
-                <div class="apex-ui-group apex-ui-buttons">
-                    <button id="presetDrift">Drift</button>
-                    <button id="presetPulse">Pulse</button>
-                    <button id="presetOrbit">Orbit</button>
-                    <button id="presetSwarm">Swarm</button>
-                </div>
-
-                <h3>Particles</h3>
-                <div class="apex-ui-group">
-                    <label for="particleCount">Particle Count</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="particleCount" min="64" max="4096" step="64" value="512" />
-                        <span id="particleCountLabel">512</span>
-                    </div>
-                </div>
-
-                <div class="apex-ui-group">
-                    <label for="particleSpeed">Particle Speed</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="particleSpeed" min="0.1" max="5" step="0.05" value="1" />
-                        <span id="particleSpeedLabel">1.00x</span>
-                    </div>
-                </div>
-
-                <div class="apex-ui-group">
-                    <label for="fieldStrength">Field Strength</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="fieldStrength" min="0" max="3" step="0.1" value="1" />
-                        <span id="fieldStrengthLabel">1.00</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECONDARY COLUMN -->
-            <div class="apex-ui-section" id="apex-ui-secondary">
-                <h3>Environment</h3>
-                <div class="apex-ui-group">
-                    <div class="apex-ui-row">
-                        <input type="checkbox" id="obstaclesEnabled" />
-                        <label for="obstaclesEnabled">Obstacles Enabled</label>
-                    </div>
-                    <div class="apex-ui-row">
-                        <input type="checkbox" id="trailsEnabled" checked />
-                        <label for="trailsEnabled">Trails Enabled</label>
-                    </div>
-                </div>
-
-                <h3>Atmosphere</h3>
-                <div class="apex-ui-group">
-                    <label for="windSpeed">Wind Speed</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="windSpeed" min="0" max="1" step="0.01" value="0.15" />
-                        <span id="windSpeedLabel">0.15</span>
-                    </div>
-                </div>
-
-                <div class="apex-ui-group">
-                    <label for="windDir">Wind Direction</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="windDir" min="0" max="6.283" step="0.01" value="0" />
-                        <span id="windDirLabel">0°</span>
-                    </div>
-                </div>
-
-                <div class="apex-ui-group">
-                    <label for="turbulence">Turbulence</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="turbulence" min="0" max="3" step="0.1" value="1" />
-                        <span id="turbulenceLabel">1.0</span>
-                    </div>
-                </div>
-
-                <div class="apex-ui-group">
-                    <label for="vortices">Vortices</label>
-                    <div class="apex-ui-slider-row">
-                        <input type="range" id="vortices" min="0" max="3" step="0.1" value="1" />
-                        <span id="vorticesLabel">1.0</span>
-                    </div>
-                </div>
-
-                <div class="apex-ui-row">
-                    <input type="checkbox" id="stormMode" />
-                    <label for="stormMode">Storm Mode</label>
-                </div>
-
-                <h3>Weather Presets</h3>
-                <div class="apex-ui-buttons">
-                    <button id="weatherCalm">Calm</button>
-                    <button id="weatherGusty">Gusty</button>
-                    <button id="weatherStorm">Storm</button>
-                    <button id="weatherCyclone">Cyclone</button>
-                    <button id="weatherSea">Turbulent Sea</button>
-                </div>
-
-                <h3>Simulation Control</h3>
-                <div class="apex-ui-buttons">
-                    <button id="pauseBtn">Pause / Resume</button>
-                    <button id="spawnBurstBtn">Spawn Burst</button>
-                    <button id="resetBtn">Reset</button>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- CANVASES -->
-    <canvas id="field-debug-canvas"></canvas>
-    <canvas id="halo-canvas"></canvas>
-    <canvas id="haloCanvas"></canvas>
-    <canvas id="fps-canvas"></canvas>
-
-    <!-- CORE REGISTRY -->
-    <script src="core.js"></script>
-
-    <!-- ENGINE SHIM -->
-    <script src="apexcore-engine.js"></script>
-
-    <!-- CORE MODULES -->
-    <script src="engine.js"></script>
-    <script src="entities.js"></script>
-    <script src="formations.js"></script>
-    <script src="formation-ai.js"></script>
-    <script src="auto-spawn.js"></script>
-
-    <!-- HALO SYSTEM -->
-    <script src="halo-field.js"></script>
-    <script src="halo-renderer.js"></script>
-
-    <!-- ENVIRONMENT FIELD -->
-    <script src="environment-field.js"></script>
-
-    <!-- VISUAL FIELD DEBUG LAYER -->
-    <script src="field-debug.js"></script>
-
-    <!-- SIMULATION ENGINE -->
-    <script src="apexsim.js"></script>
-    <script src="apexsim-renderer.js"></script>
-
-    <!-- DIAGNOSTICS -->
-    <script src="overlay.js"></script>
-    <script src="tick-profiler.js"></script>
-    <script src="event-timeline-visualizer.js"></script>
-    <script src="diag-fps-graph.js"></script>
-    <script src="debug-console.js"></script>
-    <script src="render-stats.js"></script>
-
-    <!-- UI CONTROLLER -->
-    <script src="apex-ui.js"></script>
-
-    <!-- START ENGINE -->
-    <script>
-        APEX.start();
-    </script>
-
-</body>
-</html>
+<!-- DELETE ALL + PASTE ALL INTO index.html (script section) -->
