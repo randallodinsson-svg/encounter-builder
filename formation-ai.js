@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–42 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–43 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -54,8 +54,9 @@
     if (APEX.CoalStrategy) APEX.CoalStrategy.updateGlobalCoalitionStrategy(formations, dt);
     if (APEX.CoalDiplomacy) APEX.CoalDiplomacy.updateGlobalCoalitionDiplomacy(formations, dt);
     if (APEX.CoalTreaties) APEX.CoalTreaties.updateGlobalCoalitionTreaties(formations, dt);
+    if (APEX.CoalCulture) APEX.CoalCulture.updateGlobalCoalitionCulture(formations, dt);
     if (APEX.CoalViz) APEX.CoalViz.updateCoalitionVisualization(formations, dt);
   };
 
-  console.log("FORMATION_AI — online (Phase 9–42).");
+  console.log("FORMATION_AI — online (Phase 9–43).");
 })(this);
