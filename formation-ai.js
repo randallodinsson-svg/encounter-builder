@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–49 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–50 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -15,6 +15,7 @@
   function updateFormation(formation, dt) {
     const cmds = (formation.pendingCommands = []);
 
+    // Per-formation layers
     if (APEX.FormationCommands) APEX.FormationCommands.update(formation, dt);
     if (APEX.FormationMemory) APEX.FormationMemory.update(formation, dt);
     if (APEX.Motives) APEX.Motives.updateMotives(formation, formations, dt);
@@ -29,10 +30,12 @@
   }
 
   FormAI.update = function (dt) {
+    // Formation-level updates
     for (let i = 0; i < formations.length; i++) {
       updateFormation(formations[i], dt);
     }
 
+    // Global layers
     if (APEX.Meta) APEX.Meta.updateGlobalMeta(formations, dt);
     if (APEX.Scenario) APEX.Scenario.updateGlobalScenario(formations, dt);
     if (APEX.Adaptive) APEX.Adaptive.updateGlobalDifficulty(formations, dt);
@@ -48,6 +51,8 @@
     if (APEX.ScenarioFeed) APEX.ScenarioFeed.updateFeed(dt);
     if (APEX.RelViz) APEX.RelViz.updateVisualization(formations, dt);
     if (APEX.MotiveTelemetry) APEX.MotiveTelemetry.updateGlobalMotives(formations, dt);
+
+    // Coalition stack
     if (APEX.Coalitions) APEX.Coalitions.updateGlobalCoalitions(formations, dt);
     if (APEX.CoalIntel) APEX.CoalIntel.updateGlobalCoalitionIntelligence(formations, dt);
     if (APEX.CoalRivalry) APEX.CoalRivalry.updateGlobalCoalitionRivalry(formations, dt);
@@ -59,12 +64,19 @@
     if (APEX.CoalCulture) APEX.CoalCulture.updateGlobalCoalitionCulture(formations, dt);
     if (APEX.CoalIdentity) APEX.CoalIdentity.updateGlobalCoalitionIdentity(formations, dt);
     if (APEX.CoalEvo) APEX.CoalEvo.updateGlobalCoalitionEvolution(formations, dt);
+
+    // Operator stack
     if (APEX.OperatorIntervention) APEX.OperatorIntervention.updateGlobalOperatorBias(formations, dt);
     if (APEX.OperatorPresence) APEX.OperatorPresence.updateGlobalOperatorPresence(formations, dt);
     if (APEX.OperatorReputation) APEX.OperatorReputation.updateGlobalOperatorReputation(formations, dt);
     if (APEX.Epoch) APEX.Epoch.updateGlobalEpoch(formations, dt);
+
+    // Mythology (Phase 50)
+    if (APEX.Mythology) APEX.Mythology.updateGlobalMythology(formations, dt);
+
+    // Visualization
     if (APEX.CoalViz) APEX.CoalViz.updateCoalitionVisualization(formations, dt);
   };
 
-  console.log("FORMATION_AI — online (Phase 9–49).");
+  console.log("FORMATION_AI — online (Phase 9–50).");
 })(this);
