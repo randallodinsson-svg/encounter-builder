@@ -1,95 +1,99 @@
-// FILE: apexsim.js
-// APEXSIM v4.4 — Phase 3 (Field‑Driven Simulation)
+// apexsim.js — particle simulation (field-driven)
 
 (function () {
-  const TWO_PI = Math.PI * 2;
-
-  const SIM = {
-    _state: {
-      particles: [],
-      particleCount: 512,
-      baseSpeed: 60, // px/sec
-      time: 0,
-    },
+  const APEXSIM = {
+    particles: [],
+    maxParticles: 1024,
 
     start() {
       console.log("APEXSIM — Phase 3 online (Field‑Driven).");
-      this._buildParticles();
+      this.reset();
     },
 
-    update(dt) {
-      this._state.time += dt;
-      this._step(dt);
-    },
-
-    _buildParticles() {
-      const s = this._state;
-      s.particles.length = 0;
-
+    reset() {
+      this.particles.length = 0;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const cx = w * 0.5;
-      const cy = h * 0.5;
-
-      for (let i = 0; i < s.particleCount; i++) {
-        const a = Math.random() * TWO_PI;
-        const r = Math.random() * Math.min(w, h) * 0.4;
-
-        s.particles.push({
-          x: cx + Math.cos(a) * r,
-          y: cy + Math.sin(a) * r,
-          vx: (Math.random() - 0.5) * s.baseSpeed,
-          vy: (Math.random() - 0.5) * s.baseSpeed,
-          hue: (i / s.particleCount) * 360,
+      for (let i = 0; i < 512; i++) {
+        this.particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: 0,
+          vy: 0,
+          life: 1 + Math.random() * 2,
         });
       }
     },
 
-    _step(dt) {
-      const s = this._state;
+    burst(count = 64) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      for (let i = 0; i < count; i++) {
+        if (this.particles.length >= this.maxParticles) break;
+        this.particles.push({
+          x: w * 0.5,
+          y: h * 0.5,
+          vx: (Math.random() - 0.5) * 200,
+          vy: (Math.random() - 0.5) * 200,
+          life: 1 + Math.random() * 2,
+        });
+      }
+    },
+
+    update(dt) {
       const env = APEX.getModule("environment-field");
-      const halo = APEX.getModule("halo-field");
+      const haloField = APEX.getModule("halo-field");
+      const haloSystem = APEX.getModule("halo-system");
 
       const w = window.innerWidth;
       const h = window.innerHeight;
 
-      for (let i = 0; i < s.particles.length; i++) {
-        const p = s.particles[i];
-
-        // Sample environment field
+      for (const p of this.particles) {
         let fx = 0;
         let fy = 0;
 
-        if (env && env.sample) {
+        if (env) {
           const f = env.sample(p.x, p.y);
           fx += f.fx;
           fy += f.fy;
         }
 
-        // Sample halo field
-        if (halo && halo.sample) {
-          const hF = halo.sample(p.x, p.y);
-          fx += hF.fx;
-          fy += hF.fy;
+        if (haloSystem) {
+          const hf = haloSystem.sample(p.x, p.y);
+          fx += hf.fx;
+          fy += hf.fy;
+        } else if (haloField) {
+          const hf = haloField.sample(p.x, p.y);
+          fx += hf.fx;
+          fy += hf.fy;
         }
 
-        // Apply field forces
-        p.vx += fx * dt * 120;
-        p.vy += fy * dt * 120;
+        p.vx += fx * dt;
+        p.vy += fy * dt;
 
-        // Move particle
+        const drag = 0.96;
+        p.vx *= drag;
+        p.vy *= drag;
+
         p.x += p.vx * dt;
         p.y += p.vy * dt;
 
-        // Wrap around screen
-        if (p.x < 0) p.x += w;
-        if (p.x > w) p.x -= w;
-        if (p.y < 0) p.y += h;
-        if (p.y > h) p.y -= h;
+        if (p.x < -50) p.x = w + 50;
+        if (p.x > w + 50) p.x = -50;
+        if (p.y < -50) p.y = h + 50;
+        if (p.y > h + 50) p.y = -50;
+
+        p.life -= dt * 0.1;
+        if (p.life <= 0) {
+          p.x = Math.random() * w;
+          p.y = Math.random() * h;
+          p.vx = 0;
+          p.vy = 0;
+          p.life = 1 + Math.random() * 2;
+        }
       }
     },
   };
 
-  window.APEXSIM = SIM;
-  APEX.register("apexsim", SIM);
+  APEX.register("apexsim", APEXSIM);
 })();
