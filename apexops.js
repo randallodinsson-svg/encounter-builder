@@ -1,81 +1,45 @@
-// APEXOPS — diagnostics + controls
+// FILE: apexops.js
+// APEXOPS v4.4 — NUKE Rebuild (Command Layer)
 
-export const APEXOPS = (() => {
-    let core = null;
-    let engine = null;
-    let ui = null;
+(function () {
+  const OPS = {
+    start() {
+      console.log("APEXOPS — online.");
+    },
 
-    function log(msg) {
-        if (!ui || !ui.logEl) return;
-        ui.logEl.textContent += "\n" + msg;
-        ui.logEl.scrollTop = ui.logEl.scrollHeight;
-    }
+    update(dt) {
+      // No per-frame ops yet; placeholder for future commands.
+    },
 
-    function refreshRegistry() {
-        if (!ui || !ui.registryEl || !core) return;
-        ui.registryEl.textContent = JSON.stringify(core.debugSnapshot().registry, null, 2);
-    }
+    resetSim() {
+      const sim = APEX.getModule("apexsim");
+      if (sim && sim._buildParticles) {
+        sim._buildParticles();
+      }
+    },
 
-    function refreshModules() {
-        if (!ui || !ui.modulesEl || !core) return;
-        const snap = core.debugSnapshot();
-        ui.modulesEl.textContent =
-            "Modules:\n" + snap.modules.join(", ") +
-            "\n\nMounted:\n" + snap.mounted.join(", ");
-    }
+    burst(n = 64) {
+      const sim = APEX.getModule("apexsim");
+      if (!sim || !sim._state) return;
 
-    function refreshViews() {
-        refreshRegistry();
-        refreshModules();
-    }
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const cx = w * 0.5;
+      const cy = h * 0.5;
 
-    function wireButtons() {
-        const {
-            runTickBtn,
-            startAutoBtn,
-            stopAutoBtn,
-            autoInterval,
-            autoIntervalLabel
-        } = ui;
-
-        runTickBtn.addEventListener("click", () => {
-            engine.runSingleTick();
-            log("[OPS] Manual tick executed.");
-            refreshViews();
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 40 + Math.random() * 80;
+        sim._state.particles.push({
+          x: cx + Math.cos(a) * r,
+          y: cy + Math.sin(a) * r,
+          vx: (Math.random() - 0.5) * 80,
+          vy: (Math.random() - 0.5) * 80,
+          hue: Math.random() * 360
         });
+      }
+    },
+  };
 
-        startAutoBtn.addEventListener("click", () => {
-            engine.start();
-            startAutoBtn.disabled = true;
-            stopAutoBtn.disabled = false;
-            log("[OPS] Auto‑tick started.");
-        });
-
-        stopAutoBtn.addEventListener("click", () => {
-            engine.stop();
-            startAutoBtn.disabled = false;
-            stopAutoBtn.disabled = true;
-            log("[OPS] Auto‑tick stopped.");
-        });
-
-        autoInterval.addEventListener("input", () => {
-            const ms = Number(autoInterval.value);
-            autoIntervalLabel.textContent = ms;
-            engine.setIntervalMs(ms);
-        });
-    }
-
-    function init(coreRef, engineRef, uiRefs) {
-        core = coreRef;
-        engine = engineRef;
-        ui = uiRefs;
-        log("[OPS] Initialized.");
-        wireButtons();
-        refreshViews();
-    }
-
-    return {
-        init,
-        refreshViews
-    };
+  APEX.register("apexops", OPS);
 })();
