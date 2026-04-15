@@ -1,4 +1,4 @@
-// formation-ai.js — Phase 10 (Hybrid + Influence Steering)
+// formation-ai.js — Phase 11 (Hybrid + Influence + Morphing)
 
 (function () {
   const FormationAI = {
@@ -24,14 +24,21 @@
           vy: 0,
           facing: 0,
           speed: 80,
+
           cohesionRadius: 220,
           separationRadius: 80,
           preferredRadius: 260,
+
           targetX: cx,
           targetY: cy,
           anchorX: cx,
           anchorY: cy,
           mode: "approach",
+
+          // Phase 11
+          shape: "line",
+          shapeTension: 0.0,
+          shapeCooldown: 0.0,
         });
       }
     },
@@ -52,9 +59,7 @@
         let steerX = 0;
         let steerY = 0;
 
-        // -----------------------------------------------------
-        // 1. Tactical steering toward target (approach/backoff/orbit/evade)
-        // -----------------------------------------------------
+        // 1. Tactical steering
         const dxT = f.targetX - f.x;
         const dyT = f.targetY - f.y;
         const distT = Math.sqrt(dxT * dxT + dyT * dyT) + 0.001;
@@ -79,9 +84,7 @@
           steerY += desired.y - f.vy;
         }
 
-        // -----------------------------------------------------
-        // 2. Influence‑map gradient steering (local avoidance)
-        // -----------------------------------------------------
+        // 2. Influence‑map gradient steering
         if (influence) {
           const bestDir = influence.getBestDirection(f);
           if (bestDir) {
@@ -91,9 +94,7 @@
           }
         }
 
-        // -----------------------------------------------------
-        // 3. Flocking (cohesion, separation, alignment)
-        // -----------------------------------------------------
+        // 3. Flocking
         let cohX = 0, cohY = 0, cohCount = 0;
         let sepX = 0, sepY = 0, sepCount = 0;
         let aliX = 0, aliY = 0, aliCount = 0;
@@ -146,9 +147,7 @@
           steerY += desired.y - f.vy;
         }
 
-        // -----------------------------------------------------
-        // 4. Clamp steering force
-        // -----------------------------------------------------
+        // 4. Clamp steering
         const maxForce = 80;
         const mag = Math.sqrt(steerX * steerX + steerY * steerY);
         if (mag > maxForce) {
@@ -159,7 +158,6 @@
         f.vx += steerX * dt;
         f.vy += steerY * dt;
 
-        // Clamp speed
         const maxSpeed = 140;
         const spd = Math.sqrt(f.vx * f.vx + f.vy * f.vy);
         if (spd > maxSpeed) {
@@ -167,7 +165,6 @@
           f.vy = (f.vy / spd) * maxSpeed;
         }
 
-        // Update facing
         if (spd > 1) {
           f.facing = Math.atan2(f.vy, f.vx);
         }
