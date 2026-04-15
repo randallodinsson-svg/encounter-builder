@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–22 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–23 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -35,7 +35,8 @@
     if (APEX.Narrative) APEX.Narrative.updateNarrativeState(formations, dt);
     if (APEX.Salience) APEX.Salience.updateGlobalSalience(formations, dt);
     if (APEX.Cues) APEX.Cues.updateGlobalCues(formations, dt);
+    if (APEX.Telemetry) APEX.Telemetry.updateGlobalTelemetry(formations, dt);
   };
 
-  console.log("FORMATION_AI — online (Phase 9–22).");
+  console.log("FORMATION_AI — online (Phase 9–23).");
 })(this);
