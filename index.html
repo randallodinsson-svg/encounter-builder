@@ -46,7 +46,7 @@
     }
 
     .controls button {
-      margin-right: 8px;
+      margin: 4px 6px 4px 0;
       padding: 6px 10px;
       background: #222;
       color: #fff;
@@ -72,15 +72,22 @@
     <span id="hud-count">Particles: --</span>
   </div>
 
-  <!-- SIMPLE CONTROL PANEL -->
+  <!-- CONTROL PANEL -->
   <div class="controls">
     <button data-ui="reset">Reset</button>
     <button data-ui="burst">Burst</button>
+
+    <!-- Phase 4 Preset Buttons -->
+    <button data-ui="preset-calm">Calm</button>
+    <button data-ui="preset-drift">Drift</button>
+    <button data-ui="preset-swirl">Swirl</button>
+    <button data-ui="preset-storm">Storm</button>
+    <button data-ui="preset-collapse">Collapse</button>
+    <button data-ui="preset-pulse">Pulse</button>
   </div>
 
   <!-- =============================== -->
-  <!--  APEXCORE v4.4 — NUKE BASELINE  -->
-  <!--  PHASE 1 + PHASE 2 MODULE STACK -->
+  <!--  APEXCORE v4.4 — MODULE STACK   -->
   <!-- =============================== -->
 
   <!-- CORE + ENGINE -->
@@ -94,16 +101,17 @@
   <!-- PHASE 1 MODULES -->
   <script src="entities.js"></script>
   <script src="apexops.js"></script>
-  <script src="apex-ui.js"></script>
 
   <!-- PHASE 2 MODULES -->
   <script src="environment-field.js"></script>
   <script src="halo-field.js"></script>
   <script src="halo-renderer.js"></script>
 
-  <!-- =============================== -->
-  <!--  END OF SCRIPT BLOCK            -->
-  <!-- =============================== -->
+  <!-- PHASE 4 MODULE -->
+  <script src="field-controller.js"></script>
+
+  <!-- UI MUST LOAD LAST -->
+  <script src="apex-ui.js"></script>
 
 </body>
 </html>
