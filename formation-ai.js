@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–48 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–49 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -47,21 +47,4 @@
     if (APEX.RelViz) APEX.RelViz.updateVisualization(formations, dt);
     if (APEX.MotiveTelemetry) APEX.MotiveTelemetry.updateGlobalMotives(formations, dt);
     if (APEX.Coalitions) APEX.Coalitions.updateGlobalCoalitions(formations, dt);
-    if (APEX.CoalIntel) APEX.CoalIntel.updateGlobalCoalitionIntelligence(formations, dt);
-    if (APEX.CoalRivalry) APEX.CoalRivalry.updateGlobalCoalitionRivalry(formations, dt);
-    if (APEX.CoalConflict) APEX.CoalConflict.updateGlobalCoalitionConflict(formations, dt);
-    if (APEX.CoalEvents) APEX.CoalEvents.updateGlobalCoalitionEvents(formations, dt);
-    if (APEX.CoalStrategy) APEX.CoalStrategy.updateGlobalCoalitionStrategy(formations, dt);
-    if (APEX.CoalDiplomacy) APEX.CoalDiplomacy.updateGlobalCoalitionDiplomacy(formations, dt);
-    if (APEX.CoalTreaties) APEX.CoalTreaties.updateGlobalCoalitionTreaties(formations, dt);
-    if (APEX.CoalCulture) APEX.CoalCulture.updateGlobalCoalitionCulture(formations, dt);
-    if (APEX.CoalIdentity) APEX.CoalIdentity.updateGlobalCoalitionIdentity(formations, dt);
-    if (APEX.CoalEvo) APEX.CoalEvo.updateGlobalCoalitionEvolution(formations, dt);
-    if (APEX.OperatorIntervention) APEX.OperatorIntervention.updateGlobalOperatorBias(formations, dt);
-    if (APEX.OperatorPresence) APEX.OperatorPresence.updateGlobalOperatorPresence(formations, dt);
-    if (APEX.OperatorReputation) APEX.OperatorReputation.updateGlobalOperatorReputation(formations, dt);
-    if (APEX.CoalViz) APEX.CoalViz.updateCoalitionVisualization(formations, dt);
-  };
-
-  console.log("FORMATION_AI — online (Phase 9–48).");
-})(this);
+    if (APEX.Coal
