@@ -37,6 +37,14 @@
       [0,0,0,0,0],
     ],
 
+    _initialized: false,
+
+    init() {
+      if (this._initialized) return;
+      this._initialized = true;
+      this._rebuildParticles();
+    },
+
     start() {
       console.log("APEXCORE v5.1 — APEXSIM online.");
       this._rebuildParticles();
@@ -73,12 +81,6 @@
     reset() { this._rebuildParticles(); },
 
     sampleFlow(x, y, index) {
-      // (unchanged — full behavior logic preserved)
-      // ⭐ your entire sampleFlow logic remains intact
-      // ⭐ no edits needed here
-      // ⭐ engine lifecycle fix is only update(dt)
-      // (keeping your full code exactly as-is)
-      // ------------------------------------------------
       const s = this._state;
       const p = s.particles[index];
       if (!p) return { fx:0, fy:0 };
@@ -150,7 +152,7 @@
       let haloFX=0, haloFY=0;
       if (window.HALO_FIELD){
         const hf = window.HALO_FIELD.sample(x,y,p.speciesId);
-        switch (species.hhaloReaction){
+        switch (species.haloReaction){
           case "attract":   haloFX+=hf.fx*1.4; haloFY+=hf.fy*1.4; break;
           case "repel":     haloFX-=hf.fx*1.2; haloFY-=hf.fy*1.2; break;
           case "orbit":     haloFX+=-hf.fy*1.0; haloFY+=hf.fx*1.0; break;
