@@ -1,4 +1,4 @@
-// formation-renderer.js — Phase 11 (Shape Visualization)
+// formation-renderer.js — Phase 12 (Shape + Coordination Visualization)
 
 (function () {
   const Renderer = {
@@ -37,7 +37,6 @@
       if (!ai) return;
 
       for (const f of ai.formations) {
-        // Shape outline
         this.drawShape(ctx, f);
 
         // Cohesion radius
@@ -63,26 +62,29 @@
         // Center
         ctx.beginPath();
         ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        ctx.fillStyle = f.isLeader ? "rgba(0,255,200,0.95)" : "rgba(255,255,255,0.95)";
         ctx.fill();
 
-        // Target
-        ctx.beginPath();
-        ctx.moveTo(f.x, f.y);
-        ctx.lineTo(f.targetX, f.targetY);
-        ctx.strokeStyle = "rgba(0,255,180,0.5)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        // Group target (for non‑leaders)
+        if (!f.isLeader) {
+          ctx.beginPath();
+          ctx.moveTo(f.x, f.y);
+          ctx.lineTo(f.groupTargetX, f.groupTargetY);
+          ctx.strokeStyle = "rgba(0,255,180,0.4)";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
 
-        ctx.beginPath();
-        ctx.arc(f.targetX, f.targetY, 5, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(0,255,180,0.8)";
-        ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(f.groupTargetX, f.groupTargetY, 4, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(0,255,180,0.7)";
+          ctx.stroke();
+        }
 
         // Labels
         ctx.font = "11px system-ui, -apple-system, sans-serif";
         ctx.fillStyle = "rgba(255,255,255,0.9)";
-        ctx.fillText(`${f.mode} / ${f.shape}`, f.x + 10, f.y - 10);
+        const leaderTag = f.isLeader ? " [L]" : "";
+        ctx.fillText(`${f.mode} / ${f.shape}${leaderTag}`, f.x + 10, f.y - 10);
       }
     },
 
