@@ -57,7 +57,6 @@
 
     const cfg = CoalEvents.config;
 
-    // Rivalry + Conflict data
     const rivals = APEX.CoalRivalry?.state?.rivalries || [];
     const conflicts = APEX.CoalConflict?.state?.conflicts || [];
 
@@ -72,3 +71,93 @@
       }
     }
 
+    // 2. Conflict surges
+    for (let c of conflicts) {
+      if (c.level > cfg.conflictFlashpoint) {
+        const a = intel.find(x => x.id === c.aId);
+        const b = intel.find(x => x.id === c.bId);
+        if (!a || !b) continue;
+        pushEvent("Conflict Surge", cinematicLine("conflict-surge", a.id, b.id));
+        return;
+      }
+    }
+
+    // 3. Dominance shifts
+    for (let i = 0; i < intel.length; i++) {
+      for (let j = i + 1; j < intel.length; j++) {
+        const a = intel[i];
+        const b = intel[j];
+        const diff = Math.abs(a.strength - b.strength);
+        if (diff > cfg.dominanceShiftThreshold) {
+          const stronger = a.strength > b.strength ? a : b;
+          const weaker = a.strength > b.strength ? b : a;
+          pushEvent("Power Shift", cinematicLine("power-shift", stronger.id, weaker.id));
+          return;
+        }
+      }
+    }
+
+    // 4. Coalition fractures
+    for (let c of intel) {
+      if (c.motives.aggression + c.motives.dominance > cfg.fractureThreshold * 2) {
+        pushEvent("Fracture", cinematicLine("fracture", c.id));
+        return;
+      }
+    }
+
+    // 5. Coalition merges (rare)
+    for (let i = 0; i < intel.length; i++) {
+      for (let j = i + 1; j < intel.length; j++) {
+        const a = intel[i];
+        const b = intel[j];
+        const diff = Math.abs(a.strength - b.strength);
+        if (diff < cfg.mergeThreshold) {
+          pushEvent("Merge", cinematicLine("merge", a.id, b.id));
+          return;
+        }
+      }
+    }
+
+    // 6. Standoffs
+    for (let c of conflicts) {
+      if (c.level > 0.25) {
+        const a = intel.find(x => x.id === c.aId);
+        const b = intel.find(x => x.id === c.bId);
+        if (!a || !b) continue;
+        pushEvent("Standoff", cinematicLine("standoff", a.id, b.id));
+        return;
+      }
+    }
+
+    // 7. Probes
+    for (let c of conflicts) {
+      if (c.level > 0.1) {
+        const a = intel.find(x => x.id === c.aId);
+        const b = intel.find(x => x.id === c.bId);
+        if (!a || !b) continue;
+        pushEvent("Probe", cinematicLine("probe", a.id, b.id));
+        return;
+      }
+    }
+
+    // 8. Retreats
+    for (let c of conflicts) {
+      if (c.level < 0.05) {
+        const a = intel.find(x => x.id === c.aId);
+        const b = intel.find(x => x.id === c.bId);
+        if (!a || !b) continue;
+        pushEvent("Retreat", cinematicLine("retreat", a.id, b.id));
+        return;
+      }
+    }
+  }
+
+  CoalEvents.updateGlobalCoalitionEvents = function (formations, dt) {
+    if (!APEX.CoalIntel || !APEX.CoalIntel.state) return;
+    const intel = APEX.CoalIntel.state.coalitions || [];
+    if (!intel.length) return;
+    tryEvent(intel, dt);
+  };
+
+  console.log("PHASE39_COALEVENTS — online (Coalition Event Engine, Cinematic Mode).");
+})(this);
