@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–14 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–15 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -15,7 +15,7 @@
   function updateFormation(formation, dt) {
     const cmds = (formation.pendingCommands = []);
 
-    // Phase 9–12 AI logic (existing)
+    // Phase 9–12 AI logic
     if (APEX.FormationCommands) {
       APEX.FormationCommands.update(formation, dt);
     }
@@ -25,9 +25,14 @@
       APEX.FormationMemory.update(formation, dt);
     }
 
-    // Phase 14 Strategy (NEW)
+    // Phase 14 Strategy
     if (APEX.Strategy && APEX.Strategy.updateFormationStrategy) {
       APEX.Strategy.updateFormationStrategy(formation, formations, dt);
+    }
+
+    // Phase 15 Evolution
+    if (APEX.Evolution && APEX.Evolution.updateFormationEvolution) {
+      APEX.Evolution.updateFormationEvolution(formation, dt);
     }
 
     // Execute commands
@@ -42,5 +47,5 @@
     }
   };
 
-  console.log("FORMATION_AI — online (Phase 9–14).");
+  console.log("FORMATION_AI — online (Phase 9–15).");
 })(this);
