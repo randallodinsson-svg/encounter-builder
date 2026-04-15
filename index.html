@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — Phase 13: Hybrid Memory Layer</title>
+  <title>APEXCORE v4.4 — Phase 14: Emergent Strategy Layer</title>
 
   <style>
     html, body {
@@ -75,19 +75,16 @@
 
 <body>
 
-  <!-- CANVASES -->
   <canvas id="simCanvas"></canvas>
   <canvas id="haloCanvas"></canvas>
   <canvas id="diagCanvas"></canvas>
 
-  <!-- HUD -->
   <div class="hud">
-    APEXCORE v4.4 — Phase 13: Hybrid Memory Layer<br/>
+    APEXCORE v4.4 — Phase 14: Emergent Strategy Layer<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span>
   </div>
 
-  <!-- CONTROL PANEL -->
   <div class="controls">
     <button data-ui="reset">Reset</button>
     <button data-ui="burst">Burst</button>
@@ -106,12 +103,7 @@
     <button data-ui="halo-collapse">Collapse Core</button>
   </div>
 
-  <!-- OVERLAY ROOT -->
   <div id="overlay-root"></div>
-
-  <!-- ===================================================== -->
-  <!--  APEXCORE v4.4 — MODULE STACK (Correct Phase 13)       -->
-  <!-- ===================================================== -->
 
   <!-- CORE + ENGINE -->
   <script src="core.js"></script>
@@ -154,7 +146,10 @@
   <!-- PHASE 13 -->
   <script src="formation-memory.js"></script>
 
-  <!-- FORMATION INTELLIGENCE (Phase 9–13) -->
+  <!-- PHASE 14 -->
+  <script src="phase14-strategy.js"></script>
+
+  <!-- FORMATION INTELLIGENCE -->
   <script src="formation-commands.js"></script>
   <script src="formation-ai.js"></script>
   <script src="formation-renderer.js"></script>
@@ -162,12 +157,9 @@
   <!-- UI LAST -->
   <script src="apex-ui.js"></script>
 
-  <!-- BOOT -->
   <script>
     window.addEventListener("load", () => {
-      if (window.APEX && APEX.startAll) {
-        APEX.startAll();
-      }
+      if (window.APEX && APEX.startAll) APEX.startAll();
     });
   </script>
 
