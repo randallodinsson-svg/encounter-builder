@@ -1,36 +1,22 @@
-// FILE: halo-field.js
-// HALO_FIELD v4.4 — NUKE Rebuild (Central Attractor)
+// halo-field.js — legacy single-halo field (fallback)
 
 (function () {
-  const HALO = {
-    _time: 0,
-
-    // Simple single halo in center for now
-    strength: 1.0, // 0..2
-    radius: 220,   // visual radius
+  const HaloField = {
+    x: null,
+    y: null,
+    strength: 1.2,
 
     start() {
       console.log("HALO_FIELD — online.");
-    },
-
-    update(dt) {
-      this._time += dt;
+      this.x = window.innerWidth * 0.5;
+      this.y = window.innerHeight * 0.5;
     },
 
     sample(x, y) {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const cx = w * 0.5;
-      const cy = h * 0.5;
-
-      const dx = cx - x;
-      const dy = cy - y;
-      const dist = Math.sqrt(dx * dx + dy * dy) + 0.0001;
-
-      // Soft attraction toward center
-      const falloff = Math.min(1, dist / this.radius);
-      const k = (this.strength * (1 - falloff)) * 0.8;
-
+      const dx = this.x - x;
+      const dy = this.y - y;
+      const dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
+      const k = (this.strength * 160) / dist;
       return {
         fx: (dx / dist) * k,
         fy: (dy / dist) * k,
@@ -38,6 +24,5 @@
     },
   };
 
-  window.HALO_FIELD = HALO;
-  APEX.register("halo-field", HALO);
+  APEX.register("halo-field", HaloField);
 })();
