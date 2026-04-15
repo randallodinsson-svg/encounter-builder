@@ -15,7 +15,7 @@
     },
 
     update(dt) {
-      this.onTick(dt);
+      this.onTick(dt * 1000);
     },
 
     onTick(delta) {
@@ -27,7 +27,7 @@
     },
 
     spawnBatch() {
-      const Entities = APEX.get("entities");
+      const Entities = APEX.getModule("entities");
       if (!Entities) return;
 
       for (let i = 0; i < 3; i++) {
