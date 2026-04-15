@@ -1,4 +1,4 @@
-// formation-renderer.js — Phase 10 (Influence‑Aware Visualization)
+// formation-renderer.js — Phase 11 (Shape Visualization)
 
 (function () {
   const Renderer = {
@@ -37,13 +37,16 @@
       if (!ai) return;
 
       for (const f of ai.formations) {
-        // Draw cohesion radius
+        // Shape outline
+        this.drawShape(ctx, f);
+
+        // Cohesion radius
         ctx.beginPath();
         ctx.arc(f.x, f.y, f.cohesionRadius, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(0,150,255,0.18)";
         ctx.stroke();
 
-        // Draw separation radius
+        // Separation radius
         ctx.beginPath();
         ctx.arc(f.x, f.y, f.separationRadius, 0, Math.PI * 2);
         ctx.strokeStyle = "rgba(255,80,80,0.25)";
@@ -57,13 +60,13 @@
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Center point
+        // Center
         ctx.beginPath();
         ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255,255,255,0.95)";
         ctx.fill();
 
-        // Target / anchor
+        // Target
         ctx.beginPath();
         ctx.moveTo(f.x, f.y);
         ctx.lineTo(f.targetX, f.targetY);
@@ -76,11 +79,52 @@
         ctx.strokeStyle = "rgba(0,255,180,0.8)";
         ctx.stroke();
 
-        // Mode label
+        // Labels
         ctx.font = "11px system-ui, -apple-system, sans-serif";
         ctx.fillStyle = "rgba(255,255,255,0.9)";
-        ctx.fillText(f.mode, f.x + 10, f.y - 10);
+        ctx.fillText(`${f.mode} / ${f.shape}`, f.x + 10, f.y - 10);
       }
+    },
+
+    drawShape(ctx, f) {
+      ctx.save();
+      ctx.translate(f.x, f.y);
+      ctx.rotate(f.facing);
+
+      ctx.strokeStyle = "rgba(0,255,200,0.6)";
+      ctx.lineWidth = 1.5;
+
+      const r = 40;
+
+      ctx.beginPath();
+      switch (f.shape) {
+        case "line":
+          ctx.moveTo(-r, 0);
+          ctx.lineTo(r, 0);
+          break;
+        case "arc":
+          ctx.arc(0, 0, r, -Math.PI * 0.3, Math.PI * 0.3);
+          break;
+        case "wedge":
+          ctx.moveTo(-r, -r * 0.4);
+          ctx.lineTo(r, 0);
+          ctx.lineTo(-r, r * 0.4);
+          ctx.closePath();
+          break;
+        case "cluster":
+          ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+          break;
+        case "spread":
+        default:
+          ctx.moveTo(-r, -r);
+          ctx.lineTo(r, -r);
+          ctx.lineTo(r, r);
+          ctx.lineTo(-r, r);
+          ctx.closePath();
+          break;
+      }
+      ctx.stroke();
+      ctx.restore();
     },
   };
 
