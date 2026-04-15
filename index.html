@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — Phase 25: Operator Dashboard Layer</title>
+  <title>APEXCORE v4.4 — Phase 26: Atmosphere & Mood Layer</title>
 
   <style>
     html, body {
@@ -110,6 +110,17 @@
     .dash-value {
       font-weight: 500;
     }
+
+    .mood-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      mix-blend-mode: screen;
+      opacity: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(0,180,255,0.4), transparent 60%);
+      transition: opacity 0.4s ease, background 0.4s ease;
+    }
   </style>
 </head>
 
@@ -120,7 +131,7 @@
   <canvas id="diagCanvas"></canvas>
 
   <div class="hud">
-    APEXCORE v4.4 — Phase 25: Operator Dashboard Layer<br/>
+    APEXCORE v4.4 — Phase 26: Atmosphere & Mood Layer<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span>
   </div>
@@ -221,6 +232,9 @@
 
   <!-- PHASE 25 -->
   <script src="phase25-operator-dashboard.js"></script>
+
+  <!-- PHASE 26 -->
+  <script src="phase26-atmosphere-mood.js"></script>
 
   <!-- FORMATION INTELLIGENCE -->
   <script src="formation-commands.js"></script>
