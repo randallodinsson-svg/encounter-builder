@@ -1,71 +1,54 @@
-// FILE: apexcore-engine.js
-// APEX Engine v4.4 — NUKE baseline loop
+// apexcore-engine.js — main loop
 
 (function () {
-  if (!window.APEX) {
-    console.error("APEX Engine: APEX core not found.");
-    return;
-  }
-
-  const APEX = window.APEX;
-
   const Engine = {
-    lastTime: null,
-    fps: 0,
+    lastTime: 0,
+    fpsElem: null,
+    countElem: null,
+    fpsAccum: 0,
+    fpsFrames: 0,
+    fpsValue: 0,
 
     start() {
       console.log("APEX Engine v4.4 — Starting...");
+
+      this.fpsElem = document.getElementById("hud-fps");
+      this.countElem = document.getElementById("hud-count");
+
+      APEX.startAll();
+
       this.lastTime = performance.now();
       requestAnimationFrame(this.loop.bind(this));
     },
 
     loop(now) {
-      const dtMs = now - this.lastTime;
+      const dt = Math.min((now - this.lastTime) / 1000, 0.05);
       this.lastTime = now;
-      const dt = dtMs / 1000;
-      this.fps = 1000 / (dtMs || 1);
 
-      const names = APEX.listModules();
-      for (const name of names) {
-        const mod = APEX.getModule(name);
-        if (!mod) continue;
-
-        // one-time start
-        if (!mod._started && typeof mod.start === "function") {
-          mod._started = true;
-          try {
-            mod.start();
-          } catch (err) {
-            console.error("APEX Engine: error in start() for module", name, err);
-          }
-        }
-
-        // per-frame update
-        if (typeof mod.update === "function") {
-          try {
-            mod.update(dt);
-          } catch (err) {
-            console.error("APEX Engine: error in update() for module", name, err);
-          }
-        }
-      }
-
-      // simple HUD hook
-      const hudFps = document.getElementById("hud-fps");
-      const hudCount = document.getElementById("hud-count");
-      const sim = APEX.getModule("apexsim");
-      if (hudFps) hudFps.textContent = `FPS: ${this.fps.toFixed(0)}`;
-      if (hudCount && sim && sim._state) {
-        hudCount.textContent = `Particles: ${sim._state.particles.length}`;
-      }
+      APEX.updateAll(dt);
+      this.updateHUD(dt);
 
       requestAnimationFrame(this.loop.bind(this));
     },
+
+    updateHUD(dt) {
+      this.fpsAccum += dt;
+      this.fpsFrames += 1;
+      if (this.fpsAccum >= 0.25) {
+        this.fpsValue = this.fpsFrames / this.fpsAccum;
+        this.fpsAccum = 0;
+        this.fpsFrames = 0;
+        if (this.fpsElem) {
+          this.fpsElem.textContent = "FPS: " + this.fpsValue.toFixed(0);
+        }
+      }
+
+      const sim = APEX.getModule("apexsim");
+      if (sim && this.countElem) {
+        this.countElem.textContent = "Particles: " + sim.particles.length;
+      }
+    },
   };
 
-  APEX.register("engine", Engine);
-
-  window.addEventListener("load", () => {
-    Engine.start();
-  });
+  window.addEventListener("load", () => Engine.start());
 })();
