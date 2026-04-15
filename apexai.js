@@ -1,27 +1,78 @@
-// APEXAI — lightweight echo/transform console
+// FILE: apexai.js
+/*
+    APEXAI v1.0 — Decision Layer Core
+    Lightweight behavior + decision system for APEXCORE.
+*/
 
-export const APEXAI = (() => {
-    let core = null;
-    let ui = null;
+(function () {
+  if (!window.APEX) {
+    console.warn("APEXAI: APEX not found.");
+    return;
+  }
 
-    function init(coreRef, uiRefs) {
-        core = coreRef;
-        ui = uiRefs;
-        ui.sendBtn.addEventListener("click", onSend);
-    }
+  const APEX = window.APEX;
+  const Events = APEX.getModule("events");
 
-    function onSend() {
-        const text = ui.inputEl.value.trim();
-        if (!text) return;
-        const ts = new Date().toISOString();
-        const response = `[${ts}] APEXAI processed:\n${text}\n\n(Stubbed local AI console)`;
-        ui.outputEl.textContent += "\n\n" + response;
-        ui.inputEl.value = "";
-        core.set("ai.lastPrompt", text);
-        core.set("ai.lastResponse", response);
-    }
+  const APEXAI = {
+    version: "1.0",
+    enabled: true,
 
-    return {
-        init
-    };
+    // Internal state for AI agents
+    agents: [],
+
+    // Register a new AI agent
+    registerAgent(agent) {
+      if (!agent || typeof agent.update !== "function") {
+        console.warn("APEXAI: invalid agent", agent);
+        return;
+      }
+      this.agents.push(agent);
+    },
+
+    // Remove an agent
+    removeAgent(agent) {
+      this.agents = this.agents.filter((a) => a !== agent);
+    },
+
+    // Called by engine on module init
+    init() {
+      console.log("APEXAI v1.0 — Initialized.");
+    },
+
+    // Called by engine on module start
+    start() {
+      console.log("APEXAI v1.0 — Active.");
+    },
+
+    // Called every engine tick
+    update(dt) {
+      if (!this.enabled) return;
+
+      for (let i = 0; i < this.agents.length; i++) {
+        try {
+          this.agents[i].update(dt);
+        } catch (err) {
+          console.error("APEXAI: agent update error", err);
+        }
+      }
+    },
+
+    // Toggle AI system
+    toggle() {
+      this.enabled = !this.enabled;
+      console.log(`APEXAI: ${this.enabled ? "Enabled" : "Disabled"}`);
+    },
+  };
+
+  // Register OPS commands
+  const OPS = APEX.getModule("ops");
+  if (OPS) {
+    OPS.register("ai.toggle", () => APEXAI.toggle());
+    OPS.register("ai.inspect", () => {
+      console.log("APEXAI Agents:", APEXAI.agents);
+    });
+  }
+
+  // Register with APEX
+  APEX.register("ai", APEXAI);
 })();
