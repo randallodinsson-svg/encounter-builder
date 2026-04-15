@@ -1,4 +1,4 @@
-// formation-ai.js — Phase 11 (Hybrid + Influence + Morphing)
+// formation-ai.js — Phase 12 (Hybrid + Influence + Morphing + Coordination)
 
 (function () {
   const FormationAI = {
@@ -39,6 +39,12 @@
           shape: "line",
           shapeTension: 0.0,
           shapeCooldown: 0.0,
+
+          // Phase 12
+          groupTargetX: cx,
+          groupTargetY: cy,
+          isLeader: false,
+          laneIndex: null,
         });
       }
     },
@@ -53,13 +59,14 @@
 
     applyHybridSteering(dt) {
       const influence = APEX.getModule("influence-maps");
+      const coord = APEX.getModule("formation-coordination");
       const formations = this.formations;
 
       for (const f of formations) {
         let steerX = 0;
         let steerY = 0;
 
-        // 1. Tactical steering
+        // 1. Tactical steering toward primary target
         const dxT = f.targetX - f.x;
         const dyT = f.targetY - f.y;
         const distT = Math.sqrt(dxT * dxT + dyT * dyT) + 0.001;
@@ -94,7 +101,16 @@
           }
         }
 
-        // 3. Flocking
+        // 3. Group coordination steering (toward groupTarget)
+        if (coord && !f.isLeader) {
+          const dxG = f.groupTargetX - f.x;
+          const dyG = f.groupTargetY - f.y;
+          const desired = this.setMag(dxG, dyG, f.speed * 0.7);
+          steerX += desired.x - f.vx;
+          steerY += desired.y - f.vy;
+        }
+
+        // 4. Flocking
         let cohX = 0, cohY = 0, cohCount = 0;
         let sepX = 0, sepY = 0, sepCount = 0;
         let aliX = 0, aliY = 0, aliCount = 0;
@@ -147,7 +163,7 @@
           steerY += desired.y - f.vy;
         }
 
-        // 4. Clamp steering
+        // 5. Clamp steering
         const maxForce = 80;
         const mag = Math.sqrt(steerX * steerX + steerY * steerY);
         if (mag > maxForce) {
