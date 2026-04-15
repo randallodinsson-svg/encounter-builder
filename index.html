@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — NUKE BASELINE (Phase 13)</title>
+  <title>APEXCORE v4.4 — Phase 13: Hybrid Memory Layer</title>
 
   <style>
     html, body {
@@ -16,13 +16,17 @@
       color: #fff;
     }
 
-    #haloCanvas {
+    canvas {
       position: fixed;
       inset: 0;
       width: 100%;
       height: 100%;
       display: block;
     }
+
+    #haloCanvas { z-index: 1; }
+    #simCanvas { z-index: 0; opacity: 0; }
+    #diagCanvas { z-index: 2; pointer-events: none; }
 
     .hud {
       position: fixed;
@@ -33,6 +37,7 @@
       border: 1px solid rgba(255,255,255,0.15);
       font-size: 12px;
       line-height: 1.4;
+      z-index: 10;
     }
 
     .controls {
@@ -43,6 +48,7 @@
       background: rgba(0,0,0,0.6);
       border: 1px solid rgba(255,255,255,0.15);
       font-size: 13px;
+      z-index: 10;
     }
 
     .controls button {
@@ -57,17 +63,26 @@
     .controls button:hover {
       background: #333;
     }
+
+    #overlay-root {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- MAIN SIM CANVAS -->
+  <!-- CANVASES -->
+  <canvas id="simCanvas"></canvas>
   <canvas id="haloCanvas"></canvas>
+  <canvas id="diagCanvas"></canvas>
 
   <!-- HUD -->
   <div class="hud">
-    APEXCORE v4.4 — NUKE BASELINE (Phase 13)<br/>
+    APEXCORE v4.4 — Phase 13: Hybrid Memory Layer<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span>
   </div>
@@ -91,8 +106,11 @@
     <button data-ui="halo-collapse">Collapse Core</button>
   </div>
 
+  <!-- OVERLAY ROOT -->
+  <div id="overlay-root"></div>
+
   <!-- ===================================================== -->
-  <!--  APEXCORE v4.4 — MODULE STACK (Phase 13 Integrated)   -->
+  <!--  APEXCORE v4.4 — MODULE STACK (Correct Phase 13)       -->
   <!-- ===================================================== -->
 
   <!-- CORE + ENGINE -->
@@ -127,22 +145,31 @@
   <!-- PHASE 10 -->
   <script src="influence-maps.js"></script>
 
-  <!-- PHASE 13 -->
-  <script src="formation-memory.js"></script>
-
   <!-- PHASE 11 -->
   <script src="formation-morphing.js"></script>
 
   <!-- PHASE 12 -->
   <script src="formation-coordination.js"></script>
 
-  <!-- FORMATION INTELLIGENCE (Phase 9+10+11+12+13) -->
+  <!-- PHASE 13 -->
+  <script src="formation-memory.js"></script>
+
+  <!-- FORMATION INTELLIGENCE (Phase 9–13) -->
   <script src="formation-commands.js"></script>
   <script src="formation-ai.js"></script>
   <script src="formation-renderer.js"></script>
 
   <!-- UI LAST -->
   <script src="apex-ui.js"></script>
+
+  <!-- BOOT -->
+  <script>
+    window.addEventListener("load", () => {
+      if (window.APEX && APEX.startAll) {
+        APEX.startAll();
+      }
+    });
+  </script>
 
 </body>
 </html>
