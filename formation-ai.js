@@ -1,4 +1,4 @@
-// formation-ai.js — Hybrid flocking + tactical formation logic
+// formation-ai.js — Phase 10 (Hybrid + Influence Steering)
 
 (function () {
   const FormationAI = {
@@ -45,49 +45,65 @@
     },
 
     applyHybridSteering(dt) {
+      const influence = APEX.getModule("influence-maps");
       const formations = this.formations;
 
-      for (let i = 0; i < formations.length; i++) {
-        const f = formations[i];
-
+      for (const f of formations) {
         let steerX = 0;
         let steerY = 0;
 
-        // Tactical: move relative to anchor/target
-        const ax = f.anchorX ?? f.targetX;
-        const ay = f.anchorY ?? f.targetY;
-        const dxA = ax - f.x;
-        const dyA = ay - f.y;
-        const distA = Math.sqrt(dxA * dxA + dyA * dyA) + 0.001;
+        // -----------------------------------------------------
+        // 1. Tactical steering toward target (approach/backoff/orbit/evade)
+        // -----------------------------------------------------
+        const dxT = f.targetX - f.x;
+        const dyT = f.targetY - f.y;
+        const distT = Math.sqrt(dxT * dxT + dyT * dyT) + 0.001;
 
         if (f.mode === "approach") {
-          const desired = this.setMag(dxA, dyA, f.speed);
+          const desired = this.setMag(dxT, dyT, f.speed);
           steerX += desired.x - f.vx;
           steerY += desired.y - f.vy;
         } else if (f.mode === "backoff") {
-          const desired = this.setMag(-dxA, -dyA, f.speed);
+          const desired = this.setMag(-dxT, -dyT, f.speed);
           steerX += desired.x - f.vx;
           steerY += desired.y - f.vy;
         } else if (f.mode === "orbit") {
-          const tangentX = -dyA / distA;
-          const tangentY = dxA / distA;
+          const tangentX = -dyT / distT;
+          const tangentY = dxT / distT;
           const desired = this.setMag(tangentX, tangentY, f.speed * 0.8);
+          steerX += desired.x - f.vx;
+          steerY += desired.y - f.vy;
+        } else if (f.mode === "evade") {
+          const desired = this.setMag(dxT, dyT, f.speed * 1.2);
           steerX += desired.x - f.vx;
           steerY += desired.y - f.vy;
         }
 
-        // Flocking: cohesion + separation + alignment
+        // -----------------------------------------------------
+        // 2. Influence‑map gradient steering (local avoidance)
+        // -----------------------------------------------------
+        if (influence) {
+          const bestDir = influence.getBestDirection(f);
+          if (bestDir) {
+            const desired = this.setMag(bestDir.x, bestDir.y, f.speed * 0.6);
+            steerX += desired.x - f.vx;
+            steerY += desired.y - f.vy;
+          }
+        }
+
+        // -----------------------------------------------------
+        // 3. Flocking (cohesion, separation, alignment)
+        // -----------------------------------------------------
         let cohX = 0, cohY = 0, cohCount = 0;
         let sepX = 0, sepY = 0, sepCount = 0;
         let aliX = 0, aliY = 0, aliCount = 0;
 
-        for (let j = 0; j < formations.length; j++) {
-          if (i === j) continue;
-          const o = formations[j];
+        for (const o of formations) {
+          if (o === f) continue;
+
           const dx = o.x - f.x;
           const dy = o.y - f.y;
-          const d2 = dx * dx + dy * dy;
-          const d = Math.sqrt(d2) + 0.001;
+          const d = Math.sqrt(dx * dx + dy * dy) + 0.001;
 
           if (d < f.cohesionRadius) {
             cohX += o.x;
@@ -130,6 +146,9 @@
           steerY += desired.y - f.vy;
         }
 
+        // -----------------------------------------------------
+        // 4. Clamp steering force
+        // -----------------------------------------------------
         const maxForce = 80;
         const mag = Math.sqrt(steerX * steerX + steerY * steerY);
         if (mag > maxForce) {
@@ -140,6 +159,7 @@
         f.vx += steerX * dt;
         f.vy += steerY * dt;
 
+        // Clamp speed
         const maxSpeed = 140;
         const spd = Math.sqrt(f.vx * f.vx + f.vy * f.vy);
         if (spd > maxSpeed) {
@@ -147,6 +167,7 @@
           f.vy = (f.vy / spd) * maxSpeed;
         }
 
+        // Update facing
         if (spd > 1) {
           f.facing = Math.atan2(f.vy, f.vx);
         }
