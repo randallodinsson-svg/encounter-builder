@@ -1,9 +1,6 @@
+// FILE: apexsim-renderer.js
 /*
-    APEXSIM Renderer v4.4 — Species‑Colored Rendering
-    Works with:
-      - 5‑species behavior engine (apexsim.js)
-      - Dual‑field visibility system (index.html)
-      - Trails, pause, presets, etc.
+    APEXSIM Renderer v4.4 — Updated for APEXCORE v4.4 lifecycle
 */
 
 (function () {
@@ -25,6 +22,10 @@
 
       this.resize();
       window.addEventListener("resize", () => this.resize());
+    },
+
+    update(dt) {
+      this.onTick(dt);
     },
 
     resize() {
