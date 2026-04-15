@@ -1,5 +1,4 @@
-// FILE: halo-system.js
-// HALO_SYSTEM v4.4 — Phase 7 (Multi‑Halo Manager)
+// halo-system.js — multi-halo manager
 
 (function () {
   const HaloSystem = {
@@ -13,13 +12,10 @@
 
     update(dt) {
       this.time += dt;
-
-      // Update orbital halos
       for (const h of this.halos) {
         if (h.orbiting) {
           const parent = this.halos[h.parentIndex];
           if (!parent) continue;
-
           const angle = this.time * h.orbitSpeed + h.orbitOffset;
           h.x = parent.x + Math.cos(angle) * h.orbitRadius;
           h.y = parent.y + Math.sin(angle) * h.orbitRadius;
@@ -27,19 +23,15 @@
       }
     },
 
-    // -----------------------------------
-    // HALO PRESETS
-    // -----------------------------------
     presets: {
       BinaryPair() {
         const w = window.innerWidth;
         const h = window.innerHeight;
         const cx = w * 0.5;
         const cy = h * 0.5;
-
         return [
-          { x: cx - 120, y: cy, strength: 1.2 },
-          { x: cx + 120, y: cy, strength: 1.2 },
+          { x: cx - 140, y: cy, strength: 1.2 },
+          { x: cx + 140, y: cy, strength: 1.2 },
         ];
       },
 
@@ -48,13 +40,12 @@
         const h = window.innerHeight;
         const cx = w * 0.5;
         const cy = h * 0.5;
-
         return [
-          { x: cx, y: cy, strength: 1.4 }, // core
+          { x: cx, y: cy, strength: 1.4 },
           {
             orbiting: true,
             parentIndex: 0,
-            orbitRadius: 200,
+            orbitRadius: 220,
             orbitSpeed: 0.6,
             orbitOffset: 0,
             strength: 0.9,
@@ -62,7 +53,7 @@
           {
             orbiting: true,
             parentIndex: 0,
-            orbitRadius: 200,
+            orbitRadius: 220,
             orbitSpeed: 0.6,
             orbitOffset: Math.PI,
             strength: 0.9,
@@ -75,7 +66,6 @@
         const h = window.innerHeight;
         const cx = w * 0.5;
         const cy = h * 0.5;
-
         const halos = [];
         for (let i = 0; i < 6; i++) {
           const a = (i / 6) * Math.PI * 2;
@@ -91,7 +81,6 @@
       SwarmNet() {
         const w = window.innerWidth;
         const h = window.innerHeight;
-
         const halos = [];
         for (let i = 0; i < 12; i++) {
           halos.push({
@@ -108,48 +97,36 @@
         const h = window.innerHeight;
         const cx = w * 0.5;
         const cy = h * 0.5;
-
         return [
           { x: cx, y: cy, strength: 2.0 },
-          { x: cx - 200, y: cy, strength: 1.0 },
-          { x: cx + 200, y: cy, strength: 1.0 },
-          { x: cx, y: cy - 200, strength: 1.0 },
-          { x: cx, y: cy + 200, strength: 1.0 },
+          { x: cx - 220, y: cy, strength: 1.0 },
+          { x: cx + 220, y: cy, strength: 1.0 },
+          { x: cx, y: cy - 220, strength: 1.0 },
+          { x: cx, y: cy + 220, strength: 1.0 },
         ];
       },
     },
 
-    // -----------------------------------
-    // APPLY PRESET
-    // -----------------------------------
     applyPreset(name) {
       const preset = this.presets[name];
       if (!preset) {
         console.warn("HALO_SYSTEM: Unknown preset:", name);
         return;
       }
-
       this.halos = preset();
     },
 
-    // -----------------------------------
-    // FIELD SAMPLING
-    // -----------------------------------
     sample(x, y) {
       let fx = 0;
       let fy = 0;
-
       for (const h of this.halos) {
         const dx = h.x - x;
         const dy = h.y - y;
         const dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
-
         const k = (h.strength * 1.2) / dist;
-
         fx += (dx / dist) * k;
         fy += (dy / dist) * k;
       }
-
       return { fx, fy };
     },
   };
