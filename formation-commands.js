@@ -1,4 +1,4 @@
-// formation-commands.js — autonomous decision dispatcher (Hybrid)
+// formation-commands.js — Phase 10 (Influence‑Driven Decisions)
 
 (function () {
   const Commands = {
@@ -8,15 +8,14 @@
 
     update(dt) {
       const ai = APEX.getModule("formation-ai");
-      const haloSystem = APEX.getModule("halo-system");
-      if (!ai || !haloSystem) return;
+      const halos = APEX.getModule("halo-system")?.halos || [];
+      const influence = APEX.getModule("influence-maps");
 
-      const halos = haloSystem.halos;
-      if (!halos.length) return;
+      if (!ai || !influence) return;
 
-      // Simple heuristic: each formation picks a halo to relate to
       for (const f of ai.formations) {
-        let best = null;
+        // 1. Identify nearest halo (still relevant tactically)
+        let nearest = null;
         let bestDist = Infinity;
 
         for (const h of halos) {
@@ -25,29 +24,43 @@
           const d2 = dx * dx + dy * dy;
           if (d2 < bestDist) {
             bestDist = d2;
-            best = h;
+            nearest = h;
           }
         }
 
-        if (!best) continue;
-
-        const dist = Math.sqrt(bestDist);
-        f.targetX = best.x;
-        f.targetY = best.y;
-
-        // Hybrid behavior:
-        // - If far: seek/arrive toward halo
-        // - If near: orbit/offset and maintain spacing
-        if (dist > f.preferredRadius * 1.4) {
-          f.mode = "approach";
-        } else if (dist < f.preferredRadius * 0.7) {
-          f.mode = "backoff";
-        } else {
-          f.mode = "orbit";
+        if (nearest) {
+          f.anchorX = nearest.x;
+          f.anchorY = nearest.y;
         }
 
-        f.anchorX = best.x;
-        f.anchorY = best.y;
+        // 2. Sample coarse influence to detect danger or stability
+        const localPressure = influence.sampleCoarse(f.x, f.y);
+
+        // 3. Find a safe pocket nearby
+        const safe = influence.getSafePocket(f);
+
+        // 4. Decide mode based on pressure + distance to anchor
+        const dxA = f.anchorX - f.x;
+        const dyA = f.anchorY - f.y;
+        const distA = Math.sqrt(dxA * dxA + dyA * dyA);
+
+        if (localPressure > 250) {
+          f.mode = "evade";
+          f.targetX = safe.x;
+          f.targetY = safe.y;
+        } else if (distA > f.preferredRadius * 1.4) {
+          f.mode = "approach";
+          f.targetX = f.anchorX;
+          f.targetY = f.anchorY;
+        } else if (distA < f.preferredRadius * 0.7) {
+          f.mode = "backoff";
+          f.targetX = safe.x;
+          f.targetY = safe.y;
+        } else {
+          f.mode = "orbit";
+          f.targetX = f.anchorX;
+          f.targetY = f.anchorY;
+        }
       }
     },
   };
