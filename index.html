@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — Phase 29: Scenario Memory & Continuity</title>
+  <title>APEXCORE v4.4 — Phase 30: Scenario Feed</title>
 
   <style>
     html, body {
@@ -70,6 +70,55 @@
       pointer-events: none;
       z-index: 20;
     }
+
+    .scenario-feed {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 260px;
+      max-height: 50vh;
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 11px;
+      line-height: 1.4;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .scenario-feed-title {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 4px;
+    }
+
+    .scenario-feed-item {
+      opacity: 0.9;
+      color: rgba(255,255,255,0.9);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    .scenario-feed-item span.time {
+      color: rgba(255,255,255,0.5);
+      margin-right: 4px;
+    }
+
+    .scenario-feed-item span.label {
+      color: #6fd3ff;
+      margin-right: 4px;
+    }
+
+    .scenario-feed-item span.meta {
+      color: rgba(255,255,255,0.6);
+    }
   </style>
 </head>
 
@@ -80,7 +129,7 @@
   <canvas id="diagCanvas"></canvas>
 
   <div class="hud">
-    APEXCORE v4.4 — Phase 29: Scenario Memory & Continuity<br/>
+    APEXCORE v4.4 — Phase 30: Scenario Feed<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span>
   </div>
@@ -104,6 +153,11 @@
   </div>
 
   <div id="overlay-root"></div>
+
+  <div class="scenario-feed" id="scenario-feed">
+    <div class="scenario-feed-title">Scenario Feed</div>
+    <div id="scenario-feed-items"></div>
+  </div>
 
   <!-- CORE + ENGINE -->
   <script src="core.js"></script>
@@ -193,6 +247,9 @@
 
   <!-- PHASE 29 -->
   <script src="phase29-scenario-memory.js"></script>
+
+  <!-- PHASE 30 -->
+  <script src="phase30-scenario-feed.js"></script>
 
   <!-- FORMATION INTELLIGENCE -->
   <script src="formation-commands.js"></script>
