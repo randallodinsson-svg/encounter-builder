@@ -25,7 +25,8 @@
     },
 
     update(dt) {
-      this.onTick(dt);
+      // engine gives dt in seconds; renderer expects ms-like delta
+      this.onTick(dt * 1000);
     },
 
     resize() {
