@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–59 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–60 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -33,7 +33,6 @@
       updateFormation(formations[i], dt);
     }
 
-    // GLOBAL META SYSTEMS
     if (APEX.Meta) APEX.Meta.updateGlobalMeta(formations, dt);
     if (APEX.Scenario) APEX.Scenario.updateGlobalScenario(formations, dt);
     if (APEX.Adaptive) APEX.Adaptive.updateGlobalDifficulty(formations, dt);
@@ -50,7 +49,6 @@
     if (APEX.RelViz) APEX.RelViz.updateVisualization(formations, dt);
     if (APEX.MotiveTelemetry) APEX.MotiveTelemetry.updateGlobalMotives(formations, dt);
 
-    // COALITION SYSTEMS
     if (APEX.Coalitions) APEX.Coalitions.updateGlobalCoalitions(formations, dt);
     if (APEX.CoalIntel) APEX.CoalIntel.updateGlobalCoalitionIntelligence(formations, dt);
     if (APEX.CoalRivalry) APEX.CoalRivalry.updateGlobalCoalitionRivalry(formations, dt);
@@ -63,12 +61,10 @@
     if (APEX.CoalIdentity) APEX.CoalIdentity.updateGlobalCoalitionIdentity(formations, dt);
     if (APEX.CoalEvo) APEX.CoalEvo.updateGlobalCoalitionEvolution(formations, dt);
 
-    // OPERATOR SYSTEMS
     if (APEX.OperatorIntervention) APEX.OperatorIntervention.updateGlobalOperatorBias(formations, dt);
     if (APEX.OperatorPresence) APEX.OperatorPresence.updateGlobalOperatorPresence(formations, dt);
     if (APEX.OperatorReputation) APEX.OperatorReputation.updateGlobalOperatorReputation(formations, dt);
 
-    // EPOCH + MYTH + DOCTRINE + HISTORY
     if (APEX.Epoch) APEX.Epoch.updateGlobalEpoch(formations, dt);
     if (APEX.Mythology) APEX.Mythology.updateGlobalMythology(formations, dt);
     if (APEX.OperatorDoctrine) APEX.OperatorDoctrine.updateGlobalDoctrine(formations, dt);
@@ -77,21 +73,15 @@
     if (APEX.NarrativeBlocs) APEX.NarrativeBlocs.updateGlobalNarrativeBlocs(formations, dt);
     if (APEX.Propaganda) APEX.Propaganda.updateGlobalPropaganda(formations, dt);
 
-    // PHASE 56
     if (APEX.IntelDeep) APEX.IntelDeep.updateGlobalIntelligence(formations, dt);
-
-    // PHASE 57
     if (APEX.MythFusion) APEX.MythFusion.updateGlobalMythFusion(formations, dt);
-
-    // PHASE 58
     if (APEX.Convergence) APEX.Convergence.updateGlobalConvergence(formations, dt);
-
-    // PHASE 59
     if (APEX.PressureLensing) APEX.PressureLensing.updateGlobalPressure(formations, dt);
 
-    // VISUALIZATION
+    if (APEX.Thresholds) APEX.Thresholds.updateGlobalThresholds(formations, dt);
+
     if (APEX.CoalViz) APEX.CoalViz.updateCoalitionVisualization(formations, dt);
   };
 
-  console.log("FORMATION_AI — online (Phase 9–59).");
+  console.log("FORMATION_AI — online (Phase 9–60).");
 })(this);
