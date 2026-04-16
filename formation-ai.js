@@ -1,5 +1,5 @@
 // formation-ai.js
-// APEXCORE v4.4 — Formation AI (Phase 9–50 Integrated)
+// APEXCORE v4.4 — Formation AI (Phase 9–51 Integrated)
 
 (function (global) {
   const APEX = global.APEX || (global.APEX = {});
@@ -70,13 +70,12 @@
     if (APEX.OperatorPresence) APEX.OperatorPresence.updateGlobalOperatorPresence(formations, dt);
     if (APEX.OperatorReputation) APEX.OperatorReputation.updateGlobalOperatorReputation(formations, dt);
     if (APEX.Epoch) APEX.Epoch.updateGlobalEpoch(formations, dt);
-
-    // Mythology (Phase 50)
     if (APEX.Mythology) APEX.Mythology.updateGlobalMythology(formations, dt);
+    if (APEX.OperatorDoctrine) APEX.OperatorDoctrine.updateGlobalDoctrine(formations, dt);
 
     // Visualization
     if (APEX.CoalViz) APEX.CoalViz.updateCoalitionVisualization(formations, dt);
   };
 
-  console.log("FORMATION_AI — online (Phase 9–50).");
+  console.log("FORMATION_AI — online (Phase 9–51).");
 })(this);
