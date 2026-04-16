@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>APEXCORE v4.4 — Phase 54: Narrative Alignment Wars</title>
+  <title>APEXCORE v4.4 — Phase 55: Propaganda Engine</title>
 
   <style>
     html, body {
@@ -131,7 +131,7 @@
   <canvas id="coalCanvas"></canvas>
 
   <div class="hud">
-    APEXCORE v4.4 — Phase 54: Narrative Alignment Wars (Blocs)<br/>
+    APEXCORE v4.4 — Phase 55: Propaganda Engine (Adaptive)<br/>
     <span id="hud-fps">FPS: --</span><br/>
     <span id="hud-count">Particles: --</span><br/>
     Coalitions:
@@ -171,176 +171,83 @@
     <div id="scenario-feed-items"></div>
   </div>
 
-  <!-- CORE + ENGINE -->
+  <!-- CORE -->
   <script src="core.js"></script>
   <script src="apexcore-engine.js"></script>
 
-  <!-- SIMULATION -->
+  <!-- SIM -->
   <script src="apexsim.js"></script>
   <script src="apexsim-renderer.js"></script>
 
-  <!-- PHASE 1 -->
+  <!-- ENTITIES -->
   <script src="entities.js"></script>
   <script src="apexops.js"></script>
 
-  <!-- PHASE 2 -->
+  <!-- FIELDS -->
   <script src="environment-field.js"></script>
   <script src="halo-field.js"></script>
   <script src="halo-renderer.js"></script>
-
-  <!-- PHASE 4 -->
   <script src="field-controller.js"></script>
-
-  <!-- PHASE 5 -->
   <script src="field-visualizer.js"></script>
-
-  <!-- PHASE 6 -->
   <script src="field-animator.js"></script>
-
-  <!-- PHASE 7 -->
   <script src="halo-system.js"></script>
 
-  <!-- PHASE 10 -->
+  <!-- FORMATION -->
   <script src="influence-maps.js"></script>
-
-  <!-- PHASE 11 -->
   <script src="formation-morphing.js"></script>
-
-  <!-- PHASE 12 -->
   <script src="formation-coordination.js"></script>
-
-  <!-- PHASE 13 -->
   <script src="formation-memory.js"></script>
-
-  <!-- PHASE 14 -->
-  <script src="phase14-strategy.js"></script>
-
-  <!-- PHASE 15 -->
-  <script src="phase15-evolution.js"></script>
-
-  <!-- PHASE 16 -->
-  <script src="phase16-meta-orchestration.js"></script>
-
-  <!-- PHASE 17 -->
-  <script src="phase17-scenario-director.js"></script>
-
-  <!-- PHASE 18 -->
-  <script src="phase18-adaptive-difficulty.js"></script>
-
-  <!-- PHASE 19 -->
-  <script src="phase19-objective-field.js"></script>
-
-  <!-- PHASE 20 -->
-  <script src="phase20-narrative-state.js"></script>
-
-  <!-- PHASE 21 -->
-  <script src="phase21-salience-focus.js"></script>
-
-  <!-- PHASE 22 -->
-  <script src="phase22-cinematic-cues.js"></script>
-
-  <!-- PHASE 23 -->
-  <script src="phase23-operator-telemetry.js"></script>
-
-  <!-- PHASE 24 -->
-  <script src="phase24-operator-influence.js"></script>
-
-  <!-- PHASE 25 -->
-  <script src="phase25-operator-dashboard.js"></script>
-
-  <!-- PHASE 26 -->
-  <script src="phase26-atmosphere-mood.js"></script>
-
-  <!-- PHASE 27 -->
-  <script src="phase27-formation-relationships.js"></script>
-
-  <!-- PHASE 28 -->
-  <script src="phase28-scenario-autogen.js"></script>
-
-  <!-- PHASE 29 -->
-  <script src="phase29-scenario-memory.js"></script>
-
-  <!-- PHASE 30 -->
-  <script src="phase30-scenario-feed.js"></script>
-
-  <!-- PHASE 31 -->
-  <script src="phase31-relationship-visualizer.js"></script>
-
-  <!-- PHASE 32 -->
-  <script src="phase32-emergent-motive.js"></script>
-
-  <!-- PHASE 33 -->
-  <script src="phase33-motive-telemetry.js"></script>
-
-  <!-- PHASE 34 -->
-  <script src="phase34-emergent-coalitions.js"></script>
-
-  <!-- PHASE 35 -->
-  <script src="phase35-coalition-visualizer.js"></script>
-
-  <!-- PHASE 36 -->
-  <script src="phase36-coalition-intelligence.js"></script>
-
-  <!-- PHASE 37 -->
-  <script src="phase37-coalition-rivalry.js"></script>
-
-  <!-- PHASE 38 -->
-  <script src="phase38-coalition-conflict.js"></script>
-
-  <!-- PHASE 39 -->
-  <script src="phase39-coalition-events.js"></script>
-
-  <!-- PHASE 40 -->
-  <script src="phase40-coalition-strategy.js"></script>
-
-  <!-- PHASE 41 -->
-  <script src="phase41-coalition-diplomacy.js"></script>
-
-  <!-- PHASE 42 -->
-  <script src="phase42-coalition-treaties.js"></script>
-
-  <!-- PHASE 43 -->
-  <script src="phase43-coalition-memory.js"></script>
-
-  <!-- PHASE 44 -->
-  <script src="phase44-coalition-identity.js"></script>
-
-  <!-- PHASE 45 -->
-  <script src="phase45-coalition-evolution.js"></script>
-
-  <!-- PHASE 46 -->
-  <script src="phase46-operator-intervention.js"></script>
-
-  <!-- PHASE 47 -->
-  <script src="phase47-operator-presence.js"></script>
-
-  <!-- PHASE 48 -->
-  <script src="phase48-operator-reputation.js"></script>
-
-  <!-- PHASE 49 -->
-  <script src="phase49-epoch-shift.js"></script>
-
-  <!-- PHASE 50 -->
-  <script src="phase50-operator-mythology.js"></script>
-
-  <!-- PHASE 51 -->
-  <script src="phase51-operator-doctrine.js"></script>
-
-  <!-- PHASE 52 -->
-  <script src="phase52-operator-historiography.js"></script>
-
-  <!-- PHASE 53 -->
-  <script src="phase53-historical-myth-fusion.js"></script>
-
-  <!-- PHASE 54 -->
-  <script src="phase54-narrative-alignment-wars.js"></script>
-
-  <!-- FORMATION INTELLIGENCE -->
   <script src="formation-commands.js"></script>
-  <script src="formation-ai.js"></script>
   <script src="formation-renderer.js"></script>
 
-  <!-- UI LAST -->
+  <!-- PHASES -->
+  <script src="phase14-strategy.js"></script>
+  <script src="phase15-evolution.js"></script>
+  <script src="phase16-meta-orchestration.js"></script>
+  <script src="phase17-scenario-director.js"></script>
+  <script src="phase18-adaptive-difficulty.js"></script>
+  <script src="phase19-objective-field.js"></script>
+  <script src="phase20-narrative-state.js"></script>
+  <script src="phase21-salience-focus.js"></script>
+  <script src="phase22-cinematic-cues.js"></script>
+  <script src="phase23-operator-telemetry.js"></script>
+  <script src="phase24-operator-influence.js"></script>
+  <script src="phase25-operator-dashboard.js"></script>
+  <script src="phase26-atmosphere-mood.js"></script>
+  <script src="phase27-formation-relationships.js"></script>
+  <script src="phase28-scenario-autogen.js"></script>
+  <script src="phase29-scenario-memory.js"></script>
+  <script src="phase30-scenario-feed.js"></script>
+  <script src="phase31-relationship-visualizer.js"></script>
+  <script src="phase32-emergent-motive.js"></script>
+  <script src="phase33-motive-telemetry.js"></script>
+  <script src="phase34-emergent-coalitions.js"></script>
+  <script src="phase35-coalition-visualizer.js"></script>
+  <script src="phase36-coalition-intelligence.js"></script>
+  <script src="phase37-coalition-rivalry.js"></script>
+  <script src="phase38-coalition-conflict.js"></script>
+  <script src="phase39-coalition-events.js"></script>
+  <script src="phase40-coalition-strategy.js"></script>
+  <script src="phase41-coalition-diplomacy.js"></script>
+  <script src="phase42-coalition-treaties.js"></script>
+  <script src="phase43-coalition-memory.js"></script>
+  <script src="phase44-coalition-identity.js"></script>
+  <script src="phase45-coalition-evolution.js"></script>
+  <script src="phase46-operator-intervention.js"></script>
+  <script src="phase47-operator-presence.js"></script>
+  <script src="phase48-operator-reputation.js"></script>
+  <script src="phase49-epoch-shift.js"></script>
+  <script src="phase50-operator-mythology.js"></script>
+  <script src="phase51-operator-doctrine.js"></script>
+  <script src="phase52-operator-historiography.js"></script>
+  <script src="phase53-historical-myth-fusion.js"></script>
+  <script src="phase54-narrative-alignment-wars.js"></script>
+  <script src="phase55-narrative-propaganda.js"></script>
+
+  <!-- FORMATION AI -->
+  <script src="formation-ai.js"></script>
+
+  <!-- UI -->
   <script src="apex-ui.js"></script>
 
   <script>
