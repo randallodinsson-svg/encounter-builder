@@ -1,64 +1,43 @@
-// FILE: apexcore-events.js
-/*
-    APEXCORE.Events v4.4
-    Global event bus for module communication.
-*/
+// apexcore-events.js
+// DROP AND REPLACE EVERYTHING IN THIS FILE
 
-(function () {
-  if (!window.APEX) {
-    console.warn("APEXCORE.Events: APEX not found.");
-    return;
-  }
+import { getCurrentState } from "./engine/StateEngine/src/index.js"
 
-  const APEX = window.APEX;
+const eventQueue = []
 
-  const listeners = {};
+const handlers = {}
 
-  function ensureBucket(event) {
-    if (!listeners[event]) {
-      listeners[event] = [];
+export function registerEventHandler(type, fn) {
+  handlers[type] = handlers[type] || []
+  handlers[type].push(fn)
+}
+
+export function emitEvent(event) {
+  eventQueue.push(event)
+}
+
+export function processEventQueue() {
+  const futures = []
+  const baseState = getCurrentState()
+
+  while (eventQueue.length > 0) {
+    const event = eventQueue.shift()
+    const list = handlers[event.type] || []
+
+    for (const handler of list) {
+      const result = handler(event, baseState)
+
+      if (result?.proposedState) {
+        futures.push(result)
+      }
+
+      if (result?.emittedEvents) {
+        for (const e of result.emittedEvents) {
+          emitEvent(e)
+        }
+      }
     }
   }
 
-  const Events = {
-    on(event, handler) {
-      if (typeof handler !== "function") return;
-      ensureBucket(event);
-      listeners[event].push({ handler, once: false });
-    },
-
-    once(event, handler) {
-      if (typeof handler !== "function") return;
-      ensureBucket(event);
-      listeners[event].push({ handler, once: true });
-    },
-
-    off(event, handler) {
-      if (!listeners[event]) return;
-      listeners[event] = listeners[event].filter(
-        (entry) => entry.handler !== handler
-      );
-    },
-
-    emit(event, data) {
-      if (!listeners[event]) return;
-
-      listeners[event] = listeners[event].filter((entry) => {
-        try {
-          entry.handler(data);
-        } catch (err) {
-          console.error(`APEXCORE.Events: error in handler for '${event}'`, err);
-        }
-        return !entry.once;
-      });
-    },
-
-    clear(event) {
-      if (event) delete listeners[event];
-      else Object.keys(listeners).forEach((e) => delete listeners[e]);
-    },
-  };
-
-  // Register with APEX
-  APEX.register("events", Events);
-})();
+  return futures
+}
