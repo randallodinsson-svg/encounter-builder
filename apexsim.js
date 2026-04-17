@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v1.2 (Entity Types + Shapes + Colors)
+// apexim.js — APEXSIM v1.3 (Steering Behaviors)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -12,7 +12,7 @@ const simState = {
 };
 
 // ------------------------------------------------------------
-// ENTITY DEFINITIONS
+// ENTITY TYPES
 // ------------------------------------------------------------
 
 const ENTITY_TYPES = {
@@ -20,39 +20,95 @@ const ENTITY_TYPES = {
         color: "#00FFC8",
         size: 12,
         shape: "circle",
-        speed: 80
+        speed: 120
     },
     TANK: {
         color: "#FF3B3B",
         size: 22,
         shape: "square",
-        speed: 40
+        speed: 60
     },
     SUPPORT: {
         color: "#FFD93B",
         size: 16,
         shape: "diamond",
-        speed: 55
+        speed: 90
     }
 };
 
-function createEntity(id, type, x, y, vx, vy) {
+// ------------------------------------------------------------
+// ENTITY CREATION
+// ------------------------------------------------------------
+
+function createEntity(id, type, x, y, behavior = "wander") {
     return {
         id,
         type,
         x,
         y,
-        vx,
-        vy
+        vx: 0,
+        vy: 0,
+        behavior,
+        wanderAngle: Math.random() * Math.PI * 2
     };
 }
 
 function initEntities() {
     simState.entities = [
-        createEntity("scout‑1", ENTITY_TYPES.SCOUT, 200, 200, 1, 1),
-        createEntity("tank‑1", ENTITY_TYPES.TANK, 600, 300, -1, 1),
-        createEntity("support‑1", ENTITY_TYPES.SUPPORT, 400, 500, 1, -1)
+        createEntity("scout‑1", ENTITY_TYPES.SCOUT, 200, 200, "seek"),
+        createEntity("tank‑1", ENTITY_TYPES.TANK, 600, 300, "wander"),
+        createEntity("support‑1", ENTITY_TYPES.SUPPORT, 400, 500, "flee")
     ];
+}
+
+// ------------------------------------------------------------
+// STEERING HELPERS
+// ------------------------------------------------------------
+
+function limit(vx, vy, max) {
+    const mag = Math.hypot(vx, vy);
+    if (mag > max) {
+        return { vx: (vx / mag) * max, vy: (vy / mag) * max };
+    }
+    return { vx, vy };
+}
+
+function steerSeek(e, targetX, targetY) {
+    const dx = targetX - e.x;
+    const dy = targetY - e.y;
+    const mag = Math.hypot(dx, dy) || 1;
+    return { vx: dx / mag, vy: dy / mag };
+}
+
+function steerFlee(e, targetX, targetY) {
+    const dx = e.x - targetX;
+    const dy = e.y - targetY;
+    const mag = Math.hypot(dx, dy) || 1;
+    return { vx: dx / mag, vy: dy / mag };
+}
+
+function steerWander(e) {
+    e.wanderAngle += (Math.random() - 0.5) * 0.4;
+    return {
+        vx: Math.cos(e.wanderAngle),
+        vy: Math.sin(e.wanderAngle)
+    };
+}
+
+function steerArrive(e, targetX, targetY) {
+    const dx = targetX - e.x;
+    const dy = targetY - e.y;
+    const dist = Math.hypot(dx, dy) || 1;
+
+    const speed = e.type.speed;
+    const slowRadius = 150;
+
+    const desiredSpeed = dist < slowRadius ? speed * (dist / slowRadius) : speed;
+
+    return {
+        vx: (dx / dist) * desiredSpeed,
+        vy: (dy / dist) * desiredSpeed
+    };
 }
 
 // ------------------------------------------------------------
@@ -80,28 +136,60 @@ export function getSimState() {
 function simLoop(timestamp) {
     if (!_running) return;
 
-    const delta = (timestamp - _lastTime) / 1000;
+    const dt = (timestamp - _lastTime) / 1000;
     _lastTime = timestamp;
 
     simState.tick++;
-    simState.time += delta * 1000;
+    simState.time += dt * 1000;
 
-    updateEntities(delta);
+    updateEntities(dt);
 
     requestAnimationFrame(simLoop);
 }
+
+// ------------------------------------------------------------
+// ENTITY UPDATE
+// ------------------------------------------------------------
 
 function updateEntities(dt) {
     const width = 1280;
     const height = 720;
 
     for (const e of simState.entities) {
-        const speed = e.type.speed;
+        let steer = { vx: 0, vy: 0 };
 
-        e.x += e.vx * speed * dt;
-        e.y += e.vy * speed * dt;
+        switch (e.behavior) {
+            case "seek":
+                steer = steerSeek(e, width / 2, height / 2);
+                break;
 
-        // bounce
+            case "flee":
+                steer = steerFlee(e, width / 2, height / 2);
+                break;
+
+            case "wander":
+                steer = steerWander(e);
+                break;
+
+            case "arrive":
+                steer = steerArrive(e, width / 2, height / 2);
+                break;
+        }
+
+        // blend steering with velocity
+        e.vx += steer.vx * dt * e.type.speed;
+        e.vy += steer.vy * dt * e.type.speed;
+
+        // clamp velocity
+        const limited = limit(e.vx, e.vy, e.type.speed);
+        e.vx = limited.vx;
+        e.vy = limited.vy;
+
+        // apply movement
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+
+        // bounce off edges
         if (e.x < 40 || e.x > width - 40) e.vx *= -1;
         if (e.y < 40 || e.y > height - 40) e.vy *= -1;
     }
