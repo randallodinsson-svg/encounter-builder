@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>APEXSIM v4.5</title>
+    <title>APEXSIM v4.6</title>
     <style>
         body {
             margin: 0;
@@ -32,7 +32,6 @@
             color: #e5f0ff;
             padding: 6px 10px;
             font-size: 11px;
-            font-family: inherit;
             cursor: pointer;
             border-radius: 4px;
             letter-spacing: 0.5px;
@@ -51,12 +50,14 @@
     </style>
 </head>
 <body>
+
     <div id="apex-tactical-console">
         <button data-cmd="hold">HOLD</button>
         <button data-cmd="flank">FLANK</button>
         <button data-cmd="fallback">FALLBACK</button>
         <button data-cmd="regroup">REGROUP</button>
         <button data-cmd="push">PUSH</button>
+        <button id="heatmap-toggle">HEATMAP</button>
     </div>
 
     <script type="module" src="./index.js"></script>
