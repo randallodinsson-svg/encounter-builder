@@ -571,3 +571,43 @@ function updateEntities(dt) {
 
         let roleWeight = 1.5;
         if (e.type.role === "support
+              if (e.type.role === "support") roleWeight = 2.0;
+        if (e.type.role === "frontline") roleWeight = 1.2;
+
+        let stateWeight = 1.0;
+        if (tactics.state === "flank") stateWeight = 1.6;
+        if (tactics.state === "fallback") stateWeight = 1.8;
+        if (tactics.state === "push") stateWeight = 1.8;
+        if (tactics.state === "regroup") stateWeight = 2.0;
+
+        const ax =
+            primary.vx * 1.0 +
+            avoid.vx * 2.0 +
+            roleTactical.vx * roleWeight +
+            stateTactical.vx * stateWeight;
+
+        const ay =
+            primary.vy * 1.0 +
+            avoid.vy * 2.0 +
+            roleTactical.vy * roleWeight +
+            stateTactical.vy * stateWeight;
+
+        e.vx += ax * dt * e.type.speed;
+        e.vy += ay * dt * e.type.speed;
+
+        const limited = limit(e.vx, e.vy, e.type.speed);
+        e.vx = limited.vx;
+        e.vy = limited.vy;
+
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+
+        if (e.x < 40) { e.x = 40; e.vx *= -1; }
+        if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
+        if (e.y < 40) { e.y = 40; e.vy *= -1; }
+        if (e.y > height - 40) { e.y = height - 40; e.vy *= -1; }
+    }
+}
+
+console.log("APEXSIM — Core online");
+      
