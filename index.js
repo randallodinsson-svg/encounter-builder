@@ -1,47 +1,61 @@
-// index.js - APEXCORE Runtime + APEXSIM + Renderer + Tactical Console + Heatmap Toggle
-
-import { startAPEXSIM, setTacticalCommand, toggleHeatmap } from "./apexsim.js";
-import { startAPEXSIMRenderer } from "./apexsim-renderer.js";
+// index.js - APEXCORE Frontend Runtime
 
 console.log("StateEngine - module entry loaded");
 
-window.addEventListener("DOMContentLoaded", () => {
-    console.log("APEXCORE - Booting Module Runtime...");
+import {
+    startAPEXSIM,
+    setTacticalCommand,
+    toggleHeatmap
+} from "./apexsim.js";
 
-    startAPEXSIM();
-    startAPEXSIMRenderer();
+console.log("APEXCORE - Booting Module Runtime...");
 
-    // Tactical Console Buttons
-    const consolePanel = document.getElementById("apex-tactical-console");
-    if (consolePanel) {
-        consolePanel.querySelectorAll("button[data-cmd]").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const cmd = btn.getAttribute("data-cmd");
-                setTacticalCommand(cmd);
-                console.log("APEXSIM - Tactical command:", cmd);
-            });
-        });
-    }
+// ------------------------------------------------------------
+// BUTTON WIRING
+// ------------------------------------------------------------
 
-    // Heatmap Toggle Button
-    const heatBtn = document.getElementById("heatmap-toggle");
-    if (heatBtn) {
-        heatBtn.addEventListener("click", () => {
-            toggleHeatmap();
-            console.log("APEXSIM - Heatmap toggled");
-        });
-    }
+function bindButton(id, handler) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("click", handler);
+}
 
-    // Keyboard Shortcuts
-    window.addEventListener("keydown", (e) => {
-        const key = e.key.toLowerCase();
-        if (key === "h") setTacticalCommand("hold");
-        if (key === "f") setTacticalCommand("flank");
-        if (key === "b") setTacticalCommand("fallback");
-        if (key === "r") setTacticalCommand("regroup");
-        if (key === "p") setTacticalCommand("push");
-        if (key === "t") toggleHeatmap();
-    });
-
-    console.log("APEXCORE - Module Runtime Online");
+// Tactical buttons
+bindButton("btn-hold", () => {
+    setTacticalCommand("hold");
+    console.log("APEXSIM - Tactical command: hold");
 });
+
+bindButton("btn-flank", () => {
+    setTacticalCommand("flank");
+    console.log("APEXSIM - Tactical command: flank");
+});
+
+bindButton("btn-fallback", () => {
+    setTacticalCommand("fallback");
+    console.log("APEXSIM - Tactical command: fallback");
+});
+
+bindButton("btn-regroup", () => {
+    setTacticalCommand("regroup");
+    console.log("APEXSIM - Tactical command: regroup");
+});
+
+bindButton("btn-push", () => {
+    setTacticalCommand("push");
+    console.log("APEXSIM - Tactical command: push");
+});
+
+// Heatmap toggle
+bindButton("btn-heatmap", () => {
+    toggleHeatmap();
+    console.log("APEXSIM - Heatmap toggled");
+});
+
+// ------------------------------------------------------------
+// BOOT SIMULATION
+// ------------------------------------------------------------
+
+startAPEXSIM();
+
+console.log("APEXCORE - Module Runtime Online");
