@@ -207,7 +207,7 @@ function steerByRoleAndThreat(e, influence) {
         let delta;
         if (role === "frontline") {
             // TANK: move toward higher threat
-        delta = nVal - center;
+            delta = nVal - center;
         } else {
             // SCOUT / SUPPORT: move toward lower threat
             delta = center - nVal;
@@ -253,7 +253,7 @@ function getFormationOffset(mode, index, spacing) {
 }
 
 // ------------------------------------------------------------
-// FORMATION SWITCHING (demo - auto ON)
+// FORMATION SWITCHING (demo helper, now only manual)
 // ------------------------------------------------------------
 
 function cycleFormationMode() {
@@ -533,7 +533,7 @@ export function getSimState() {
 }
 
 function simLoop(timestamp) {
-  if (!_running) return;
+    if (!_running) return;
 
     const dt = (timestamp - _lastTime) / 1000;
     _lastTime = timestamp;
@@ -545,11 +545,7 @@ function simLoop(timestamp) {
         simState.formation.switchCooldown -= dt;
     }
 
-    // auto formation switching demo (you chose ON)
-    if (simState.tick % 300 === 0 && simState.formation.switchCooldown <= 0) {
-        cycleFormationMode();
-    }
-
+    // auto formation switching removed; formations now stay stable
     updateEntities(dt);
     updateInfluence();
     updateTactics(dt);
@@ -639,4 +635,4 @@ function updateEntities(dt) {
     }
 }
 
-console.log("APEXSIM - Core online");  
+console.log("APEXSIM - Core online");
