@@ -5,22 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>APEXCORE — Encounter Builder</title>
 
-    <!-- UI + Styles -->
-    <link rel="stylesheet" href="core.css" />
+    <!-- Styles -->
     <link rel="stylesheet" href="apex-ui.css" />
+    <link rel="stylesheet" href="core.css" />
 </head>
 
 <body>
 
-    <!-- Your existing UI layout stays unchanged -->
-    <div id="system-overview"></div>
-    <div id="scenario-feed"></div>
+    <!-- SYSTEM OVERVIEW PANEL -->
+    <div id="system-overview" class="panel system-overview"></div>
+
+    <!-- SCENARIO FEED PANEL -->
+    <div id="scenario-feed" class="panel scenario-feed"></div>
+
+    <!-- MAIN SIMULATION CANVAS -->
     <canvas id="apex-field"></canvas>
 
-    <!-- Buttons, controls, overlays, etc. -->
-    <div id="controls"></div>
+    <!-- CONTROL BUTTONS -->
+    <div id="controls" class="controls"></div>
 
-    <!-- MAIN ENTRY POINT (NOW A MODULE) -->
+    <!-- MAIN ENTRY POINT (MODULE) -->
     <script type="module" src="index.js"></script>
 
 </body>
