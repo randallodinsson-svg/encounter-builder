@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v2.0 (Formation Anchors + Steering Blending)
+// apexim.js — APEXSIM v2.1 (Formation Switching + Anchors + Blending)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -12,7 +12,8 @@ const simState = {
     formation: {
         mode: "line",       // line | wedge | circle | v
         leaderId: "scout‑1",
-        spacing: 80
+        spacing: 80,
+        switchCooldown: 0
     }
 };
 
@@ -66,7 +67,6 @@ function initEntities() {
         createEntity("support‑1", ENTITY_TYPES.SUPPORT, 500, 300, "formation")
     ];
 
-    // assign formation slots
     simState.entities.forEach((e, i) => {
         e.slotIndex = i;
     });
@@ -131,7 +131,7 @@ function steerAvoidOthers(e, entities, radius = 80) {
 function getFormationOffset(mode, index, spacing) {
     switch (mode) {
         case "line":
-            return { x: index * spacing - spacing, y: 0 };
+            return { x: (index - 1) * spacing, y: 0 };
 
         case "wedge":
             return { x: (index - 1) * spacing, y: Math.abs(index - 1) * spacing };
@@ -150,6 +150,20 @@ function getFormationOffset(mode, index, spacing) {
         default:
             return { x: 0, y: 0 };
     }
+}
+
+// ------------------------------------------------------------
+// FORMATION SWITCHING
+// ------------------------------------------------------------
+
+function cycleFormationMode() {
+    const modes = ["line", "wedge", "circle", "v"];
+    const f = simState.formation;
+    const currentIndex = modes.indexOf(f.mode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    f.mode = modes[nextIndex];
+    f.switchCooldown = 1.0; // 1 second cooldown
+    console.log("APEXSIM — Formation switched to:", f.mode);
 }
 
 // ------------------------------------------------------------
@@ -183,13 +197,23 @@ function simLoop(timestamp) {
     simState.tick++;
     simState.time += dt * 1000;
 
+    // formation switching timer
+    if (simState.formation.switchCooldown > 0) {
+        simState.formation.switchCooldown -= dt;
+    }
+
+    // auto-switch every 5 seconds (demo)
+    if (simState.tick % 300 === 0 && simState.formation.switchCooldown <= 0) {
+        cycleFormationMode();
+    }
+
     updateEntities(dt);
 
     requestAnimationFrame(simLoop);
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE — Formation Anchors
+// ENTITY UPDATE — Formation Switching + Anchors
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
@@ -203,12 +227,12 @@ function updateEntities(dt) {
     for (const e of entities) {
         let primary = { vx: 0, vy: 0 };
 
-        // Leader moves freely (wander)
+        // Leader moves freely
         if (e.behavior === "leader") {
             primary = steerWander(e);
         }
 
-        // Formation followers
+        // Followers move to formation slots
         if (e.behavior === "formation") {
             const offset = getFormationOffset(
                 formation.mode,
