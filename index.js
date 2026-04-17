@@ -1,19 +1,19 @@
-// index.js — APEXCORE Unified Module Entry Point
+// index.js — APEXCORE Runtime + APEXSIM + Renderer Boot
 
-console.log("APEXCORE — Booting Module Runtime…");
-
-// CORE ENGINE + EVENTS + STATE ENGINE
-import "./apexcore-engine.js";
-import "./apexcore-events.js";
-import "./engine/StateEngine/src/index.js";
-
-// APEXSIM + Renderer
 import { startAPEXSIM } from "./apexsim.js";
-import { initAPEXSIMRenderer } from "./apexsim-renderer.js";
+import { startAPEXSIMRenderer } from "./apexsim-renderer.js";
 
-document.addEventListener("DOMContentLoaded", () => {
+console.log("StateEngine — module entry loaded");
+
+// Wait for DOM so canvas exists
+window.addEventListener("DOMContentLoaded", () => {
+    console.log("APEXCORE — Booting Module Runtime…");
+
+    // Start simulation logic
     startAPEXSIM();
-    initAPEXSIMRenderer();
-});
 
-console.log("APEXCORE — Module Runtime Online");
+    // Start renderer (world + Steel‑Tablet HUD)
+    startAPEXSIMRenderer();
+
+    console.log("APEXCORE — Module Runtime Online");
+});
