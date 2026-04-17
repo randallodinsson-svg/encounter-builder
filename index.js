@@ -13,7 +13,7 @@ import {
     getSquads,
     getReplayState
 } from "./apexsim.js";
-import { startAPEXSIMRenderer } from "./apexsim-renderer.js";
+import { getRadialMenuState } from "./apexsim-renderer.js";
 
 // ------------------------------------------------------------
 // BOOT
@@ -265,9 +265,7 @@ if (canvas) {
 }
 
 // ------------------------------------------------------------
-// START RENDERER
+// RUNTIME ONLINE
 // ------------------------------------------------------------
-
-startAPEXSIMRenderer();
 
 console.log("APEXCORE - Module Runtime Online");
