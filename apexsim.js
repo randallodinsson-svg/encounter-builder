@@ -236,6 +236,7 @@ function steerByRoleAndThreat(e, influence) {
     const mag = Math.hypot(gx, gy) || 1;
     return { vx: gx / mag, vy: gy / mag };
 }
+
 // ------------------------------------------------------------
 // FORMATION OFFSETS
 // ------------------------------------------------------------
@@ -472,6 +473,7 @@ function simLoop(timestamp) {
 
     requestAnimationFrame(simLoop);
 }
+
 // ------------------------------------------------------------
 // ENTITY UPDATE
 // ------------------------------------------------------------
@@ -489,10 +491,7 @@ function updateEntities(dt) {
 
     for (const e of entities) {
 
-        // ------------------------------
         // PRIMARY BEHAVIOR
-        // ------------------------------
-
         let primary = { vx: 0, vy: 0 };
 
         if (e.behavior === "leader") {
@@ -512,10 +511,7 @@ function updateEntities(dt) {
             primary = steerSeek(e, targetX, targetY);
         }
 
-        // ------------------------------
         // SECONDARY BEHAVIORS
-        // ------------------------------
-
         const avoid = steerAvoidOthers(e, entities, 80);
         const roleTactical = steerByRoleAndThreat(e, influence);
 
@@ -523,10 +519,7 @@ function updateEntities(dt) {
             ? getTacticalStateVector(e, leader, tactics)
             : { vx: 0, vy: 0 };
 
-        // ------------------------------
         // WEIGHTS
-        // ------------------------------
-
         let roleWeight = 1.5;
         if (e.type.role === "support") roleWeight = 2.0;
         if (e.type.role === "frontline") roleWeight = 1.2;
@@ -537,10 +530,7 @@ function updateEntities(dt) {
         if (tactics.state === "push") stateWeight = 1.8;
         if (tactics.state === "regroup") stateWeight = 2.0;
 
-        // ------------------------------
         // FINAL ACCELERATION
-        // ------------------------------
-
         const ax =
             primary.vx * 1.0 +
             avoid.vx * 2.0 +
@@ -553,10 +543,7 @@ function updateEntities(dt) {
             roleTactical.vy * roleWeight +
             stateTactical.vy * stateWeight;
 
-        // ------------------------------
         // VELOCITY + LIMIT
-        // ------------------------------
-
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
 
@@ -564,17 +551,11 @@ function updateEntities(dt) {
         e.vx = limited.vx;
         e.vy = limited.vy;
 
-        // ------------------------------
         // POSITION UPDATE
-        // ------------------------------
-
         e.x += e.vx * dt;
         e.y += e.vy * dt;
 
-        // ------------------------------
         // WORLD BOUNDS
-        // ------------------------------
-
         if (e.x < 40) { e.x = 40; e.vx *= -1; }
         if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
         if (e.y < 40) { e.y = 40; e.vy *= -1; }
@@ -604,26 +585,17 @@ function getTacticalStateVector(e, leader, tactics) {
 
     const threatNorm = Math.max(0, Math.min(1, mag / 40));
 
-    // ------------------------------
     // FALLBACK
-    // ------------------------------
-
     if (state === "fallback") {
         return { vx: -tx, vy: -ty };
     }
 
-    // ------------------------------
     // PUSH
-    // ------------------------------
-
     if (state === "push") {
         return { vx: tx, vy: ty };
     }
 
-    // ------------------------------
     // REGROUP
-    // ------------------------------
-
     if (state === "regroup") {
         const dx = leader.x - e.x;
         const dy = leader.y - e.y;
@@ -631,10 +603,7 @@ function getTacticalStateVector(e, leader, tactics) {
         return { vx: dx / dmag, vy: dy / dmag };
     }
 
-    // ------------------------------
     // FLANK (ARC)
-    // ------------------------------
-
     if (state === "flank") {
         const perpLeft = { x: -ty, y: tx };
         const perpRight = { x: ty, y: -tx };
@@ -662,6 +631,7 @@ function getTacticalStateVector(e, leader, tactics) {
 
     return { vx: 0, vy: 0 };
 }
+
 // ------------------------------------------------------------
 // HEATMAP RENDERING (Soft Gradient, Under Entities)
 // ------------------------------------------------------------
@@ -744,17 +714,6 @@ function heatColorSoft(t) {
 }
 
 // ------------------------------------------------------------
-// EXPORTS FOR RENDERER
-// ------------------------------------------------------------
-
-export function getInfluenceGrid() {
-    return simState.influence.threat;
-}
-
-export function getGridConfig() {
-    return simState.influence;
-}
-// ------------------------------------------------------------
 // COLOR UTILITIES
 // ------------------------------------------------------------
 
@@ -810,7 +769,11 @@ export function getThreatMagnitude() {
 }
 
 export function getThreatDirection() {
-    return simState.tactics.threatDir;
+ return simState.tactics.threatDir;
+}
+
+export function getThreatCenter() {
+    return simState.tactics.threatCenter;
 }
 
 export function getLeaderPosition() {
@@ -827,9 +790,6 @@ export function getEntities() {
 }
 
 // ------------------------------------------------------------
-// END OF BATCH 5
-// ------------------------------------------------------------
-// ------------------------------------------------------------
 // FINAL EXPORTS (Public API)
 // ------------------------------------------------------------
 
@@ -844,9 +804,10 @@ export default {
     getTacticalState,
     getThreatMagnitude,
     getThreatDirection,
+    getThreatCenter,
     getLeaderPosition,
     getFormationMode,
     getEntities
 };
 
-console.log("APEXSIM - Core online");
+console.log("APEXSIM - Core online");   
