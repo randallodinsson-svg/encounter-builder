@@ -24,6 +24,58 @@ if (!canvas || !ctx) {
 }
 
 // ------------------------------------------------------------
+// SECTOR GRID OVERLAY
+// ------------------------------------------------------------
+
+function drawSectorGrid(ctx) {
+    const w = canvas.width;
+    const h = canvas.height;
+
+    const majorStep = 160;
+    const minorStep = 40;
+
+    ctx.save();
+
+    // Minor grid
+    ctx.strokeStyle = "rgba(40, 52, 80, 0.25)";
+    ctx.lineWidth = 1;
+
+    for (let x = 0; x <= w; x += minorStep) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+    }
+
+    for (let y = 0; y <= h; y += minorStep) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+    }
+
+    // Major grid
+    ctx.strokeStyle = "rgba(80, 100, 140, 0.45)";
+    ctx.lineWidth = 1.5;
+
+    for (let x = 0; x <= w; x += majorStep) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+    }
+
+    for (let y = 0; y <= h; y += majorStep) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
 // ENTITY RENDERING
 // ------------------------------------------------------------
 
@@ -316,14 +368,19 @@ function renderFrame() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    drawHeatmap(ctx, simState);
+    // Sector grid underlay
+    drawSectorGrid(ctx);
 
+    // Heatmap + tactical markers
+    drawHeatmap(ctx, simState);
     drawThreatCenterMarker(ctx);
     drawThreatVectorArrow(ctx, simState);
 
+    // Entities + formation overlay
     drawEntities(ctx, simState);
     drawFormationGhostOverlay(ctx, simState);
 
+    // HUD + minimap
     drawHUD(ctx, simState);
     drawMinimap(ctx, simState);
 
