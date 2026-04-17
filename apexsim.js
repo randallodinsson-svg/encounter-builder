@@ -1,860 +1,565 @@
-// apexim.js - APEXSIM v4.7 (Unified Core, Threat Center Inside, Heatmap Enabled)
-
+// apexsim.js - APEXSIM v7.0 Tactical Core
 console.log("APEXSIM - Core initializing");
 
 // ------------------------------------------------------------
-// RUNTIME FLAGS
+// CORE STATE
 // ------------------------------------------------------------
 
-let _running = false;
-let _lastTime = 0;
+const APEXSIM_TICK_RATE = 60;
+const DT = 1 / APEXSIM_TICK_RATE;
 
-// Heatmap toggle
-export let HEATMAP_ENABLED = false;
-export function toggleHeatmap() {
-    HEATMAP_ENABLED = !HEATMAP_ENABLED;
-}
-
-// ------------------------------------------------------------
-// FIELD + GRID CONFIG
-// ------------------------------------------------------------
-
-const FIELD_WIDTH = 1280;
-const FIELD_HEIGHT = 720;
-
-const GRID_COLS = 32;
-const GRID_ROWS = 18;
-
-// ------------------------------------------------------------
-// SIMULATION STATE
-// ------------------------------------------------------------
-
-const simState = {
-    tick: 0,
+let simState = {
     time: 0,
-
     entities: [],
-
+    enemies: [],
+    squads: [],
     formation: {
-        mode: "line",
-        leaderId: "scout-1",
-        spacing: 80,
-        switchCooldown: 0
+        leaderId: null,
+        mode: "tight",
+        count: 0
     },
-
-    influence: {
-        cols: GRID_COLS,
-        rows: GRID_ROWS,
-        cellWidth: FIELD_WIDTH / GRID_COLS,
-        cellHeight: FIELD_HEIGHT / GRID_ROWS,
-        threat: createGrid(GRID_COLS, GRID_ROWS)
-    },
-
     tactics: {
-        state: "hold",
-        manualCommand: null,
-        cooldown: 0,
-
-        threatDir: { x: 0, y: 0 },
-        threatMag: 0,
-        threatCenter: { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT / 2 }
+        state: "hold", // hold, flank, fallback, regroup, push
+        threatCenter: { x: 640, y: 360 },
+        threatMagnitude: 0
+    },
+    commandLayer: {
+        highLevelOrder: "none", // defend, advance, sweep, secure
+        lastOrderTime: 0
+    },
+    replay: {
+        recording: true,
+        playing: false,
+        time: 0,
+        duration: 0,
+        events: []
     }
 };
 
 // ------------------------------------------------------------
-// GRID HELPERS
+// UTILS
 // ------------------------------------------------------------
 
-function createGrid(cols, rows) {
-    const grid = [];
-    for (let y = 0; y < rows; y++) {
-        grid.push(new Array(cols).fill(0));
-    }
-    return grid;
+function randRange(min, max) {
+    return min + Math.random() * (max - min);
 }
 
-function clearGrid(grid) {
-    for (let y = 0; y < grid.length; y++) {
-        grid[y].fill(0);
-    }
+function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function dist(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.hypot(dx, dy);
 }
 
 // ------------------------------------------------------------
-// ENTITY DEFINITIONS
+// ENTITY / SQUAD SETUP
 // ------------------------------------------------------------
 
-const ENTITY_TYPES = {
-    SCOUT: {
-        color: "#00FFC8",
-        size: 12,
-        shape: "circle",
-        speed: 140,
-        threat: 1.0,
-        role: "skirmisher"
-    },
-    TANK: {
-        color: "#FF3B3B",
-        size: 22,
-        shape: "square",
-        speed: 60,
-        threat: 3.0,
-        role: "frontline"
-    },
-    SUPPORT: {
-        color: "#FFD93B",
-        size: 16,
-        shape: "diamond",
-        speed: 90,
-        threat: 1.5,
-        role: "support"
-    }
-};
-
-// ------------------------------------------------------------
-// ENTITY CREATION
-// ------------------------------------------------------------
-
-function createEntity(id, type, x, y, behavior = "formation") {
+function createEntity(id, x, y, role, squadId) {
     return {
         id,
-        type,
         x,
         y,
         vx: 0,
         vy: 0,
-        behavior,
-        wanderAngle: Math.random() * Math.PI * 2,
-        slotIndex: 0
+        type: {
+            role,
+            size: 10,
+            shape: "circle",
+            color:
+                role === "support" ? "#00FFC8" :
+                role === "heavy" ? "#FF6B6B" :
+                role === "scout" ? "#4DA3FF" :
+                "#E5F0FF"
+        },
+        squadId
     };
 }
 
-function initEntities() {
-    simState.entities = [
-        createEntity("scout-1", ENTITY_TYPES.SCOUT, 400, 300, "leader"),
-        createEntity("tank-1", ENTITY_TYPES.TANK, 300, 300, "formation"),
-        createEntity("support-1", ENTITY_TYPES.SUPPORT, 500, 300, "formation")
-    ];
-
-    simState.entities.forEach((e, i) => {
-        e.slotIndex = i;
-    });
-}
-
-// ------------------------------------------------------------
-// STEERING HELPERS
-// ------------------------------------------------------------
-
-function limit(vx, vy, max) {
-    const mag = Math.hypot(vx, vy);
-    if (mag > max) {
-        return { vx: (vx / mag) * max, vy: (vy / mag) * max };
-    }
-    return { vx, vy };
-}
-
-function steerSeek(e, tx, ty) {
-    const dx = tx - e.x;
-    const dy = ty - e.y;
-    const mag = Math.hypot(dx, dy) || 1;
-    return { vx: dx / mag, vy: dy / mag };
-}
-
-function steerWander(e) {
-    e.wanderAngle += (Math.random() - 0.5) * 0.4;
+function createEnemy(id, x, y) {
     return {
-        vx: Math.cos(e.wanderAngle),
-        vy: Math.sin(e.wanderAngle)
+        id,
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        facing: randRange(0, Math.PI * 2),
+        threat: randRange(0.5, 1.5),
+        state: "patrol", // patrol, engage, retreat
+        targetSquadId: null
     };
 }
 
-function steerAvoidOthers(e, entities, radius = 80) {
-    let ax = 0;
-    let ay = 0;
-    let count = 0;
-
-    for (const other of entities) {
-        if (other === e) continue;
-
-        const dx = e.x - other.x;
-        const dy = e.y - other.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist > 0 && dist < radius) {
-            const strength = (radius - dist) / radius;
-            ax += (dx / dist) * strength;
-            ay += (dy / dist) * strength;
-            count++;
-        }
-    }
-
-    if (count === 0) return { vx: 0, vy: 0 };
-
-    ax /= count;
-    ay /= count;
-
-    const mag = Math.hypot(ax, ay) || 1;
-    return { vx: ax / mag, vy: ay / mag };
-}
-// ------------------------------------------------------------
-// ROLE‑BASED THREAT STEERING
-// ------------------------------------------------------------
-
-function steerByRoleAndThreat(e, influence) {
-    const { cellWidth, cellHeight, cols, rows, threat } = influence;
-
-    const cx = Math.floor(e.x / cellWidth);
-    const cy = Math.floor(e.y / cellHeight);
-
-    if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) {
-        return { vx: 0, vy: 0 };
-    }
-
-    const center = threat[cy][cx];
-
-    let gx = 0;
-    let gy = 0;
-    let samples = 0;
-
-    const offsets = [
-        { dx: 1, dy: 0 },
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 }
-    ];
-
-    const role = e.type.role;
-
-    for (const o of offsets) {
-        const nx = cx + o.dx;
-        const ny = cy + o.dy;
-
-        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
-
-        const nVal = threat[ny][nx];
-
-        let delta;
-        if (role === "frontline") {
-            delta = nVal - center;      // frontline moves toward threat
-        } else {
-            delta = center - nVal;      // support/skirmishers avoid threat
-        }
-
-        gx += o.dx * delta;
-        gy += o.dy * delta;
-        samples++;
-    }
-
-    if (samples === 0) return { vx: 0, vy: 0 };
-
-    const mag = Math.hypot(gx, gy) || 1;
-    return { vx: gx / mag, vy: gy / mag };
-}
-
-// ------------------------------------------------------------
-// FORMATION OFFSETS
-// ------------------------------------------------------------
-
-function getFormationOffset(mode, index, spacing) {
-    switch (mode) {
-        case "line":
-            return { x: (index - 1) * spacing, y: 0 };
-
-        case "wedge":
-            return { x: (index - 1) * spacing, y: Math.abs(index - 1) * spacing };
-
-        case "circle": {
-            const angle = index * (Math.PI * 2 / 3);
-            return {
-                x: Math.cos(angle) * spacing,
-                y: Math.sin(angle) * spacing
-            };
-        }
-
-        case "v":
-            return {
-                x: (index - 1) * spacing,
-                y: Math.abs(index - 1) * spacing * 0.7
-            };
-
-        default:
-            return { x: 0, y: 0 };
-    }
-}
-
-// ------------------------------------------------------------
-// INFLUENCE MAP UPDATE
-// ------------------------------------------------------------
-
-function updateInfluence() {
-    const inf = simState.influence;
-    const grid = inf.threat;
-
-    clearGrid(grid);
-
-    for (const e of simState.entities) {
-        const baseThreat = e.type.threat;
-
-        const cx = Math.floor(e.x / inf.cellWidth);
-        const cy = Math.floor(e.y / inf.cellHeight);
-
-        const radiusCells = 3;
-
-        for (let gy = cy - radiusCells; gy <= cy + radiusCells; gy++) {
-            if (gy < 0 || gy >= inf.rows) continue;
-
-            for (let gx = cx - radiusCells; gx <= cx + radiusCells; gx++) {
-                if (gx < 0 || gx >= inf.cols) continue;
-
-                const cellCenterX = (gx + 0.5) * inf.cellWidth;
-                const cellCenterY = (gy + 0.5) * inf.cellHeight;
-
-                const dx = cellCenterX - e.x;
-                const dy = cellCenterY - e.y;
-                const dist = Math.hypot(dx, dy);
-
-                const maxDist = radiusCells * Math.max(inf.cellWidth, inf.cellHeight);
-                const falloff = Math.max(0, 1 - dist / maxDist);
-
-                grid[gy][gx] += baseThreat * falloff;
-            }
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// TACTICAL COMMAND API
-// ------------------------------------------------------------
-
-export function setTacticalCommand(command) {
-    const valid = ["hold", "flank", "fallback", "regroup", "push", null];
-    if (!valid.includes(command)) return;
-
-    simState.tactics.manualCommand = command;
-
-    if (command) {
-        simState.tactics.state = command;
-        simState.tactics.cooldown = 1.0;
-        console.log("APEXSIM - Manual tactical command:", command);
-    }
-}
-
-// ------------------------------------------------------------
-// THREAT VECTOR + CENTER OF GRAVITY
-// ------------------------------------------------------------
-
-function computeThreatVector(leader) {
-    const inf = simState.influence;
-    const grid = inf.threat;
-
-    let sumX = 0;
-    let sumY = 0;
-    let totalThreat = 0;
-
-    for (let y = 0; y < inf.rows; y++) {
-        for (let x = 0; x < inf.cols; x++) {
-            const v = grid[y][x];
-            if (v <= 0) continue;
-
-            const cx = (x + 0.5) * inf.cellWidth;
-            const cy = (y + 0.5) * inf.cellHeight;
-
-            const dx = cx - leader.x;
-            const dy = cy - leader.y;
-
-            sumX += dx * v;
-            sumY += dy * v;
-            totalThreat += v;
-        }
-    }
-
-    if (totalThreat <= 0) {
-        return {
-            dir: { x: 0, y: 0 },
-            mag: 0,
-            center: { x: leader.x, y: leader.y }
-        };
-    }
-
-    const avgX = leader.x + sumX / totalThreat;
-    const avgY = leader.y + sumY / totalThreat;
-
-    const vx = avgX - leader.x;
-    const vy = avgY - leader.y;
-    const mag = Math.hypot(vx, vy) || 1;
-
+function createSquad(id, color, label, leaderId) {
     return {
-        dir: { x: vx / mag, y: vy / mag },
-        mag: totalThreat,
-        center: { x: avgX, y: avgY }
+        id,
+        color,
+        label,
+        leaderId,
+        members: [],
+        state: "idle", // idle, moving, engaging, regrouping
+        target: { x: 640, y: 360 }
     };
 }
 
-// ------------------------------------------------------------
-// TACTICAL STATE MACHINE
-// ------------------------------------------------------------
+function initSim() {
+    const squads = [];
+    const entities = [];
+    const enemies = [];
 
-function updateTactics(dt) {
-    const tactics = simState.tactics;
-    const entities = simState.entities;
-    const leader = entities.find(e => e.id === simState.formation.leaderId);
-    if (!leader) return;
+    const squadA = createSquad("alpha", "#4DA3FF", "ALPHA", "a1");
+    const squadB = createSquad("bravo", "#00FFC8", "BRAVO", "b1");
 
-    const threatInfo = computeThreatVector(leader);
-    tactics.threatDir = threatInfo.dir;
-    tactics.threatMag = threatInfo.mag;
-    tactics.threatCenter = threatInfo.center;
+    const roles = ["scout", "support", "heavy", "scout", "support"];
 
-    if (tactics.cooldown > 0) {
-        tactics.cooldown -= dt;
+    let idCounter = 1;
+
+    for (let i = 0; i < roles.length; i++) {
+        const e = createEntity(
+            "a" + idCounter,
+            480 + randRange(-40, 40),
+            360 + randRange(-40, 40),
+            roles[i],
+            squadA.id
+        );
+        entities.push(e);
+        squadA.members.push(e.id);
+        idCounter++;
     }
 
-    if (tactics.manualCommand) {
-        tactics.state = tactics.manualCommand;
-        return;
+    idCounter = 1;
+    for (let i = 0; i < roles.length; i++) {
+        const e = createEntity(
+            "b" + idCounter,
+            800 + randRange(-40, 40),
+            360 + randRange(-40, 40),
+            roles[i],
+            squadB.id
+        );
+        entities.push(e);
+        squadB.members.push(e.id);
+        idCounter++;
     }
 
-    if (tactics.cooldown > 0) return;
+    squadA.leaderId = squadA.members[0];
+    squadB.leaderId = squadB.members[0];
 
-    const threatMag = tactics.threatMag;
-    const dir = tactics.threatDir;
+    squads.push(squadA, squadB);
 
-    let maxDist = 0;
-    for (const e of entities) {
-        const d = Math.hypot(e.x - leader.x, e.y - leader.y);
-        if (d > maxDist) maxDist = d;
+    for (let i = 0; i < 6; i++) {
+        enemies.push(
+            createEnemy(
+                "e" + (i + 1),
+                randRange(300, 1000),
+                randRange(200, 520)
+            )
+        );
     }
 
-    const LOW_THREAT = 5;
-    const HIGH_THREAT = 25;
-    const SPREAD_THRESHOLD = 260;
+    simState.entities = entities;
+    simState.enemies = enemies;
+    simState.squads = squads;
 
-    if (maxDist > SPREAD_THRESHOLD) {
-        tactics.state = "regroup";
-        tactics.cooldown = 1.0;
-        return;
-    }
+    simState.formation.leaderId = squadA.leaderId;
+    simState.formation.mode = "tight";
+    simState.formation.count = entities.length;
 
-    if (threatMag < LOW_THREAT || (dir.x === 0 && dir.y === 0)) {
-        tactics.state = "hold";
-        return;
-    }
+    simState.tactics.state = "hold";
+    simState.tactics.threatCenter = { x: 640, y: 360 };
+    simState.tactics.threatMagnitude = 0;
 
-    const hasTank = entities.some(e => e.type.role === "frontline");
+    simState.commandLayer.highLevelOrder = "none";
+    simState.commandLayer.lastOrderTime = 0;
 
-    if (threatMag > HIGH_THREAT) {
-        tactics.state = hasTank ? "push" : "fallback";
-        tactics.cooldown = 1.0;
-        return;
-    }
-
-    tactics.state = "flank";
-    tactics.cooldown = 1.0;
+    simState.replay.recording = true;
+    simState.replay.playing = false;
+    simState.replay.time = 0;
+    simState.replay.duration = 0;
+    simState.replay.events = [];
 }
+
+initSim();
+
 // ------------------------------------------------------------
-// SIMULATION LOOP
+// TACTICAL STATE ACCESSORS
 // ------------------------------------------------------------
-
-export function startAPEXSIM() {
-    if (_running) return;
-
-    _running = true;
-    _lastTime = performance.now();
-
-    initEntities();
-    requestAnimationFrame(simLoop);
-
-    console.log("APEXSIM - Simulation started");
-}
-
-export function stopAPEXSIM() {
-    _running = false;
-}
 
 export function getSimState() {
     return simState;
 }
 
-function simLoop(timestamp) {
-    if (!_running) return;
-
-    const dt = (timestamp - _lastTime) / 1000;
-    _lastTime = timestamp;
-
-    simState.tick++;
-    simState.time += dt * 1000;
-
-    if (simState.formation.switchCooldown > 0) {
-        simState.formation.switchCooldown -= dt;
-    }
-
-    updateEntities(dt);
-    updateInfluence();
-    updateTactics(dt);
-
-    requestAnimationFrame(simLoop);
-}
-
-// ------------------------------------------------------------
-// ENTITY UPDATE LOOP
-// ------------------------------------------------------------
-
-function updateEntities(dt) {
-    const width = FIELD_WIDTH;
-    const height = FIELD_HEIGHT;
-
-    const entities = simState.entities;
-    const formation = simState.formation;
-    const influence = simState.influence;
-    const tactics = simState.tactics;
-
-    const leader = entities.find(e => e.id === formation.leaderId);
-
-    for (const e of entities) {
-
-        // ------------------------------
-        // PRIMARY BEHAVIOR
-        // ------------------------------
-
-        let primary = { vx: 0, vy: 0 };
-
-        if (e.behavior === "leader") {
-            primary = steerWander(e);
-        }
-
-        if (e.behavior === "formation" && leader) {
-            const offset = getFormationOffset(
-                formation.mode,
-                e.slotIndex,
-                formation.spacing
-            );
-
-            const targetX = leader.x + offset.x;
-            const targetY = leader.y + offset.y;
-
-            primary = steerSeek(e, targetX, targetY);
-        }
-
-        // ------------------------------
-        // SECONDARY BEHAVIORS
-        // ------------------------------
-
-        const avoid = steerAvoidOthers(e, entities, 80);
-        const roleTactical = steerByRoleAndThreat(e, influence);
-
-        const stateTactical = leader
-            ? getTacticalStateVector(e, leader, tactics)
-            : { vx: 0, vy: 0 };
-
-        // ------------------------------
-        // WEIGHTS
-        // ------------------------------
-
-        let roleWeight = 1.5;
-        if (e.type.role === "support") roleWeight = 2.0;
-        if (e.type.role === "frontline") roleWeight = 1.2;
-
-        let stateWeight = 1.0;
-        if (tactics.state === "flank") stateWeight = 1.6;
-        if (tactics.state === "fallback") stateWeight = 1.8;
-        if (tactics.state === "push") stateWeight = 1.8;
-        if (tactics.state === "regroup") stateWeight = 2.0;
-
-        // ------------------------------
-        // FINAL ACCELERATION
-        // ------------------------------
-
-        const ax =
-            primary.vx * 1.0 +
-            avoid.vx * 2.0 +
-            roleTactical.vx * roleWeight +
-            stateTactical.vx * stateWeight;
-
-        const ay =
-            primary.vy * 1.0 +
-            avoid.vy * 2.0 +
-            roleTactical.vy * roleWeight +
-            stateTactical.vy * stateWeight;
-
-        // ------------------------------
-        // VELOCITY + LIMIT
-        // ------------------------------
-
-        e.vx += ax * dt * e.type.speed;
-        e.vy += ay * dt * e.type.speed;
-
-        const limited = limit(e.vx, e.vy, e.type.speed);
-        e.vx = limited.vx;
-        e.vy = limited.vy;
-
-        // ------------------------------
-        // POSITION UPDATE
-        // ------------------------------
-
-        e.x += e.vx * dt;
-        e.y += e.vy * dt;
-
-        // ------------------------------
-        // WORLD BOUNDS
-        // ------------------------------
-
-        if (e.x < 40) { e.x = 40; e.vx *= -1; }
-        if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
-        if (e.y < 40) { e.y = 40; e.vy *= -1; }
-        if (e.y > height - 40) { e.y = height - 40; e.vy *= -1; }
-    }
-}
-
-// ------------------------------------------------------------
-// TACTICAL STATE VECTOR (STEERING)
-// ------------------------------------------------------------
-
-function getTacticalStateVector(e, leader, tactics) {
-    const state = tactics.state;
-    const dir = tactics.threatDir;
-    const mag = tactics.threatMag;
-
-    if (state === "hold" || mag === 0) {
-        return { vx: 0, vy: 0 };
-    }
-
-    let tx = dir.x;
-    let ty = dir.y;
-
-    const tmag = Math.hypot(tx, ty) || 1;
-    tx /= tmag;
-    ty /= tmag;
-
-    const threatNorm = Math.max(0, Math.min(1, mag / 40));
-
-    // FALLBACK
-    if (state === "fallback") {
-        return { vx: -tx, vy: -ty };
-    }
-
-    // PUSH
-    if (state === "push") {
-        return { vx: tx, vy: ty };
-    }
-
-    // REGROUP
-    if (state === "regroup") {
-        const dx = leader.x - e.x;
-        const dy = leader.y - e.y;
-        const dmag = Math.hypot(dx, dy) || 1;
-        return { vx: dx / dmag, vy: dy / dmag };
-    }
-
-    // FLANK (ARC)
-    if (state === "flank") {
-        const perpLeft = { x: -ty, y: tx };
-        const perpRight = { x: ty, y: -tx };
-
-        let side = perpLeft;
-        if (e.type.role === "support") side = perpRight;
-        if (e.type.role === "frontline") side = perpLeft;
-
-        const lateralWeight = 0.6 + 0.3 * (1 - threatNorm);
-        const forwardWeight = 0.4 * threatNorm;
-
-        let roleForwardBoost = 0;
-        if (e.type.role === "frontline") roleForwardBoost = 0.2;
-        if (e.type.role === "support") roleForwardBoost = -0.1;
-
-        const fw = forwardWeight + roleForwardBoost;
-        const lw = lateralWeight - roleForwardBoost * 0.5;
-
-        const vx = side.x * lw + (-tx) * fw;
-        const vy = side.y * lw + (-ty) * fw;
-
-        const magArc = Math.hypot(vx, vy) || 1;
-        return { vx: vx / magArc, vy: vy / magArc };
-    }
-
-    return { vx: 0, vy: 0 };
-}
-// ------------------------------------------------------------
-// HEATMAP RENDERING (Soft Gradient, Under Entities)
-// ------------------------------------------------------------
-
-export function drawHeatmap(ctx, simState) {
-    if (!HEATMAP_ENABLED) return;
-
-    const inf = simState.influence;
-    const grid = inf.threat;
-
-    const cols = inf.cols;
-    const rows = inf.rows;
-    const cw = inf.cellWidth;
-    const ch = inf.cellHeight;
-
-    // Find max threat for normalization
-    let maxThreat = 0;
-    for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-            if (grid[y][x] > maxThreat) {
-                maxThreat = grid[y][x];
-            }
-        }
-    }
-
-    if (maxThreat <= 0) return;
-
-    // Draw each cell as a soft gradient rectangle
-    for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-
-            const v = grid[y][x];
-            if (v <= 0) continue;
-
-            const norm = Math.min(1, v / maxThreat);
-
-            // Soft gradient color: Blue → Cyan → White
-            const color = heatColorSoft(norm);
-
-            ctx.fillStyle = color;
-            ctx.globalAlpha = 0.45 * norm; // softer at low threat
-            ctx.fillRect(x * cw, y * ch, cw, ch);
-        }
-    }
-
-    ctx.globalAlpha = 1.0;
-}
-
-// ------------------------------------------------------------
-// HEATMAP COLOR CURVE (Soft Gradient)
-// Blue → Cyan → White
-// ------------------------------------------------------------
-
-function heatColorSoft(t) {
-    // Clamp
-    t = Math.max(0, Math.min(1, t));
-
-    // Gradient stops:
-    // 0.0 = deep blue (#0033FF)
-    // 0.5 = cyan (#00FFFF)
-    // 1.0 = white (#FFFFFF)
-
-    let r, g, b;
-
-    if (t < 0.5) {
-        // Blue → Cyan
-        const k = t / 0.5;
-        r = 0 * (1 - k) + 0 * k;
-        g = 51 * (1 - k) + 255 * k;
-        b = 255 * (1 - k) + 255 * k;
-    } else {
-        // Cyan → White
-        const k = (t - 0.5) / 0.5;
-        r = 0 * (1 - k) + 255 * k;
-        g = 255 * (1 - k) + 255 * k;
-        b = 255 * (1 - k) + 255 * k;
-    }
-
-    return `rgb(${r},${g},${b})`;
-}
-
-// ------------------------------------------------------------
-// COLOR UTILITIES
-// ------------------------------------------------------------
-
-function hexToRgb(hex) {
-    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!m) return null;
-    return {
-        r: parseInt(m[1], 16),
-        g: parseInt(m[2], 16),
-        b: parseInt(m[3], 16)
-    };
-}
-
-function lerpColor(a, b, t) {
-    t = Math.max(0, Math.min(1, t));
-
-    const ca = hexToRgb(a);
-    const cb = hexToRgb(b);
-    if (!ca || !cb) return a;
-
-    const r = Math.round(ca.r + (cb.r - ca.r) * t);
-    const g = Math.round(ca.g + (cb.g - ca.g) * t);
-    const bch = Math.round(ca.b + (cb.b - ca.b) * t);
-
-    return `rgb(${r},${g},${bch})`;
-}
-
-// ------------------------------------------------------------
-// TACTICAL STATE COLOR (HUD)
-// ------------------------------------------------------------
-
-function getStateColor(state) {
-    switch (state) {
-        case "hold": return "#E5F0FF";
-        case "flank": return "#00FFC8";
-        case "fallback": return "#FFC857";
-        case "regroup": return "#4DA3FF";
-        case "push": return "#FF3B3B";
-        default: return "#E5F0FF";
-    }
-}
-
-// ------------------------------------------------------------
-// RENDERER‑FACING EXPORTS
-// ------------------------------------------------------------
-
 export function getTacticalState() {
     return simState.tactics.state;
-}
-
-export function getThreatMagnitude() {
-    return simState.tactics.threatMag;
-}
-
-export function getThreatDirection() {
-    return simState.tactics.threatDir;
-}
-
-export function getThreatCenter() {
-    return simState.tactics.threatCenter;
-}
-
-export function getLeaderPosition() {
-    const leader = simState.entities.find(e => e.id === simState.formation.leaderId);
-    return leader ? { x: leader.x, y: leader.y } : { x: 0, y: 0 };
 }
 
 export function getFormationMode() {
     return simState.formation.mode;
 }
 
+export function getLeaderPosition() {
+    const leader = simState.entities.find(e => e.id === simState.formation.leaderId);
+    if (!leader) return { x: 640, y: 360 };
+    return { x: leader.x, y: leader.y };
+}
+
+export function getThreatCenter() {
+    return simState.tactics.threatCenter;
+}
+
+export function getThreatMagnitude() {
+    return simState.tactics.threatMagnitude;
+}
+
 export function getEntities() {
     return simState.entities;
 }
 
-export function getInfluenceGrid() {
-    return simState.influence.threat;
+export function getSquads() {
+    return simState.squads;
 }
 
-export function getGridConfig() {
-    return simState.influence;
+export function getEnemies() {
+    return simState.enemies;
 }
+
+export function getCommandLayerState() {
+    return simState.commandLayer;
+}
+
+export function getReplayState() {
+    return simState.replay;
+}
+
 // ------------------------------------------------------------
-// FINAL EXPORTS (Public API)
+// HEATMAP DRAW (STUB FOR RENDERER)
 // ------------------------------------------------------------
 
-export default {
-    startAPEXSIM,
-    stopAPEXSIM,
-    getSimState,
-    setTacticalCommand,
-    toggleHeatmap,
-    getInfluenceGrid,
-    getGridConfig,
-    getTacticalState,
-    getThreatMagnitude,
-    getThreatDirection,
-    getThreatCenter,
-    getLeaderPosition,
-    getFormationMode,
-    getEntities
-};
+export function drawHeatmap(ctx, state) {
+    // Simple subtle background gradient based on threat magnitude
+    const mag = clamp(state.tactics.threatMagnitude / 50, 0, 1);
+    const g = ctx.createLinearGradient(0, 0, ctx.canvas.width, ctx.canvas.height);
+    g.addColorStop(0, `rgba(10, 20, 40, 1)`);
+    g.addColorStop(1, `rgba(${20 + 80 * mag}, ${30}, ${60}, 1)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+
+// ------------------------------------------------------------
+// COMMAND LAYER INPUT (FROM UI)
+// ------------------------------------------------------------
+
+export function setTacticalState(state) {
+    simState.tactics.state = state;
+}
+
+export function setFormationMode(mode) {
+    simState.formation.mode = mode;
+}
+
+export function setHighLevelOrder(order) {
+    simState.commandLayer.highLevelOrder = order;
+    simState.commandLayer.lastOrderTime = simState.time;
+}
+
+export function setActiveSquadLeader(squadId) {
+    const squad = simState.squads.find(s => s.id === squadId);
+    if (!squad) return;
+    simState.formation.leaderId = squad.leaderId;
+}
+
+export function setSquadTarget(squadId, x, y) {
+    const squad = simState.squads.find(s => s.id === squadId);
+    if (!squad) return;
+    squad.target.x = x;
+    squad.target.y = y;
+}
+
+// Replay controls
+export function startReplay() {
+    simState.replay.playing = true;
+    simState.replay.recording = false;
+    simState.replay.time = 0;
+}
+
+export function stopReplay() {
+    simState.replay.playing = false;
+    simState.replay.recording = true;
+}
+
+export function scrubReplay(t) {
+    simState.replay.time = clamp(t, 0, simState.replay.duration);
+}
+
+// ------------------------------------------------------------
+// REPLAY RECORDING
+// ------------------------------------------------------------
+
+function recordFrame() {
+    if (!simState.replay.recording) return;
+
+    simState.replay.events.push({
+        time: simState.time,
+        entities: simState.entities.map(e => ({
+            id: e.id,
+            x: e.x,
+            y: e.y
+        })),
+        enemies: simState.enemies.map(e => ({
+            id: e.id,
+            x: e.x,
+            y: e.y
+        })),
+        tactics: {
+            state: simState.tactics.state,
+            threatCenter: { ...simState.tactics.threatCenter },
+            threatMagnitude: simState.tactics.threatMagnitude
+        }
+    });
+
+    simState.replay.duration = simState.time;
+}
+
+// ------------------------------------------------------------
+// ENEMY AI BEHAVIOR
+// ------------------------------------------------------------
+
+function updateEnemyAI(dt) {
+    const squads = simState.squads;
+    const enemies = simState.enemies;
+
+    for (const enemy of enemies) {
+        let closestSquad = null;
+        let closestDist = Infinity;
+
+        for (const squad of squads) {
+            const leader = simState.entities.find(e => e.id === squad.leaderId);
+            if (!leader) continue;
+            const d = dist(enemy, leader);
+            if (d < closestDist) {
+                closestDist = d;
+                closestSquad = squad;
+            }
+        }
+
+        if (closestSquad) {
+            enemy.targetSquadId = closestSquad.id;
+
+            if (closestDist < 180) {
+                enemy.state = "engage";
+            } else if (closestDist > 400) {
+                enemy.state = "patrol";
+            } else if (closestDist < 120) {
+                enemy.state = "retreat";
+            }
+        }
+
+        let speed = 40;
+        if (enemy.state === "engage") speed = 70;
+        if (enemy.state === "retreat") speed = 60;
+
+        let tx = enemy.x + Math.cos(enemy.facing) * 10;
+        let ty = enemy.y + Math.sin(enemy.facing) * 10;
+
+        if (closestSquad) {
+            const leader = simState.entities.find(e => e.id === closestSquad.leaderId);
+            if (leader) {
+                if (enemy.state === "engage") {
+                    tx = leader.x;
+                    ty = leader.y;
+                } else if (enemy.state === "retreat") {
+                    const dx = enemy.x - leader.x;
+                    const dy = enemy.y - leader.y;
+                    tx = enemy.x + dx;
+                    ty = enemy.y + dy;
+                }
+            }
+        }
+
+        const dx = tx - enemy.x;
+        const dy = ty - enemy.y;
+        const d = Math.hypot(dx, dy) || 1;
+
+        const nx = dx / d;
+        const ny = dy / d;
+
+        enemy.vx = nx * speed;
+        enemy.vy = ny * speed;
+        enemy.x += enemy.vx * dt;
+        enemy.y += enemy.vy * dt;
+
+        enemy.facing = Math.atan2(enemy.vy, enemy.vx);
+    }
+}
+
+// ------------------------------------------------------------
+// SQUAD / FORMATION LOGIC
+// ------------------------------------------------------------
+
+function updateSquads(dt) {
+    const squads = simState.squads;
+    const entities = simState.entities;
+    const tactics = simState.tactics;
+    const cmd = simState.commandLayer;
+
+    for (const squad of squads) {
+        let desiredState = squad.state;
+
+        if (cmd.highLevelOrder === "defend") {
+            desiredState = "idle";
+        } else if (cmd.highLevelOrder === "advance") {
+            desiredState = "moving";
+        } else if (cmd.highLevelOrder === "sweep") {
+            desiredState = "moving";
+        } else if (cmd.highLevelOrder === "secure") {
+            desiredState = "engaging";
+        }
+
+        if (tactics.state === "fallback") {
+            desiredState = "regrouping";
+        } else if (tactics.state === "regroup") {
+            desiredState = "regrouping";
+        } else if (tactics.state === "push") {
+            desiredState = "engaging";
+        }
+
+        squad.state = desiredState;
+
+        const leader = entities.find(e => e.id === squad.leaderId);
+        if (!leader) continue;
+
+        let targetX = squad.target.x;
+        let targetY = squad.target.y;
+
+        if (cmd.highLevelOrder === "sweep") {
+            targetX += Math.sin(simState.time * 0.1) * 80;
+        }
+
+        const dx = targetX - leader.x;
+        const dy = targetY - leader.y;
+        const d = Math.hypot(dx, dy) || 1;
+
+        let leaderSpeed = 0;
+        if (squad.state === "moving") leaderSpeed = 80;
+        if (squad.state === "engaging") leaderSpeed = 90;
+        if (squad.state === "regrouping") leaderSpeed = 70;
+
+        const lnx = dx / d;
+        const lny = dy / d;
+
+        leader.vx = lnx * leaderSpeed;
+        leader.vy = lny * leaderSpeed;
+
+        leader.x += leader.vx * dt;
+        leader.y += leader.vy * dt;
+
+        const mode = simState.formation.mode;
+        let radius = 80;
+        if (mode === "tight") radius = 50;
+        if (mode === "spread") radius = 120;
+
+        const members = squad.members.map(id => entities.find(e => e.id === id)).filter(Boolean);
+
+        for (let i = 0; i < members.length; i++) {
+            const m = members[i];
+            if (m.id === leader.id) continue;
+
+            const angle = (i / members.length) * Math.PI * 2;
+            const gx = leader.x + Math.cos(angle) * radius;
+            const gy = leader.y + Math.sin(angle) * radius;
+
+            const mdx = gx - m.x;
+            const mdy = gy - m.y;
+            const md = Math.hypot(mdx, mdy) || 1;
+
+            const mSpeed = 70;
+            const mnx = mdx / md;
+            const mny = mdy / md;
+
+            m.vx = mnx * mSpeed;
+            m.vy = mny * mSpeed;
+
+            m.x += m.vx * dt;
+            m.y += m.vy * dt;
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// THREAT COMPUTATION
+// ------------------------------------------------------------
+
+function updateThreat() {
+    const enemies = simState.enemies;
+    const squads = simState.squads;
+
+    if (!enemies.length || !squads.length) {
+        simState.tactics.threatCenter = { x: 640, y: 360 };
+        simState.tactics.threatMagnitude = 0;
+        return;
+    }
+
+    let sumX = 0;
+    let sumY = 0;
+    let sumW = 0;
+
+    for (const enemy of enemies) {
+        let minDist = Infinity;
+        for (const squad of squads) {
+            const leader = simState.entities.find(e => e.id === squad.leaderId);
+            if (!leader) continue;
+            const d = dist(enemy, leader);
+            if (d < minDist) minDist = d;
+        }
+
+        const w = clamp(1 / (minDist / 200 + 0.1), 0.1, 5) * enemy.threat;
+        sumX += enemy.x * w;
+        sumY += enemy.y * w;
+        sumW += w;
+    }
+
+    if (sumW <= 0) {
+        simState.tactics.threatCenter = { x: 640, y: 360 };
+        simState.tactics.threatMagnitude = 0;
+        return;
+    }
+
+    simState.tactics.threatCenter = {
+        x: sumX / sumW,
+        y: sumY / sumW
+    };
+
+    simState.tactics.threatMagnitude = clamp(sumW * 5, 0, 60);
+}
+
+// ------------------------------------------------------------
+// MAIN UPDATE LOOP
+// ------------------------------------------------------------
+
+function updateSim(dt) {
+    if (simState.replay.playing) {
+        // Simple replay time advance
+        simState.replay.time += dt;
+        if (simState.replay.time > simState.replay.duration) {
+            simState.replay.time = simState.replay.duration;
+            simState.replay.playing = false;
+            simState.replay.recording = true;
+        }
+        return;
+    }
+
+    simState.time += dt;
+
+    updateEnemyAI(dt);
+    updateSquads(dt);
+    updateThreat();
+    recordFrame();
+}
+
+setInterval(() => {
+    updateSim(DT);
+}, 1000 / APEXSIM_TICK_RATE);
 
 console.log("APEXSIM - Core online");
