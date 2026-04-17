@@ -1,65 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>APEXSIM v4.6</title>
+    <meta charset="UTF-8" />
+    <title>APEXSIM Tactical Encounter Builder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Optional: basic reset -->
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            margin: 0;
-            background: #05070a;
+            background: #05070b;
             color: #e5f0ff;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            overflow: hidden;
-        }
-
-        #apex-tactical-console {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(10, 12, 16, 0.85);
-            border: 1px solid #1a1f26;
-            padding: 12px;
-            border-radius: 6px;
             display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            padding: 10px 16px;
+            border-bottom: 1px solid #1b2230;
+            display: flex;
+            align-items: center;
             gap: 8px;
-            z-index: 9999;
-            backdrop-filter: blur(4px);
+            background: #070b12;
         }
-
-        #apex-tactical-console button {
-            background: #0f141a;
-            border: 1px solid #2a313c;
+        header button {
+            background: #111827;
             color: #e5f0ff;
-            padding: 6px 10px;
-            font-size: 11px;
+            border: 1px solid #1f2937;
+            padding: 6px 12px;
+            font-size: 12px;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
             cursor: pointer;
-            border-radius: 4px;
-            letter-spacing: 0.5px;
-            transition: 0.15s ease;
         }
-
-        #apex-tactical-console button:hover {
-            background: #1b222c;
-            border-color: #00ffc8;
-            color: #00ffc8;
+        header button:hover {
+            background: #1b2333;
         }
-
-        #apex-tactical-console button:active {
-            transform: scale(0.96);
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+        canvas {
+            background: #020308;
+            border: 1px solid #1b2230;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
         }
     </style>
 </head>
 <body>
+    <header>
+        <button id="btn-hold">HOLD</button>
+        <button id="btn-flank">FLANK</button>
+        <button id="btn-fallback">FALLBACK</button>
+        <button id="btn-regroup">REGROUP</button>
+        <button id="btn-push">PUSH</button>
+        <button id="btn-heatmap">HEATMAP</button>
+    </header>
 
-    <div id="apex-tactical-console">
-        <button data-cmd="hold">HOLD</button>
-        <button data-cmd="flank">FLANK</button>
-        <button data-cmd="fallback">FALLBACK</button>
-        <button data-cmd="regroup">REGROUP</button>
-        <button data-cmd="push">PUSH</button>
-        <button id="heatmap-toggle">HEATMAP</button>
-    </div>
+    <main>
+        <canvas id="apex-canvas" width="1280" height="720"></canvas>
+    </main>
 
+    <!-- Module scripts -->
+    <script type="module" src="./apexsim.js"></script>
+    <script type="module" src="./apexsim-renderer.js"></script>
     <script type="module" src="./index.js"></script>
 </body>
 </html>
