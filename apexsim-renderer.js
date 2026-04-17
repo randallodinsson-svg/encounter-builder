@@ -1,5 +1,4 @@
-// apexim-renderer.js - APEXSIM Renderer v4.6
-
+// apexim-renderer.js - APEXSIM Renderer v4.7
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -12,6 +11,10 @@ import {
     drawHeatmap
 } from "./apexsim.js";
 
+// ------------------------------------------------------------
+// CANVAS SETUP
+// ------------------------------------------------------------
+
 const canvas = document.getElementById("apex-canvas");
 const ctx = canvas ? canvas.getContext("2d") : null;
 
@@ -20,7 +23,7 @@ if (!canvas || !ctx) {
 }
 
 // ------------------------------------------------------------
-// DRAW ENTITIES
+// ENTITY RENDERING
 // ------------------------------------------------------------
 
 function drawEntities(ctx, simState) {
@@ -30,11 +33,9 @@ function drawEntities(ctx, simState) {
         ctx.save();
         ctx.translate(e.x, e.y);
 
-        // Direction arrow (based on velocity)
+        // Rotate toward velocity
         const angle = Math.atan2(e.vy, e.vx);
-        if (!Number.isNaN(angle)) {
-            ctx.rotate(angle);
-        }
+        if (!Number.isNaN(angle)) ctx.rotate(angle);
 
         ctx.fillStyle = e.type.color;
         ctx.strokeStyle = "rgba(0,0,0,0.6)";
@@ -76,7 +77,7 @@ function drawEntities(ctx, simState) {
 }
 
 // ------------------------------------------------------------
-// DRAW HUD
+// HUD RENDERING
 // ------------------------------------------------------------
 
 function drawHUD(ctx, simState) {
@@ -94,7 +95,7 @@ function drawHUD(ctx, simState) {
     const lineH = 20;
 
     ctx.fillText(`TACTICAL: ${tactical.toUpperCase()}`, baseX, baseY + lineH * 0);
-    ctx.fillText(`FORM: ${form.toUpperCase()}`, baseX, baseY + lineH * 1);
+    ctx.fillText(`FORMATION: ${form.toUpperCase()}`, baseX, baseY + lineH * 1);
     ctx.fillText(`LEADER: ${Math.round(leader.x)}, ${Math.round(leader.y)}`, baseX, baseY + lineH * 2);
 
     ctx.restore();
@@ -104,7 +105,7 @@ function drawHUD(ctx, simState) {
 // THREAT CENTER MARKER
 // ------------------------------------------------------------
 
-function drawThreatCenter(ctx) {
+function drawThreatCenterMarker(ctx) {
     const center = getThreatCenter();
     const x = center.x;
     const y = center.y;
@@ -131,6 +132,83 @@ function drawThreatCenter(ctx) {
 }
 
 // ------------------------------------------------------------
+// MINIMAP MODULE
+// ------------------------------------------------------------
+
+const MINIMAP_WIDTH = 200;
+const MINIMAP_HEIGHT = 112;
+const MINIMAP_X = 20;
+const MINIMAP_Y = 20;
+
+function drawMinimap(ctx, simState) {
+    const entities = simState.entities;
+    const leader = entities.find(e => e.id === simState.formation.leaderId);
+    const threatCenter = simState.tactics.threatCenter;
+
+    ctx.save();
+
+    // Frame
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#0A0F18";
+    ctx.fillRect(MINIMAP_X - 4, MINIMAP_Y - 4, MINIMAP_WIDTH + 8, MINIMAP_HEIGHT + 8);
+
+    ctx.strokeStyle = "#1B2333";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(MINIMAP_X - 4, MINIMAP_Y - 4, MINIMAP_WIDTH + 8, MINIMAP_HEIGHT + 8);
+
+    ctx.globalAlpha = 1.0;
+
+    // Background
+    ctx.fillStyle = "#05070B";
+    ctx.fillRect(MINIMAP_X, MINIMAP_Y, MINIMAP_WIDTH, MINIMAP_HEIGHT);
+
+    const sx = MINIMAP_WIDTH / 1280;
+    const sy = MINIMAP_HEIGHT / 720;
+
+    // Threat center
+    ctx.beginPath();
+    ctx.arc(
+        MINIMAP_X + threatCenter.x * sx,
+        MINIMAP_Y + threatCenter.y * sy,
+        4,
+        0,
+        Math.PI * 2
+    );
+    ctx.fillStyle = "#00FFC8";
+    ctx.fill();
+
+    // Leader
+    if (leader) {
+        ctx.beginPath();
+        ctx.arc(
+            MINIMAP_X + leader.x * sx,
+            MINIMAP_Y + leader.y * sy,
+            3,
+            0,
+            Math.PI * 2
+        );
+        ctx.fillStyle = "#4DA3FF";
+        ctx.fill();
+    }
+
+    // Units
+    for (const e of entities) {
+        ctx.beginPath();
+        ctx.arc(
+            MINIMAP_X + e.x * sx,
+            MINIMAP_Y + e.y * sy,
+            2,
+            0,
+            Math.PI * 2
+        );
+        ctx.fillStyle = e.type.color;
+        ctx.fill();
+    }
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
 // MAIN RENDER LOOP
 // ------------------------------------------------------------
 
@@ -144,12 +222,15 @@ function renderFrame() {
     // Underlay
     drawHeatmap(ctx, simState);
 
-    // Threat center marker
-    drawThreatCenter(ctx);
+    // Tactical markers
+    drawThreatCenterMarker(ctx);
 
-    // Units + HUD
+    // Entities + HUD
     drawEntities(ctx, simState);
     drawHUD(ctx, simState);
+
+    // Minimap
+    drawMinimap(ctx, simState);
 
     requestAnimationFrame(renderFrame);
 }
@@ -164,5 +245,5 @@ export function startAPEXSIMRenderer() {
     requestAnimationFrame(renderFrame);
 }
 
-// Auto-start for current setup
+// Auto-start
 startAPEXSIMRenderer();
