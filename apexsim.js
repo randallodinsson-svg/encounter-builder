@@ -1,339 +1,573 @@
-// apexim-renderer.js — APEXSIM Renderer + Steel-Tablet Tactical HUD
+// apexim.js — APEXSIM v4.5
+// Formation + Influence Maps + Role-Based Tactical AI + Hybrid Tactical Maneuvers (Dynamic Arc Flank)
 
-import { getSimState } from "./apexsim.js";
-
-console.log("APEXSIM Renderer — initializing…");
+console.log("APEXSIM — Core initializing…");
 
 let _running = false;
 let _lastTime = 0;
-let _canvas = null;
-let _ctx = null;
 
-const BG_COLOR = "#05070A";
-const FIELD_BORDER = "#1A1F26";
+const FIELD_WIDTH = 1280;
+const FIELD_HEIGHT = 720;
 
-const TEXT_COLOR = "#E5F0FF";
-const ACCENT_CYAN = "#00FFC8";
-const ACCENT_AMBER = "#FFC857";
-const ACCENT_RED = "#FF3B3B";
-const ACCENT_BLUE = "#4DA3FF";
-const ACCENT_GREEN = "#4CFF7A";
+const GRID_COLS = 32;
+const GRID_ROWS = 18;
 
-export function startAPEXSIMRenderer() {
-    if (_running) return;
+const simState = {
+    tick: 0,
+    time: 0,
+    entities: [],
+    formation: {
+        mode: "line",
+        leaderId: "scout-1",
+        spacing: 80,
+        switchCooldown: 0
+    },
+    influence: {
+        cols: GRID_COLS,
+        rows: GRID_ROWS,
+        cellWidth: FIELD_WIDTH / GRID_COLS,
+        cellHeight: FIELD_HEIGHT / GRID_ROWS,
+        threat: createGrid(GRID_COLS, GRID_ROWS)
+    },
+    tactics: {
+        state: "hold",
+        manualCommand: null,
+        cooldown: 0,
+        threatDir: { x: 0, y: 0 },
+        threatMag: 0,
+        threatCenter: { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT / 2 }
+    }
+};
 
-    _canvas = document.getElementById("apexsim-canvas");
-    if (!_canvas) {
-        _canvas = document.createElement("canvas");
-        _canvas.id = "apexsim-canvas";
-        _canvas.width = 1280;
-        _canvas.height = 720;
-        document.body.appendChild(_canvas);
+// ------------------------------------------------------------
+// GRID HELPERS
+// ------------------------------------------------------------
+
+function createGrid(cols, rows) {
+    const grid = [];
+    for (let y = 0; y < rows; y++) {
+        const row = new Array(cols).fill(0);
+        grid.push(row);
+    }
+    return grid;
+}
+
+function clearGrid(grid) {
+    for (let y = 0; y < grid.length; y++) {
+        grid[y].fill(0);
+    }
+}
+
+// ------------------------------------------------------------
+// ENTITY TYPES
+// ------------------------------------------------------------
+
+const ENTITY_TYPES = {
+    SCOUT: {
+        color: "#00FFC8",
+        size: 12,
+        shape: "circle",
+        speed: 140,
+        threat: 1.0,
+        role: "skirmisher"
+    },
+    TANK: {
+        color: "#FF3B3B",
+        size: 22,
+        shape: "square",
+        speed: 60,
+        threat: 3.0,
+        role: "frontline"
+    },
+    SUPPORT: {
+        color: "#FFD93B",
+        size: 16,
+        shape: "diamond",
+        speed: 90,
+        threat: 1.5,
+        role: "support"
+    }
+};
+
+// ------------------------------------------------------------
+// ENTITY CREATION
+// ------------------------------------------------------------
+
+function createEntity(id, type, x, y, behavior = "formation") {
+    return {
+        id,
+        type,
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        behavior,
+        wanderAngle: Math.random() * Math.PI * 2,
+        slotIndex: 0
+    };
+}
+
+function initEntities() {
+    simState.entities = [
+        createEntity("scout-1", ENTITY_TYPES.SCOUT, 400, 300, "leader"),
+        createEntity("tank-1", ENTITY_TYPES.TANK, 300, 300, "formation"),
+        createEntity("support-1", ENTITY_TYPES.SUPPORT, 500, 300, "formation")
+    ];
+
+    simState.entities.forEach((e, i) => {
+        e.slotIndex = i;
+    });
+}
+
+// ------------------------------------------------------------
+// STEERING HELPERS
+// ------------------------------------------------------------
+
+function limit(vx, vy, max) {
+    const mag = Math.hypot(vx, vy);
+    if (mag > max) {
+        return { vx: (vx / mag) * max, vy: (vy / mag) * max };
+    }
+    return { vx, vy };
+}
+
+function steerSeek(e, tx, ty) {
+    const dx = tx - e.x;
+    const dy = ty - e.y;
+    const mag = Math.hypot(dx, dy) || 1;
+    return { vx: dx / mag, vy: dy / mag };
+}
+
+function steerWander(e) {
+    e.wanderAngle += (Math.random() - 0.5) * 0.4;
+    return {
+        vx: Math.cos(e.wanderAngle),
+        vy: Math.sin(e.wanderAngle)
+    };
+}
+
+function steerAvoidOthers(e, entities, radius = 80) {
+    let ax = 0, ay = 0, count = 0;
+
+    for (const other of entities) {
+        if (other === e) continue;
+        const dx = e.x - other.x;
+        const dy = e.y - other.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 0 && dist < radius) {
+            const strength = (radius - dist) / radius;
+            ax += (dx / dist) * strength;
+            ay += (dy / dist) * strength;
+            count++;
+        }
     }
 
-    _ctx = _canvas.getContext("2d");
+    if (count === 0) return { vx: 0, vy: 0 };
+
+    ax /= count;
+    ay /= count;
+
+    const mag = Math.hypot(ax, ay) || 1;
+    return { vx: ax / mag, vy: ay / mag };
+}
+
+// role-based influence steering
+function steerByRoleAndThreat(e, influence) {
+    const { cellWidth, cellHeight, cols, rows, threat } = influence;
+
+    const cx = Math.floor(e.x / cellWidth);
+    const cy = Math.floor(e.y / cellHeight);
+
+    if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) {
+        return { vx: 0, vy: 0 };
+    }
+
+    const center = threat[cy][cx];
+
+    let gx = 0;
+    let gy = 0;
+    let samples = 0;
+
+    const offsets = [
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: -1 }
+    ];
+
+    const role = e.type.role;
+
+    for (const o of offsets) {
+        const nx = cx + o.dx;
+        const ny = cy + o.dy;
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+
+        const nVal = threat[ny][nx];
+
+        let delta;
+        if (role === "frontline") {
+            delta = nVal - center;
+        } else {
+            delta = center - nVal;
+        }
+
+        gx += o.dx * delta;
+        gy += o.dy * delta;
+        samples++;
+    }
+
+    if (samples === 0) return { vx: 0, vy: 0 };
+
+    const mag = Math.hypot(gx, gy) || 1;
+    return { vx: gx / mag, vy: gy / mag };
+}
+
+// ------------------------------------------------------------
+// FORMATION SLOT CALCULATION
+// ------------------------------------------------------------
+
+function getFormationOffset(mode, index, spacing) {
+    switch (mode) {
+        case "line":
+            return { x: (index - 1) * spacing, y: 0 };
+        case "wedge":
+            return { x: (index - 1) * spacing, y: Math.abs(index - 1) * spacing };
+        case "circle": {
+            const angle = index * (Math.PI * 2 / 3);
+            return {
+                x: Math.cos(angle) * spacing,
+                y: Math.sin(angle) * spacing
+            };
+        }
+        case "v":
+            return { x: (index - 1) * spacing, y: Math.abs(index - 1) * spacing * 0.7 };
+        default:
+            return { x: 0, y: 0 };
+    }
+}
+
+// ------------------------------------------------------------
+// FORMATION SWITCHING (demo)
+// ------------------------------------------------------------
+
+function cycleFormationMode() {
+    const modes = ["line", "wedge", "circle", "v"];
+    const f = simState.formation;
+    const currentIndex = modes.indexOf(f.mode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    f.mode = modes[nextIndex];
+    f.switchCooldown = 1.0;
+    console.log("APEXSIM — Formation switched to:", f.mode);
+}
+
+// ------------------------------------------------------------
+// INFLUENCE MAP UPDATE
+// ------------------------------------------------------------
+
+function updateInfluence() {
+    const inf = simState.influence;
+    const grid = inf.threat;
+
+    clearGrid(grid);
+
+    for (const e of simState.entities) {
+        const baseThreat = e.type.threat;
+
+        const cx = Math.floor(e.x / inf.cellWidth);
+        const cy = Math.floor(e.y / inf.cellHeight);
+
+        const radiusCells = 3;
+
+        for (let gy = cy - radiusCells; gy <= cy + radiusCells; gy++) {
+            if (gy < 0 || gy >= inf.rows) continue;
+            for (let gx = cx - radiusCells; gx <= cx + radiusCells; gx++) {
+                if (gx < 0 || gx >= inf.cols) continue;
+
+                const cellCenterX = (gx + 0.5) * inf.cellWidth;
+                const cellCenterY = (gy + 0.5) * inf.cellHeight;
+
+                const dx = cellCenterX - e.x;
+                const dy = cellCenterY - e.y;
+                const dist = Math.hypot(dx, dy);
+
+                const maxDist = radiusCells * Math.max(inf.cellWidth, inf.cellHeight);
+                const falloff = Math.max(0, 1 - dist / maxDist);
+
+                grid[gy][gx] += baseThreat * falloff;
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// TACTICAL SYSTEM — HYBRID CONTROL + DYNAMIC ARC FLANK
+// ------------------------------------------------------------
+
+export function setTacticalCommand(command) {
+    const valid = ["hold", "flank", "fallback", "regroup", "push", null];
+    if (!valid.includes(command)) return;
+    simState.tactics.manualCommand = command;
+    if (command) {
+        simState.tactics.state = command;
+        simState.tactics.cooldown = 1.0;
+        console.log("APEXSIM — Manual tactical command:", command);
+    }
+}
+
+function computeThreatVector(leader) {
+    const inf = simState.influence;
+    const grid = inf.threat;
+
+    let sumX = 0;
+    let sumY = 0;
+    let totalThreat = 0;
+
+    for (let y = 0; y < inf.rows; y++) {
+        for (let x = 0; x < inf.cols; x++) {
+            const v = grid[y][x];
+            if (v <= 0) continue;
+
+            const cx = (x + 0.5) * inf.cellWidth;
+            const cy = (y + 0.5) * inf.cellHeight;
+
+            const dx = cx - leader.x;
+            const dy = cy - leader.y;
+
+            sumX += dx * v;
+            sumY += dy * v;
+            totalThreat += v;
+        }
+    }
+
+    if (totalThreat <= 0) {
+        return {
+            dir: { x: 0, y: 0 },
+            mag: 0,
+            center: { x: leader.x, y: leader.y }
+        };
+    }
+
+    const avgX = leader.x + sumX / totalThreat;
+    const avgY = leader.y + sumY / totalThreat;
+
+    const vx = avgX - leader.x;
+    const vy = avgY - leader.y;
+    const mag = Math.hypot(vx, vy) || 1;
+
+    return {
+        dir: { x: vx / mag, y: vy / mag },
+        mag: totalThreat,
+        center: { x: avgX, y: avgY }
+    };
+}
+
+function updateTactics(dt) {
+    const tactics = simState.tactics;
+    const entities = simState.entities;
+    const leader = entities.find(e => e.id === simState.formation.leaderId);
+    if (!leader) return;
+
+    const threatInfo = computeThreatVector(leader);
+    tactics.threatDir = threatInfo.dir;
+    tactics.threatMag = threatInfo.mag;
+    tactics.threatCenter = threatInfo.center;
+
+    if (tactics.cooldown > 0) {
+        tactics.cooldown -= dt;
+    }
+
+    if (tactics.manualCommand) {
+        tactics.state = tactics.manualCommand;
+        return;
+    }
+
+    if (tactics.cooldown > 0) return;
+
+    const threatMag = tactics.threatMag;
+    const dir = tactics.threatDir;
+
+    let maxDist = 0;
+    for (const e of entities) {
+        const d = Math.hypot(e.x - leader.x, e.y - leader.y);
+        if (d > maxDist) maxDist = d;
+    }
+
+    const LOW_THREAT = 5;
+    const HIGH_THREAT = 25;
+    const SPREAD_THRESHOLD = 260;
+
+    if (maxDist > SPREAD_THRESHOLD) {
+        tactics.state = "regroup";
+        tactics.cooldown = 1.0;
+        return;
+    }
+
+    if (threatMag < LOW_THREAT || (dir.x === 0 && dir.y === 0)) {
+        tactics.state = "hold";
+        return;
+    }
+
+    const hasTank = entities.some(e => e.type.role === "frontline");
+
+    if (threatMag > HIGH_THREAT) {
+        if (hasTank) {
+            tactics.state = "push";
+        } else {
+            tactics.state = "fallback";
+        }
+        tactics.cooldown = 1.0;
+        return;
+    }
+
+    tactics.state = "flank";
+    tactics.cooldown = 1.0;
+}
+
+function getTacticalStateVector(e, leader, tactics) {
+    const state = tactics.state;
+    const dir = tactics.threatDir;
+    const mag = tactics.threatMag;
+
+    if (state === "hold" || mag === 0) {
+        return { vx: 0, vy: 0 };
+    }
+
+    let tx = dir.x;
+    let ty = dir.y;
+    const tmag = Math.hypot(tx, ty) || 1;
+    tx /= tmag;
+    ty /= tmag;
+
+    const threatNorm = Math.max(0, Math.min(1, mag / 40));
+
+    if (state === "fallback") {
+        return { vx: -tx, vy: -ty };
+    }
+
+    if (state === "push") {
+        return { vx: tx, vy: ty };
+    }
+
+    if (state === "regroup") {
+        const dx = leader.x - e.x;
+        const dy = leader.y - e.y;
+        const dmag = Math.hypot(dx, dy) || 1;
+        return { vx: dx / dmag, vy: dy / dmag };
+    }
+
+    if (state === "flank") {
+        const perpLeft = { x: -ty, y: tx };
+        const perpRight = { x: ty, y: -tx };
+
+        let side = perpLeft;
+        if (e.type.role === "support") side = perpRight;
+        if (e.type.role === "frontline") side = perpLeft;
+
+        const lateralWeight = 0.6 + 0.3 * (1 - threatNorm);
+        const forwardWeight = 0.4 * threatNorm;
+
+        let roleForwardBoost = 0;
+        if (e.type.role === "frontline") roleForwardBoost = 0.2;
+        if (e.type.role === "support") roleForwardBoost = -0.1;
+
+        const fw = forwardWeight + roleForwardBoost;
+        const lw = lateralWeight - roleForwardBoost * 0.5;
+
+        const vx = side.x * lw + (-tx) * fw;
+        const vy = side.y * lw + (-ty) * fw;
+
+        const magArc = Math.hypot(vx, vy) || 1;
+        return { vx: vx / magArc, vy: vy / magArc };
+    }
+
+    return { vx: 0, vy: 0 };
+}
+
+// ------------------------------------------------------------
+// SIMULATION LOOP
+// ------------------------------------------------------------
+
+export function startAPEXSIM() {
+    if (_running) return;
     _running = true;
     _lastTime = performance.now();
-    requestAnimationFrame(renderLoop);
-
-    console.log("APEXSIM Renderer — online");
+    initEntities();
+    requestAnimationFrame(simLoop);
+    console.log("APEXSIM — Simulation started");
 }
 
-export function stopAPEXSIMRenderer() {
+export function stopAPEXSIM() {
     _running = false;
+    console.log("APEXSIM — Simulation stopped");
 }
 
-function renderLoop(timestamp) {
+export function getSimState() {
+    return simState;
+}
+
+function simLoop(timestamp) {
     if (!_running) return;
 
     const dt = (timestamp - _lastTime) / 1000;
     _lastTime = timestamp;
 
-    const state = getSimState();
-    if (!state || !_ctx) {
-        requestAnimationFrame(renderLoop);
-        return;
+    simState.tick++;
+    simState.time += dt * 1000;
+
+    if (simState.formation.switchCooldown > 0) {
+        simState.formation.switchCooldown -= dt;
     }
 
-    drawScene(state, dt);
-
-    requestAnimationFrame(renderLoop);
-}
-
-function drawScene(simState, dt) {
-    const ctx = _ctx;
-    const w = _canvas.width;
-    const h = _canvas.height;
-
-    // background
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, w, h);
-
-    // field border
-    ctx.strokeStyle = FIELD_BORDER;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-
-    // world: entities + tactical world overlays
-    drawEntities(simState);
-    drawThreatArrow(simState);
-    drawFlankArc(simState);
-
-    // HUD: top-right Steel-Tablet cluster
-    drawTacticalHUD(simState, dt);
-}
-
-// ------------------------------------------------------------
-// WORLD RENDERING
-// ------------------------------------------------------------
-
-function drawEntities(simState) {
-    const ctx = _ctx;
-    const entities = simState.entities || [];
-
-    for (const e of entities) {
-        ctx.save();
-        ctx.translate(e.x, e.y);
-
-        ctx.fillStyle = e.type.color || ACCENT_CYAN;
-        const size = e.type.size || 12;
-
-        if (e.type.shape === "square") {
-            ctx.fillRect(-size / 2, -size / 2, size, size);
-        } else if (e.type.shape === "diamond") {
-            ctx.beginPath();
-            ctx.moveTo(0, -size / 1.2);
-            ctx.lineTo(size / 1.2, 0);
-            ctx.lineTo(0, size / 1.2);
-            ctx.lineTo(-size / 1.2, 0);
-            ctx.closePath();
-            ctx.fill();
-        } else {
-            ctx.beginPath();
-            ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        ctx.restore();
+    if (simState.tick % 300 === 0 && simState.formation.switchCooldown <= 0) {
+        cycleFormationMode();
     }
-}
 
-// threat arrow: leader → threat center, length + color by magnitude
-function drawThreatArrow(simState) {
-    const ctx = _ctx;
-    const tactics = simState.tactics;
-    const entities = simState.entities || [];
-    const leader = entities.find(e => e.id === simState.formation.leaderId);
-    if (!leader || !tactics) return;
+    updateEntities(dt);
+    updateInfluence();
+    updateTactics(dt);
 
-    const mag = tactics.threatMag || 0;
-    if (mag <= 0.1) return;
-
-    const dir = tactics.threatDir || { x: 0, y: 0 };
-    const norm = Math.hypot(dir.x, dir.y) || 1;
-    const dx = dir.x / norm;
-    const dy = dir.y / norm;
-
-    const baseLen = 80;
-    const len = baseLen + Math.min(1, mag / 40) * 80;
-
-    const startX = leader.x;
-    const startY = leader.y;
-    const endX = startX + dx * len;
-    const endY = startY + dy * len;
-
-    const tNorm = Math.max(0, Math.min(1, mag / 40));
-    const color = lerpColor(ACCENT_GREEN, ACCENT_RED, tNorm);
-
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.85;
-
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-
-    // arrowhead
-    const angle = Math.atan2(dy, dx);
-    const ah = 10;
-    ctx.beginPath();
-    ctx.moveTo(endX, endY);
-    ctx.lineTo(
-        endX - Math.cos(angle - Math.PI / 6) * ah,
-        endY - Math.sin(angle - Math.PI / 6) * ah
-    );
-    ctx.lineTo(
-        endX - Math.cos(angle + Math.PI / 6) * ah,
-        endY - Math.sin(angle + Math.PI / 6) * ah
-    );
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    ctx.restore();
-}
-
-// dynamic arc flank preview (only when FLANK)
-function drawFlankArc(simState) {
-    const ctx = _ctx;
-    const tactics = simState.tactics;
-    const entities = simState.entities || [];
-    const leader = entities.find(e => e.id === simState.formation.leaderId);
-    if (!leader || !tactics) return;
-
-    if (tactics.state !== "flank") return;
-
-    const dir = tactics.threatDir || { x: 0, y: 0 };
-    const mag = tactics.threatMag || 0;
-    const norm = Math.hypot(dir.x, dir.y) || 1;
-    if (norm === 0) return;
-
-    const tx = dir.x / norm;
-    const ty = dir.y / norm;
-
-    // perpendicular base
-    const perp = { x: -ty, y: tx };
-
-    // dynamic curvature based on threat magnitude
-    const tNorm = Math.max(0, Math.min(1, mag / 40));
-    const radius = 120 + tNorm * 80;
-    const arcSpan = Math.PI / 2 + tNorm * (Math.PI / 4); // 90°–135°
-
-    // arc center offset slightly opposite threat
-    const centerX = leader.x - tx * 40;
-    const centerY = leader.y - ty * 40;
-
-    // choose side: default left
-    const startAngle = Math.atan2(perp.y, perp.x) - arcSpan / 2;
-    const endAngle = startAngle + arcSpan;
-
-    ctx.save();
-    ctx.strokeStyle = ACCENT_CYAN;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.25;
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
-    ctx.stroke();
-
-    ctx.restore();
+    requestAnimationFrame(simLoop);
 }
 
 // ------------------------------------------------------------
-// HUD RENDERING (Steel-Tablet Cluster)
+// ENTITY UPDATE — Formation + Role-Based Tactical AI + Maneuvers
 // ------------------------------------------------------------
 
-let _hudLerpThreat = 0;
+function updateEntities(dt) {
+    const width = FIELD_WIDTH;
+    const height = FIELD_HEIGHT;
+    const entities = simState.entities;
+    const formation = simState.formation;
+    const influence = simState.influence;
+    const tactics = simState.tactics;
 
-function drawTacticalHUD(simState, dt) {
-    const ctx = _ctx;
-    const w = _canvas.width;
-
-    const tactics = simState.tactics || {};
-    const formation = simState.formation || {};
-    const entities = simState.entities || [];
     const leader = entities.find(e => e.id === formation.leaderId);
 
-    const state = tactics.state || "hold";
-    const threatMag = tactics.threatMag || 0;
+    for (const e of entities) {
+        let primary = { vx: 0, vy: 0 };
 
-    const threatNorm = Math.max(0, Math.min(1, threatMag / 40));
-    _hudLerpThreat += (threatNorm - _hudLerpThreat) * Math.min(1, dt * 8);
+        if (e.behavior === "leader") {
+            primary = steerWander(e);
+        }
 
-    // HUD base position (top-right)
-    const margin = 24;
-    const xRight = w - margin;
-    let y = margin + 8;
+        if (e.behavior === "formation" && leader) {
+            const offset = getFormationOffset(
+                formation.mode,
+                e.slotIndex,
+                formation.spacing
+            );
 
-    ctx.save();
-    ctx.textAlign = "right";
-    ctx.textBaseline = "top";
-    ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+            const targetX = leader.x + offset.x;
+            const targetY = leader.y + offset.y;
 
-    // tactical state label
-    const stateLabel = "TACTICAL: " + state.toUpperCase();
-    ctx.fillStyle = getStateColor(state);
-    ctx.globalAlpha = 0.95;
-    ctx.fillText(stateLabel, xRight, y);
+            primary = steerSeek(e, targetX, targetY);
+        }
 
-    y += 18;
+        const avoid = steerAvoidOthers(e, entities, 80);
+        const roleTactical = steerByRoleAndThreat(e, influence);
+        const stateTactical = leader
+            ? getTacticalStateVector(e, leader, tactics)
+            : { vx: 0, vy: 0 };
 
-    // threat magnitude bar
-    const barWidth = 160;
-    const barHeight = 6;
-    const barX = xRight - barWidth;
-    const barY = y + 4;
-
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = "#151A22";
-    ctx.fillRect(barX, barY, barWidth, barHeight);
-
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = lerpColor(ACCENT_GREEN, ACCENT_RED, _hudLerpThreat);
-    ctx.fillRect(barX, barY, barWidth * _hudLerpThreat, barHeight);
-
-    y += 18;
-
-    // formation mode
-    const formLabel = "FORM: " + (formation.mode || "line").toUpperCase();
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = TEXT_COLOR;
-    ctx.fillText(formLabel, xRight, y);
-
-    y += 18;
-
-    // leader position (small, optional)
-    if (leader) {
-        const posLabel =
-            "LEADER: " + Math.round(leader.x) + ", " + Math.round(leader.y);
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = "#9BA4B5";
-        ctx.fillText(posLabel, xRight, y);
-    }
-
-    ctx.restore();
-}
-
-function getStateColor(state) {
-    switch (state) {
-        case "hold":
-            return TEXT_COLOR;
-        case "flank":
-            return ACCENT_CYAN;
-        case "fallback":
-            return ACCENT_AMBER;
-        case "regroup":
-            return ACCENT_BLUE;
-        case "push":
-            return ACCENT_RED;
-        default:
-            return TEXT_COLOR;
-    }
-}
-
-// ------------------------------------------------------------
-// UTIL
-// ------------------------------------------------------------
-
-function lerpColor(a, b, t) {
-    t = Math.max(0, Math.min(1, t));
-    const ca = hexToRgb(a);
-    const cb = hexToRgb(b);
-    if (!ca || !cb) return a;
-    const r = Math.round(ca.r + (cb.r - ca.r) * t);
-    const g = Math.round(ca.g + (cb.g - ca.g) * t);
-    const bch = Math.round(ca.b + (cb.b - ca.b) * t);
-    return `rgb(${r},${g},${bch})`;
-}
-
-function hexToRgb(hex) {
-    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!m) return null;
-    return {
-        r: parseInt(m[1], 16),
-        g: parseInt(m[2], 16),
-        b: parseInt(m[3], 16)
-    };
-}
+        let roleWeight = 1.5;
+        if (e.type.role === "support
