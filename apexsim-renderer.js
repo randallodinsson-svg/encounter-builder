@@ -7,6 +7,7 @@ import {
     getFormationMode,
     getLeaderPosition,
     getThreatCenter,
+    getThreatMagnitude,
     getEntities,
     drawHeatmap
 } from "./apexsim.js";
@@ -33,7 +34,6 @@ function drawEntities(ctx, simState) {
         ctx.save();
         ctx.translate(e.x, e.y);
 
-        // Rotate toward velocity
         const angle = Math.atan2(e.vy, e.vx);
         if (!Number.isNaN(angle)) ctx.rotate(angle);
 
@@ -64,7 +64,6 @@ function drawEntities(ctx, simState) {
             ctx.stroke();
         }
 
-        // Direction pointer
         ctx.beginPath();
         ctx.moveTo(size + 6, 0);
         ctx.lineTo(size + 16, 0);
@@ -102,33 +101,136 @@ function drawHUD(ctx, simState) {
 }
 
 // ------------------------------------------------------------
-// THREAT CENTER MARKER
+// THREAT CENTER MARKER (INTENSITY PULSE)
 // ------------------------------------------------------------
 
 function drawThreatCenterMarker(ctx) {
     const center = getThreatCenter();
+    const mag = getThreatMagnitude();
+
     const x = center.x;
     const y = center.y;
 
-    // Outer glow
+    const norm = Math.max(0, Math.min(1, mag / 40));
+
+    const outerR = 18 + 10 * norm;
+    const innerR = 8 + 4 * norm;
+
     ctx.beginPath();
-    ctx.arc(x, y, 22, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(0, 255, 200, 0.25)";
+    ctx.arc(x, y, outerR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0, 255, 200, ${0.15 + 0.25 * norm})`;
     ctx.lineWidth = 6;
     ctx.stroke();
 
-    // Inner ring
     ctx.beginPath();
-    ctx.arc(x, y, 12, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
+    ctx.arc(x, y, innerR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0, 255, 255, ${0.4 + 0.3 * norm})`;
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Core dot
     ctx.beginPath();
     ctx.arc(x, y, 4, 0, Math.PI * 2);
     ctx.fillStyle = "#00FFC8";
     ctx.fill();
+}
+
+// ------------------------------------------------------------
+// LEADER → THREAT VECTOR ARROW
+// ------------------------------------------------------------
+
+function drawThreatVectorArrow(ctx, simState) {
+    const entities = simState.entities;
+    const leader = entities.find(e => e.id === simState.formation.leaderId);
+    if (!leader) return;
+
+    const center = simState.tactics.threatCenter;
+
+    const sx = leader.x;
+    const sy = leader.y;
+    const ex = center.x;
+    const ey = center.y;
+
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 10) return;
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    const headLen = 18;
+    const hx = ex - nx * headLen;
+    const hy = ey - ny * headLen;
+
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.strokeStyle = "rgba(0, 255, 200, 0.45)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(hx + -ny * 8, hy + nx * 8);
+    ctx.lineTo(hx + ny * 8, hy + -nx * 8);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0, 255, 200, 0.75)";
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
+// FORMATION GHOST OVERLAY
+// ------------------------------------------------------------
+
+function drawFormationGhostOverlay(ctx, simState) {
+    const formation = simState.formation;
+    const entities = simState.entities;
+
+    const leader = entities.find(e => e.id === formation.leaderId);
+    if (!leader) return;
+
+    const mode = formation.mode;
+    const count = formation.count || entities.length;
+
+    let radius = 80;
+    if (mode === "tight") radius = 50;
+    if (mode === "spread") radius = 120;
+
+    const roleColor = {
+        default: "rgba(255,255,255,0.25)",
+        support: "rgba(0,255,200,0.25)",
+        heavy: "rgba(255,80,80,0.25)",
+        scout: "rgba(80,160,255,0.25)"
+    };
+
+    ctx.save();
+
+    for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+
+        const gx = leader.x + Math.cos(angle) * radius;
+        const gy = leader.y + Math.sin(angle) * radius;
+
+        const ent = entities[i];
+        const color = ent?.type?.role
+            ? roleColor[ent.type.role] || roleColor.default
+            : roleColor.default;
+
+        ctx.beginPath();
+        ctx.arc(gx, gy, 10, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+
+    ctx.restore();
 }
 
 // ------------------------------------------------------------
@@ -147,7 +249,6 @@ function drawMinimap(ctx, simState) {
 
     ctx.save();
 
-    // Frame
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = "#0A0F18";
     ctx.fillRect(MINIMAP_X - 4, MINIMAP_Y - 4, MINIMAP_WIDTH + 8, MINIMAP_HEIGHT + 8);
@@ -158,14 +259,12 @@ function drawMinimap(ctx, simState) {
 
     ctx.globalAlpha = 1.0;
 
-    // Background
     ctx.fillStyle = "#05070B";
     ctx.fillRect(MINIMAP_X, MINIMAP_Y, MINIMAP_WIDTH, MINIMAP_HEIGHT);
 
     const sx = MINIMAP_WIDTH / 1280;
     const sy = MINIMAP_HEIGHT / 720;
 
-    // Threat center
     ctx.beginPath();
     ctx.arc(
         MINIMAP_X + threatCenter.x * sx,
@@ -177,7 +276,6 @@ function drawMinimap(ctx, simState) {
     ctx.fillStyle = "#00FFC8";
     ctx.fill();
 
-    // Leader
     if (leader) {
         ctx.beginPath();
         ctx.arc(
@@ -191,7 +289,6 @@ function drawMinimap(ctx, simState) {
         ctx.fill();
     }
 
-    // Units
     for (const e of entities) {
         ctx.beginPath();
         ctx.arc(
@@ -219,17 +316,15 @@ function renderFrame() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Underlay
     drawHeatmap(ctx, simState);
 
-    // Tactical markers
     drawThreatCenterMarker(ctx);
+    drawThreatVectorArrow(ctx, simState);
 
-    // Entities + HUD
     drawEntities(ctx, simState);
-    drawHUD(ctx, simState);
+    drawFormationGhostOverlay(ctx, simState);
 
-    // Minimap
+    drawHUD(ctx, simState);
     drawMinimap(ctx, simState);
 
     requestAnimationFrame(renderFrame);
@@ -245,5 +340,4 @@ export function startAPEXSIMRenderer() {
     requestAnimationFrame(renderFrame);
 }
 
-// Auto-start
 startAPEXSIMRenderer();
