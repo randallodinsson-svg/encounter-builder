@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v3.0 (Formation Switching + Influence Maps)
+// apexim.js — APEXSIM v4.0 (Formation + Influence Maps + Tactical AI)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -8,7 +8,6 @@ let _lastTime = 0;
 const FIELD_WIDTH = 1280;
 const FIELD_HEIGHT = 720;
 
-// influence grid resolution
 const GRID_COLS = 32;
 const GRID_ROWS = 18;
 
@@ -160,6 +159,49 @@ function steerAvoidOthers(e, entities, radius = 80) {
     return { vx: ax / mag, vy: ay / mag };
 }
 
+// influence‑driven steering: move toward lower threat
+function steerFromThreat(e, influence) {
+    const { cellWidth, cellHeight, cols, rows, threat } = influence;
+
+    const cx = Math.floor(e.x / cellWidth);
+    const cy = Math.floor(e.y / cellHeight);
+
+    if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) {
+        return { vx: 0, vy: 0 };
+    }
+
+    const center = threat[cy][cx];
+
+    let gx = 0;
+    let gy = 0;
+    let samples = 0;
+
+    const offsets = [
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: -1 }
+    ];
+
+    for (const o of offsets) {
+        const nx = cx + o.dx;
+        const ny = cy + o.dy;
+        if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+
+        const nVal = threat[ny][nx];
+        const delta = center - nVal; // positive if neighbor is safer (lower threat)
+
+        gx += o.dx * delta;
+        gy += o.dy * delta;
+        samples++;
+    }
+
+    if (samples === 0) return { vx: 0, vy: 0 };
+
+    const mag = Math.hypot(gx, gy) || 1;
+    return { vx: gx / mag, vy: gy / mag };
+}
+
 // ------------------------------------------------------------
 // FORMATION SLOT CALCULATION
 // ------------------------------------------------------------
@@ -287,7 +329,7 @@ function simLoop(timestamp) {
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE — Formation + Blending
+// ENTITY UPDATE — Formation + Influence‑Driven Tactical AI
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
@@ -295,6 +337,7 @@ function updateEntities(dt) {
     const height = FIELD_HEIGHT;
     const entities = simState.entities;
     const formation = simState.formation;
+    const influence = simState.influence;
 
     const leader = entities.find(e => e.id === formation.leaderId);
 
@@ -319,9 +362,17 @@ function updateEntities(dt) {
         }
 
         const avoid = steerAvoidOthers(e, entities, 80);
+        const threatSteer = steerFromThreat(e, influence); // toward safer cells
 
-        const ax = primary.vx * 1.0 + avoid.vx * 2.0;
-        const ay = primary.vy * 1.0 + avoid.vy * 2.0;
+        const ax =
+            primary.vx * 1.0 +
+            avoid.vx * 2.0 +
+            threatSteer.vx * 1.5;
+
+        const ay =
+            primary.vy * 1.0 +
+            avoid.vy * 2.0 +
+            threatSteer.vy * 1.5;
 
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
