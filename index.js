@@ -1,4 +1,4 @@
-// index.js - APEXCORE v7.0 Command Layer
+// index.js - APEXCORE v7.1 Command Layer (Performance Mode Enabled)
 console.log("StateEngine - module entry loaded");
 
 import {
@@ -48,12 +48,14 @@ const btnReplayStop = document.getElementById("btn-replay-stop");
 const replaySlider = document.getElementById("replay-slider");
 
 const heatmapToggle = document.getElementById("btn-heatmap");
+const perfToggle = document.getElementById("btn-performance");
 
 // ------------------------------------------------------------
 // HEATMAP TOGGLE STATE
 // ------------------------------------------------------------
 
 let heatmapEnabled = true;
+
 if (heatmapToggle) {
     heatmapToggle.addEventListener("click", () => {
         heatmapEnabled = !heatmapEnabled;
@@ -63,6 +65,23 @@ if (heatmapToggle) {
 
 export function isHeatmapEnabled() {
     return heatmapEnabled;
+}
+
+// ------------------------------------------------------------
+// PERFORMANCE MODE
+// ------------------------------------------------------------
+
+let performanceMode = false;
+
+if (perfToggle) {
+    perfToggle.addEventListener("click", () => {
+        performanceMode = !performanceMode;
+        console.log("APEXSIM - Performance mode:", performanceMode ? "ON" : "OFF");
+    });
+}
+
+export function isPerformanceMode() {
+    return performanceMode;
 }
 
 // ------------------------------------------------------------
