@@ -1,8 +1,14 @@
-// apexcore-engine.js — minimal bootloader for Encounter Builder
+// apexcore-engine.js
+// ------------------------------------------------------------
+// Minimal APEXCORE engine boot layer.
+// Draws to canvas and hooks into events.
+// ------------------------------------------------------------
+
+import { onEvent, emitEvent, onStateChange, updateStateFromEvent } from "./apexcore-events.js";
 
 console.log("APEXCORE ENGINE — initializing…");
 
-function bootMinimalField() {
+function bootEngine() {
     const canvas = document.getElementById("apex-field");
     if (!canvas) {
         console.error("APEXCORE ENGINE — canvas #apex-field not found");
@@ -15,21 +21,36 @@ function bootMinimalField() {
         return;
     }
 
-    // Clear and paint background
+    // Initial render
+    renderFrame(ctx, {});
+
+    // Listen to state changes
+    onStateChange((state) => {
+        renderFrame(ctx, state);
+    });
+
+    // Example: emit a boot event and update state
+    emitEvent("engine:boot", { time: Date.now() });
+    updateStateFromEvent({ engineOnline: true });
+}
+
+function renderFrame(ctx, state) {
     ctx.fillStyle = "#05070A";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw a simple “APEXCORE ONLINE” marker
     ctx.fillStyle = "#00FFC8";
-    ctx.font = "24px system-ui, sans-serif";
-    ctx.fillText("APEXCORE — MINIMAL BOOT ONLINE", 40, 60);
+    ctx.font = "20px system-ui, sans-serif";
+    ctx.fillText("APEXCORE — ENGINE ONLINE", 40, 60);
 
-    console.log("APEXCORE ENGINE — minimal field rendered");
+    ctx.fillStyle = "#8A9BA8";
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("State: " + JSON.stringify(state), 40, 90);
 }
 
-// Simple DOM-ready guard
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bootMinimalField);
+    document.addEventListener("DOMContentLoaded", bootEngine);
 } else {
-    bootMinimalField();
+    bootEngine();
 }
+
+console.log("APEXCORE ENGINE — boot scheduled");
