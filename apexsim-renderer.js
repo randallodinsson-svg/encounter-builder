@@ -1,4 +1,4 @@
-// apexim-renderer.js — APEXSIM v1.1 Renderer (Entities)
+// apexim-renderer.js — APEXSIM v1.2 Renderer (Shapes + Colors)
 
 import { getSimState } from "./apexsim.js";
 
@@ -32,17 +32,45 @@ function renderLoop() {
     ctx.fillStyle = "#05070A";
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // draw entities
     for (const e of entities) {
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, 16, 0, Math.PI * 2);
-        ctx.fillStyle = "#00FFC8";
-        ctx.fill();
-
-        ctx.fillStyle = "#8A9BA8";
-        ctx.font = "12px system-ui, sans-serif";
-        ctx.fillText(e.id, e.x + 20, e.y + 4);
+        drawEntity(e);
     }
 
     requestAnimationFrame(renderLoop);
+}
+
+function drawEntity(e) {
+    ctx.fillStyle = e.type.color;
+
+    switch (e.type.shape) {
+        case "circle":
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, e.type.size, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+
+        case "square":
+            ctx.fillRect(
+                e.x - e.type.size,
+                e.y - e.type.size,
+                e.type.size * 2,
+                e.type.size * 2
+            );
+            break;
+
+        case "diamond":
+            ctx.beginPath();
+            ctx.moveTo(e.x, e.y - e.type.size);
+            ctx.lineTo(e.x + e.type.size, e.y);
+            ctx.lineTo(e.x, e.y + e.type.size);
+            ctx.lineTo(e.x - e.type.size, e.y);
+            ctx.closePath();
+            ctx.fill();
+            break;
+    }
+
+    // label
+    ctx.fillStyle = "#8A9BA8";
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(e.id, e.x + e.type.size + 6, e.y + 4);
 }
