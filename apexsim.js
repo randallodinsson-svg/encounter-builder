@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v4.0 (Formation + Influence Maps + Tactical AI)
+// apexim.js — APEXSIM v4.1 (Formation + Influence Maps + Role-Based Tactical AI)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -59,21 +59,24 @@ const ENTITY_TYPES = {
         size: 12,
         shape: "circle",
         speed: 140,
-        threat: 1.0
+        threat: 1.0,
+        role: "skirmisher" // avoids threat
     },
     TANK: {
         color: "#FF3B3B",
         size: 22,
         shape: "square",
         speed: 60,
-        threat: 3.0
+        threat: 3.0,
+        role: "frontline" // seeks threat
     },
     SUPPORT: {
         color: "#FFD93B",
         size: 16,
         shape: "diamond",
         speed: 90,
-        threat: 1.5
+        threat: 1.5,
+        role: "support" // strongly avoids threat
     }
 };
 
@@ -159,8 +162,8 @@ function steerAvoidOthers(e, entities, radius = 80) {
     return { vx: ax / mag, vy: ay / mag };
 }
 
-// influence‑driven steering: move toward lower threat
-function steerFromThreat(e, influence) {
+// influence steering: SCOUT/SUPPORT move toward safer cells, TANK toward higher threat
+function steerByRoleAndThreat(e, influence) {
     const { cellWidth, cellHeight, cols, rows, threat } = influence;
 
     const cx = Math.floor(e.x / cellWidth);
@@ -183,13 +186,23 @@ function steerFromThreat(e, influence) {
         { dx: 0, dy: -1 }
     ];
 
+    const role = e.type.role;
+
     for (const o of offsets) {
         const nx = cx + o.dx;
         const ny = cy + o.dy;
         if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
 
         const nVal = threat[ny][nx];
-        const delta = center - nVal; // positive if neighbor is safer (lower threat)
+
+        let delta;
+        if (role === "frontline") {
+            // TANK: move toward higher threat
+            delta = nVal - center;
+        } else {
+            // SCOUT / SUPPORT: move toward lower threat
+            delta = center - nVal;
+        }
 
         gx += o.dx * delta;
         gy += o.dy * delta;
@@ -329,7 +342,7 @@ function simLoop(timestamp) {
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE — Formation + Influence‑Driven Tactical AI
+// ENTITY UPDATE — Formation + Role-Based Tactical AI
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
@@ -362,17 +375,22 @@ function updateEntities(dt) {
         }
 
         const avoid = steerAvoidOthers(e, entities, 80);
-        const threatSteer = steerFromThreat(e, influence); // toward safer cells
+        const tactical = steerByRoleAndThreat(e, influence);
+
+        // role-based tactical weight
+        let tacticalWeight = 1.5;
+        if (e.type.role === "support") tacticalWeight = 2.0;
+        if (e.type.role === "frontline") tacticalWeight = 1.2;
 
         const ax =
             primary.vx * 1.0 +
             avoid.vx * 2.0 +
-            threatSteer.vx * 1.5;
+            tactical.vx * tacticalWeight;
 
         const ay =
             primary.vy * 1.0 +
             avoid.vy * 2.0 +
-            threatSteer.vy * 1.5;
+            tactical.vy * tacticalWeight;
 
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
