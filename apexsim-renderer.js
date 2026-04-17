@@ -297,7 +297,7 @@ function drawEntities(ctx, simState) {
             ctx.beginPath();
             ctx.arc(0, 0, size + 4, 0, Math.PI * 2);
             ctx.strokeStyle = squad.color + "88";
-            ctx.lineWidth = 1.5;
+           ctx.lineWidth = 1.5;
             ctx.stroke();
         }
 
@@ -451,7 +451,7 @@ function drawThreatVectorArrow(ctx, simState) {
     ctx.moveTo(ex, ey);
     ctx.lineTo(hx + -ny * 8, hy + nx * 8);
     ctx.lineTo(hx + ny * 8, hy + -nx * 8);
-    ctx.closePath();
+   ctx.closePath();
     ctx.fillStyle = "rgba(0, 255, 200, 0.75)";
     ctx.fill();
 
@@ -599,7 +599,7 @@ function drawMinimap(ctx, simState) {
         ctx.beginPath();
         ctx.arc(
             MINIMAP_X + leader.x * sx,
-            MINIMAP_Y + leader.y * sy,
+    MINIMAP_Y + leader.y * sy,
             3,
             0,
             Math.PI * 2
