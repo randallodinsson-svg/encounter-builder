@@ -1,4 +1,4 @@
-// apexim-renderer.js - APEXSIM Renderer v4.7
+// apexim-renderer.js - APEXSIM Renderer v4.8
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -24,6 +24,72 @@ if (!canvas || !ctx) {
 }
 
 // ------------------------------------------------------------
+// TACTICAL TIMELINE RIBBON (NEW)
+// ------------------------------------------------------------
+
+const tacticalTimeline = [];
+const MAX_TIMELINE = 12;
+
+function updateTacticalTimeline(state) {
+    if (tacticalTimeline.length === 0 || tacticalTimeline[tacticalTimeline.length - 1].state !== state) {
+        tacticalTimeline.push({
+            state,
+            timestamp: performance.now()
+        });
+
+        if (tacticalTimeline.length > MAX_TIMELINE) {
+            tacticalTimeline.shift();
+        }
+    }
+}
+
+const stateColors = {
+    hold: "#4DA3FF",
+    flank: "#FFB84D",
+    fallback: "#FF4D4D",
+    regroup: "#9B59FF",
+    push: "#00FFC8",
+    default: "#CCCCCC"
+};
+
+function drawTacticalTimelineRibbon(ctx) {
+    const x = 20;
+    const y = canvas.height - 60;
+    const width = canvas.width - 40;
+    const height = 40;
+
+    ctx.save();
+
+    // Background
+    ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
+    ctx.fillRect(x, y, width, height);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, height);
+
+    const segmentWidth = width / MAX_TIMELINE;
+
+    for (let i = 0; i < tacticalTimeline.length; i++) {
+        const entry = tacticalTimeline[i];
+        const color = stateColors[entry.state] || stateColors.default;
+
+        const sx = x + i * segmentWidth;
+
+        ctx.fillStyle = color;
+        ctx.fillRect(sx, y, segmentWidth - 2, height);
+
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.font = "12px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(entry.state.toUpperCase(), sx + segmentWidth / 2, y + height / 2);
+    }
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
 // SECTOR GRID OVERLAY
 // ------------------------------------------------------------
 
@@ -36,7 +102,6 @@ function drawSectorGrid(ctx) {
 
     ctx.save();
 
-    // Minor grid
     ctx.strokeStyle = "rgba(40, 52, 80, 0.25)";
     ctx.lineWidth = 1;
 
@@ -54,7 +119,6 @@ function drawSectorGrid(ctx) {
         ctx.stroke();
     }
 
-    // Major grid
     ctx.strokeStyle = "rgba(80, 100, 140, 0.45)";
     ctx.lineWidth = 1.5;
 
@@ -137,7 +201,7 @@ function drawHUD(ctx, simState) {
     const leader = getLeaderPosition();
 
     ctx.save();
-    ctx.font = "14px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.font = "14px system-ui";
     ctx.fillStyle = "#E5F0FF";
     ctx.textBaseline = "top";
 
@@ -145,15 +209,15 @@ function drawHUD(ctx, simState) {
     const baseY = 20;
     const lineH = 20;
 
-    ctx.fillText(`TACTICAL: ${tactical.toUpperCase()}`, baseX, baseY + lineH * 0);
-    ctx.fillText(`FORMATION: ${form.toUpperCase()}`, baseX, baseY + lineH * 1);
+    ctx.fillText(`TACTICAL: ${tactical.toUpperCase()}`, baseX, baseY);
+    ctx.fillText(`FORMATION: ${form.toUpperCase()}`, baseX, baseY + lineH);
     ctx.fillText(`LEADER: ${Math.round(leader.x)}, ${Math.round(leader.y)}`, baseX, baseY + lineH * 2);
 
     ctx.restore();
 }
 
 // ------------------------------------------------------------
-// THREAT CENTER MARKER (INTENSITY PULSE)
+// THREAT CENTER MARKER (PULSE)
 // ------------------------------------------------------------
 
 function drawThreatCenterMarker(ctx) {
@@ -365,24 +429,25 @@ function renderFrame() {
     if (!ctx || !canvas) return;
 
     const simState = getSimState();
+    const tacticalState = getTacticalState();
+
+    updateTacticalTimeline(tacticalState);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Sector grid underlay
     drawSectorGrid(ctx);
-
-    // Heatmap + tactical markers
     drawHeatmap(ctx, simState);
+
     drawThreatCenterMarker(ctx);
     drawThreatVectorArrow(ctx, simState);
 
-    // Entities + formation overlay
     drawEntities(ctx, simState);
     drawFormationGhostOverlay(ctx, simState);
 
-    // HUD + minimap
     drawHUD(ctx, simState);
     drawMinimap(ctx, simState);
+
+    drawTacticalTimelineRibbon(ctx);
 
     requestAnimationFrame(renderFrame);
 }
