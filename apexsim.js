@@ -1,35 +1,47 @@
-// apexim.js - APEXSIM v4.6 (Heatmap Enabled, Soft Gradient, Under Entities)
+// apexim.js - APEXSIM v4.7 (Unified Core, Threat Center Inside, Heatmap Enabled)
 
 console.log("APEXSIM - Core initializing");
+
+// ------------------------------------------------------------
+// RUNTIME FLAGS
+// ------------------------------------------------------------
 
 let _running = false;
 let _lastTime = 0;
 
-// Heatmap toggle flag
+// Heatmap toggle
 export let HEATMAP_ENABLED = false;
 export function toggleHeatmap() {
     HEATMAP_ENABLED = !HEATMAP_ENABLED;
 }
 
-// Field dimensions
+// ------------------------------------------------------------
+// FIELD + GRID CONFIG
+// ------------------------------------------------------------
+
 const FIELD_WIDTH = 1280;
 const FIELD_HEIGHT = 720;
 
-// Influence grid resolution
 const GRID_COLS = 32;
 const GRID_ROWS = 18;
 
-// Simulation state container
+// ------------------------------------------------------------
+// SIMULATION STATE
+// ------------------------------------------------------------
+
 const simState = {
     tick: 0,
     time: 0,
+
     entities: [],
+
     formation: {
         mode: "line",
         leaderId: "scout-1",
         spacing: 80,
         switchCooldown: 0
     },
+
     influence: {
         cols: GRID_COLS,
         rows: GRID_ROWS,
@@ -37,10 +49,12 @@ const simState = {
         cellHeight: FIELD_HEIGHT / GRID_ROWS,
         threat: createGrid(GRID_COLS, GRID_ROWS)
     },
+
     tactics: {
         state: "hold",
         manualCommand: null,
         cooldown: 0,
+
         threatDir: { x: 0, y: 0 },
         threatMag: 0,
         threatCenter: { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT / 2 }
@@ -66,7 +80,7 @@ function clearGrid(grid) {
 }
 
 // ------------------------------------------------------------
-// ENTITY TYPES
+// ENTITY DEFINITIONS
 // ------------------------------------------------------------
 
 const ENTITY_TYPES = {
@@ -181,9 +195,8 @@ function steerAvoidOthers(e, entities, radius = 80) {
     const mag = Math.hypot(ax, ay) || 1;
     return { vx: ax / mag, vy: ay / mag };
 }
-
 // ------------------------------------------------------------
-// ROLE-BASED THREAT STEERING
+// ROLE‑BASED THREAT STEERING
 // ------------------------------------------------------------
 
 function steerByRoleAndThreat(e, influence) {
@@ -221,9 +234,9 @@ function steerByRoleAndThreat(e, influence) {
 
         let delta;
         if (role === "frontline") {
-            delta = nVal - center;
+            delta = nVal - center;      // frontline moves toward threat
         } else {
-            delta = center - nVal;
+            delta = center - nVal;      // support/skirmishers avoid threat
         }
 
         gx += o.dx * delta;
@@ -309,7 +322,7 @@ function updateInfluence() {
 }
 
 // ------------------------------------------------------------
-// TACTICAL SYSTEM
+// TACTICAL COMMAND API
 // ------------------------------------------------------------
 
 export function setTacticalCommand(command) {
@@ -324,6 +337,10 @@ export function setTacticalCommand(command) {
         console.log("APEXSIM - Manual tactical command:", command);
     }
 }
+
+// ------------------------------------------------------------
+// THREAT VECTOR + CENTER OF GRAVITY
+// ------------------------------------------------------------
 
 function computeThreatVector(leader) {
     const inf = simState.influence;
@@ -371,6 +388,10 @@ function computeThreatVector(leader) {
         center: { x: avgX, y: avgY }
     };
 }
+
+// ------------------------------------------------------------
+// TACTICAL STATE MACHINE
+// ------------------------------------------------------------
 
 function updateTactics(dt) {
     const tactics = simState.tactics;
@@ -429,7 +450,6 @@ function updateTactics(dt) {
     tactics.state = "flank";
     tactics.cooldown = 1.0;
 }
-
 // ------------------------------------------------------------
 // SIMULATION LOOP
 // ------------------------------------------------------------
@@ -475,7 +495,7 @@ function simLoop(timestamp) {
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE
+// ENTITY UPDATE LOOP
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
@@ -491,7 +511,10 @@ function updateEntities(dt) {
 
     for (const e of entities) {
 
+        // ------------------------------
         // PRIMARY BEHAVIOR
+        // ------------------------------
+
         let primary = { vx: 0, vy: 0 };
 
         if (e.behavior === "leader") {
@@ -511,7 +534,10 @@ function updateEntities(dt) {
             primary = steerSeek(e, targetX, targetY);
         }
 
+        // ------------------------------
         // SECONDARY BEHAVIORS
+        // ------------------------------
+
         const avoid = steerAvoidOthers(e, entities, 80);
         const roleTactical = steerByRoleAndThreat(e, influence);
 
@@ -519,7 +545,10 @@ function updateEntities(dt) {
             ? getTacticalStateVector(e, leader, tactics)
             : { vx: 0, vy: 0 };
 
+        // ------------------------------
         // WEIGHTS
+        // ------------------------------
+
         let roleWeight = 1.5;
         if (e.type.role === "support") roleWeight = 2.0;
         if (e.type.role === "frontline") roleWeight = 1.2;
@@ -530,7 +559,10 @@ function updateEntities(dt) {
         if (tactics.state === "push") stateWeight = 1.8;
         if (tactics.state === "regroup") stateWeight = 2.0;
 
+        // ------------------------------
         // FINAL ACCELERATION
+        // ------------------------------
+
         const ax =
             primary.vx * 1.0 +
             avoid.vx * 2.0 +
@@ -543,7 +575,10 @@ function updateEntities(dt) {
             roleTactical.vy * roleWeight +
             stateTactical.vy * stateWeight;
 
+        // ------------------------------
         // VELOCITY + LIMIT
+        // ------------------------------
+
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
 
@@ -551,11 +586,17 @@ function updateEntities(dt) {
         e.vx = limited.vx;
         e.vy = limited.vy;
 
+        // ------------------------------
         // POSITION UPDATE
+        // ------------------------------
+
         e.x += e.vx * dt;
         e.y += e.vy * dt;
 
+        // ------------------------------
         // WORLD BOUNDS
+        // ------------------------------
+
         if (e.x < 40) { e.x = 40; e.vx *= -1; }
         if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
         if (e.y < 40) { e.y = 40; e.vy *= -1; }
@@ -564,7 +605,7 @@ function updateEntities(dt) {
 }
 
 // ------------------------------------------------------------
-// TACTICAL STATE VECTOR
+// TACTICAL STATE VECTOR (STEERING)
 // ------------------------------------------------------------
 
 function getTacticalStateVector(e, leader, tactics) {
@@ -631,7 +672,6 @@ function getTacticalStateVector(e, leader, tactics) {
 
     return { vx: 0, vy: 0 };
 }
-
 // ------------------------------------------------------------
 // HEATMAP RENDERING (Soft Gradient, Under Entities)
 // ------------------------------------------------------------
@@ -757,7 +797,7 @@ function getStateColor(state) {
 }
 
 // ------------------------------------------------------------
-// EXPORTS FOR RENDERER (HUD + Heatmap)
+// RENDERER‑FACING EXPORTS
 // ------------------------------------------------------------
 
 export function getTacticalState() {
@@ -769,7 +809,7 @@ export function getThreatMagnitude() {
 }
 
 export function getThreatDirection() {
- return simState.tactics.threatDir;
+    return simState.tactics.threatDir;
 }
 
 export function getThreatCenter() {
@@ -789,6 +829,13 @@ export function getEntities() {
     return simState.entities;
 }
 
+export function getInfluenceGrid() {
+    return simState.influence.threat;
+}
+
+export function getGridConfig() {
+    return simState.influence;
+}
 // ------------------------------------------------------------
 // FINAL EXPORTS (Public API)
 // ------------------------------------------------------------
@@ -810,4 +857,4 @@ export default {
     getEntities
 };
 
-console.log("APEXSIM - Core online");   
+console.log("APEXSIM - Core online");
