@@ -1,8 +1,8 @@
-// apexim-renderer.js — APEXSIM Renderer + Steel-Tablet Tactical HUD
+// apexim-renderer.js - APEXSIM Renderer + Steel-Tablet Tactical HUD
 
 import { getSimState } from "./apexsim.js";
 
-console.log("APEXSIM Renderer — initializing…");
+console.log("APEXSIM Renderer - initializing");
 
 let _running = false;
 let _lastTime = 0;
@@ -36,7 +36,7 @@ export function startAPEXSIMRenderer() {
     _lastTime = performance.now();
     requestAnimationFrame(renderLoop);
 
-    console.log("APEXSIM Renderer — online");
+    console.log("APEXSIM Renderer - online");
 }
 
 export function stopAPEXSIMRenderer() {
@@ -75,7 +75,6 @@ function drawScene(simState, dt) {
     drawEntities(simState);
     drawThreatArrow(simState);
     drawFlankArc(simState);
-
     drawTacticalHUD(simState, dt);
 }
 
@@ -115,7 +114,7 @@ function drawEntities(simState) {
 }
 
 // ------------------------------------------------------------
-// THREAT ARROW (world-space)
+// THREAT ARROW
 // ------------------------------------------------------------
 
 function drawThreatArrow(simState) {
@@ -174,7 +173,7 @@ function drawThreatArrow(simState) {
 }
 
 // ------------------------------------------------------------
-// ARC FLANK PREVIEW (world-space)
+// ARC FLANK PREVIEW
 // ------------------------------------------------------------
 
 function drawFlankArc(simState) {
@@ -219,7 +218,7 @@ function drawFlankArc(simState) {
 }
 
 // ------------------------------------------------------------
-// HUD (Steel‑Tablet)
+// HUD
 // ------------------------------------------------------------
 
 let _hudLerpThreat = 0;
