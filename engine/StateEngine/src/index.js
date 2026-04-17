@@ -1,44 +1,56 @@
 // engine/StateEngine/src/index.js
 // ------------------------------------------------------------
-// Minimal StateEngine module entry point.
-// This file exists to satisfy the import chain and prevent 404s.
-// The full State Engine can be restored later, but this ensures
-// the engine boots cleanly right now.
+// Minimal but complete State Engine surface for APEXCORE.
+// Provides getCurrentState so apexcore-events.js can use it.
 // ------------------------------------------------------------
 
 console.log("StateEngine — module entry loaded");
 
-// Placeholder state object
 const _state = {
     initialized: false,
-    data: {}
+    data: {},
+    listeners: new Set()
 };
 
-// Minimal initializer
 export function initStateEngine() {
-    if (_state.initialized) {
-        console.log("StateEngine — already initialized");
-        return;
-    }
-
+    if (_state.initialized) return;
     _state.initialized = true;
-    console.log("StateEngine — initialized (placeholder)");
+    console.log("StateEngine — initialized");
 }
 
-// Minimal getter
-export function getState() {
-    return _state;
+export function getCurrentState() {
+    return _state.data;
 }
 
-// Minimal setter
 export function setState(key, value) {
     _state.data[key] = value;
-    console.log(`StateEngine — set ${key} =`, value);
+    notifyStateListeners();
 }
 
-// Export default object for convenience
+export function mergeState(partial) {
+    Object.assign(_state.data, partial);
+    notifyStateListeners();
+}
+
+export function subscribeToStateChanges(listener) {
+    _state.listeners.add(listener);
+    return () => _state.listeners.delete(listener);
+}
+
+function notifyStateListeners() {
+    for (const listener of _state.listeners) {
+        try {
+            listener(_state.data);
+        } catch (err) {
+            console.error("StateEngine — listener error", err);
+        }
+    }
+}
+
 export default {
     initStateEngine,
-    getState,
-    setState
+    getCurrentState,
+    setState,
+    mergeState,
+    subscribeToStateChanges
 };
