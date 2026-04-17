@@ -1,8 +1,4 @@
-// apexim-renderer.js — Minimal APEXSIM Renderer
-// ------------------------------------------------------------
-// Renders the APEXSIM state onto the main canvas without
-// interfering with HALO or other render layers.
-// ------------------------------------------------------------
+// apexim-renderer.js — APEXSIM v1.1 Renderer (Entities)
 
 import { getSimState } from "./apexsim.js";
 
@@ -31,19 +27,22 @@ function renderLoop() {
     const state = getSimState();
     if (!ctx) return;
 
-    // Draw a simple oscillating dot to prove the sim is alive
-    const cx = ctx.canvas.width / 2;
-    const cy = ctx.canvas.height / 2;
+    const { entities } = state;
 
     ctx.fillStyle = "#05070A";
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    const radius = 20 + state.osc * 10;
+    // draw entities
+    for (const e of entities) {
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 16, 0, Math.PI * 2);
+        ctx.fillStyle = "#00FFC8";
+        ctx.fill();
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = "#00FFC8";
-    ctx.fill();
+        ctx.fillStyle = "#8A9BA8";
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillText(e.id, e.x + 20, e.y + 4);
+    }
 
     requestAnimationFrame(renderLoop);
 }
