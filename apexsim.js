@@ -1,9 +1,16 @@
-// apexim.js — APEXSIM v2.1 (Formation Switching + Anchors + Blending)
+// apexim.js — APEXSIM v3.0 (Formation Switching + Influence Maps)
 
 console.log("APEXSIM — Core initializing…");
 
 let _running = false;
 let _lastTime = 0;
+
+const FIELD_WIDTH = 1280;
+const FIELD_HEIGHT = 720;
+
+// influence grid resolution
+const GRID_COLS = 32;
+const GRID_ROWS = 18;
 
 const simState = {
     tick: 0,
@@ -14,8 +21,34 @@ const simState = {
         leaderId: "scout‑1",
         spacing: 80,
         switchCooldown: 0
+    },
+    influence: {
+        cols: GRID_COLS,
+        rows: GRID_ROWS,
+        cellWidth: FIELD_WIDTH / GRID_COLS,
+        cellHeight: FIELD_HEIGHT / GRID_ROWS,
+        threat: createGrid(GRID_COLS, GRID_ROWS)
     }
 };
+
+// ------------------------------------------------------------
+// GRID HELPERS
+// ------------------------------------------------------------
+
+function createGrid(cols, rows) {
+    const grid = [];
+    for (let y = 0; y < rows; y++) {
+        const row = new Array(cols).fill(0);
+        grid.push(row);
+    }
+    return grid;
+}
+
+function clearGrid(grid) {
+    for (let y = 0; y < grid.length; y++) {
+        grid[y].fill(0);
+    }
+}
 
 // ------------------------------------------------------------
 // ENTITY TYPES
@@ -26,19 +59,22 @@ const ENTITY_TYPES = {
         color: "#00FFC8",
         size: 12,
         shape: "circle",
-        speed: 140
+        speed: 140,
+        threat: 1.0
     },
     TANK: {
         color: "#FF3B3B",
         size: 22,
         shape: "square",
-        speed: 60
+        speed: 60,
+        threat: 3.0
     },
     SUPPORT: {
         color: "#FFD93B",
         size: 16,
         shape: "diamond",
-        speed: 90
+        speed: 90,
+        threat: 1.5
     }
 };
 
@@ -162,8 +198,47 @@ function cycleFormationMode() {
     const currentIndex = modes.indexOf(f.mode);
     const nextIndex = (currentIndex + 1) % modes.length;
     f.mode = modes[nextIndex];
-    f.switchCooldown = 1.0; // 1 second cooldown
+    f.switchCooldown = 1.0;
     console.log("APEXSIM — Formation switched to:", f.mode);
+}
+
+// ------------------------------------------------------------
+// INFLUENCE MAP UPDATE
+// ------------------------------------------------------------
+
+function updateInfluence() {
+    const inf = simState.influence;
+    const grid = inf.threat;
+
+    clearGrid(grid);
+
+    for (const e of simState.entities) {
+        const baseThreat = e.type.threat;
+
+        const cx = Math.floor(e.x / inf.cellWidth);
+        const cy = Math.floor(e.y / inf.cellHeight);
+
+        const radiusCells = 3;
+
+        for (let gy = cy - radiusCells; gy <= cy + radiusCells; gy++) {
+            if (gy < 0 || gy >= inf.rows) continue;
+            for (let gx = cx - radiusCells; gx <= cx + radiusCells; gx++) {
+                if (gx < 0 || gx >= inf.cols) continue;
+
+                const cellCenterX = (gx + 0.5) * inf.cellWidth;
+                const cellCenterY = (gy + 0.5) * inf.cellHeight;
+
+                const dx = cellCenterX - e.x;
+                const dy = cellCenterY - e.y;
+                const dist = Math.hypot(dx, dy);
+
+                const maxDist = radiusCells * Math.max(inf.cellWidth, inf.cellHeight);
+                const falloff = Math.max(0, 1 - dist / maxDist);
+
+                grid[gy][gx] += baseThreat * falloff;
+            }
+        }
+    }
 }
 
 // ------------------------------------------------------------
@@ -197,28 +272,27 @@ function simLoop(timestamp) {
     simState.tick++;
     simState.time += dt * 1000;
 
-    // formation switching timer
     if (simState.formation.switchCooldown > 0) {
         simState.formation.switchCooldown -= dt;
     }
 
-    // auto-switch every 5 seconds (demo)
     if (simState.tick % 300 === 0 && simState.formation.switchCooldown <= 0) {
         cycleFormationMode();
     }
 
     updateEntities(dt);
+    updateInfluence();
 
     requestAnimationFrame(simLoop);
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE — Formation Switching + Anchors
+// ENTITY UPDATE — Formation + Blending
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
-    const width = 1280;
-    const height = 720;
+    const width = FIELD_WIDTH;
+    const height = FIELD_HEIGHT;
     const entities = simState.entities;
     const formation = simState.formation;
 
@@ -227,12 +301,10 @@ function updateEntities(dt) {
     for (const e of entities) {
         let primary = { vx: 0, vy: 0 };
 
-        // Leader moves freely
         if (e.behavior === "leader") {
             primary = steerWander(e);
         }
 
-        // Followers move to formation slots
         if (e.behavior === "formation") {
             const offset = getFormationOffset(
                 formation.mode,
@@ -246,27 +318,21 @@ function updateEntities(dt) {
             primary = steerSeek(e, targetX, targetY);
         }
 
-        // Avoidance
         const avoid = steerAvoidOthers(e, entities, 80);
 
-        // Weighted blending
         const ax = primary.vx * 1.0 + avoid.vx * 2.0;
         const ay = primary.vy * 1.0 + avoid.vy * 2.0;
 
-        // Apply acceleration
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
 
-        // Clamp velocity
         const limited = limit(e.vx, e.vy, e.type.speed);
         e.vx = limited.vx;
         e.vy = limited.vy;
 
-        // Move
         e.x += e.vx * dt;
         e.y += e.vy * dt;
 
-        // Bounce off edges
         if (e.x < 40) { e.x = 40; e.vx *= -1; }
         if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
         if (e.y < 40) { e.y = 40; e.vy *= -1; }
