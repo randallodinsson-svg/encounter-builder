@@ -1,99 +1,51 @@
-// apexsim.js — particle simulation (field-driven)
+// apexim.js — Minimal APEXSIM Core
+// ------------------------------------------------------------
+// Provides a simple simulation loop and exposes hooks for the
+// renderer. This version is intentionally minimal so it cannot
+// break the engine during reintegration.
+// ------------------------------------------------------------
 
-(function () {
-  const APEXSIM = {
-    particles: [],
-    maxParticles: 1024,
+console.log("APEXSIM — Core initializing…");
 
-    start() {
-      console.log("APEXSIM — Phase 3 online (Field‑Driven).");
-      this.reset();
-    },
+let _running = false;
+let _lastTime = 0;
 
-    reset() {
-      this.particles.length = 0;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      for (let i = 0; i < 512; i++) {
-        this.particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vx: 0,
-          vy: 0,
-          life: 1 + Math.random() * 2,
-        });
-      }
-    },
+const simState = {
+    tick: 0,
+    time: 0,
+    entities: []
+};
 
-    burst(count = 64) {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      for (let i = 0; i < count; i++) {
-        if (this.particles.length >= this.maxParticles) break;
-        this.particles.push({
-          x: w * 0.5,
-          y: h * 0.5,
-          vx: (Math.random() - 0.5) * 200,
-          vy: (Math.random() - 0.5) * 200,
-          life: 1 + Math.random() * 2,
-        });
-      }
-    },
+export function startAPEXSIM() {
+    if (_running) return;
+    _running = true;
+    _lastTime = performance.now();
+    requestAnimationFrame(simLoop);
+    console.log("APEXSIM — Simulation started");
+}
 
-    update(dt) {
-      const env = APEX.getModule("environment-field");
-      const haloField = APEX.getModule("halo-field");
-      const haloSystem = APEX.getModule("halo-system");
+export function stopAPEXSIM() {
+    _running = false;
+    console.log("APEXSIM — Simulation stopped");
+}
 
-      const w = window.innerWidth;
-      const h = window.innerHeight;
+export function getSimState() {
+    return simState;
+}
 
-      for (const p of this.particles) {
-        let fx = 0;
-        let fy = 0;
+function simLoop(timestamp) {
+    if (!_running) return;
 
-        if (env) {
-          const f = env.sample(p.x, p.y);
-          fx += f.fx;
-          fy += f.fy;
-        }
+    const delta = timestamp - _lastTime;
+    _lastTime = timestamp;
 
-        if (haloSystem) {
-          const hf = haloSystem.sample(p.x, p.y);
-          fx += hf.fx;
-          fy += hf.fy;
-        } else if (haloField) {
-          const hf = haloField.sample(p.x, p.y);
-          fx += hf.fx;
-          fy += hf.fy;
-        }
+    simState.tick++;
+    simState.time += delta;
 
-        p.vx += fx * dt;
-        p.vy += fy * dt;
+    // Example: simple oscillating value
+    simState.osc = Math.sin(simState.time * 0.002);
 
-        const drag = 0.96;
-        p.vx *= drag;
-        p.vy *= drag;
+    requestAnimationFrame(simLoop);
+}
 
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-
-        if (p.x < -50) p.x = w + 50;
-        if (p.x > w + 50) p.x = -50;
-        if (p.y < -50) p.y = h + 50;
-        if (p.y > h + 50) p.y = -50;
-
-        p.life -= dt * 0.1;
-        if (p.life <= 0) {
-          p.x = Math.random() * w;
-          p.y = Math.random() * h;
-          p.vx = 0;
-          p.vy = 0;
-          p.life = 1 + Math.random() * 2;
-        }
-      }
-    },
-  };
-
-  APEX.register("apexsim", APEXSIM);
-})();
+console.log("APEXSIM — Core online");
