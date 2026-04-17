@@ -1,4 +1,4 @@
-// apexim-renderer.js - APEXSIM Renderer v4.9
+// apexim-renderer.js - APEXSIM Renderer v5.0
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -65,7 +65,7 @@ function updateConsoleFromState(simState) {
 
     if (lastTacticalState === null) {
         lastTacticalState = tactical;
-        addConsoleEntry("system", `Simulation online`);
+        addConsoleEntry("system", "Simulation online");
         addConsoleEntry("tactical", `Initial tactical state: ${tactical.toUpperCase()}`);
     } else if (tactical !== lastTacticalState) {
         addConsoleEntry("tactical", `TACTICAL → ${tactical.toUpperCase()}`);
@@ -93,7 +93,7 @@ function drawCommandConsole(ctx) {
     const width = 420;
     const height = 180;
     const x = 20;
-    const y = canvas.height - height - 80; // bottom-left, above timeline
+    const y = canvas.height - height - 80;
 
     ctx.save();
 
@@ -542,6 +542,39 @@ function drawMinimap(ctx, simState) {
 }
 
 // ------------------------------------------------------------
+// FOG-OF-WAR OVERLAY
+// ------------------------------------------------------------
+
+function drawFogOfWar(ctx, simState) {
+    const entities = simState.entities;
+    const leader = entities.find(e => e.id === simState.formation.leaderId);
+    if (!leader) return;
+
+    const cx = leader.x;
+    const cy = leader.y;
+
+    const maxRadius = Math.max(canvas.width, canvas.height) * 0.9;
+    const innerRadius = 140;
+    const outerRadius = innerRadius + maxRadius;
+
+    ctx.save();
+
+    const gradient = ctx.createRadialGradient(
+        cx, cy, innerRadius,
+        cx, cy, outerRadius
+    );
+
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0.0)");
+    gradient.addColorStop(0.4, "rgba(0, 0, 0, 0.35)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.85)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
 // MAIN RENDER LOOP
 // ------------------------------------------------------------
 
@@ -564,6 +597,9 @@ function renderFrame() {
 
     drawEntities(ctx, simState);
     drawFormationGhostOverlay(ctx, simState);
+
+    // Fog-of-war over world, under UI
+    drawFogOfWar(ctx, simState);
 
     drawHUD(ctx, simState);
     drawMinimap(ctx, simState);
