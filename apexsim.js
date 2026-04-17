@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v1.4 (Steering + Collision + Avoidance)
+// apexim.js — APEXSIM v1.5 (Steering Blending + Priorities)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -73,16 +73,16 @@ function limit(vx, vy, max) {
     return { vx, vy };
 }
 
-function steerSeek(e, targetX, targetY) {
-    const dx = targetX - e.x;
-    const dy = targetY - e.y;
+function steerSeek(e, tx, ty) {
+    const dx = tx - e.x;
+    const dy = ty - e.y;
     const mag = Math.hypot(dx, dy) || 1;
     return { vx: dx / mag, vy: dy / mag };
 }
 
-function steerFlee(e, targetX, targetY) {
-    const dx = e.x - targetX;
-    const dy = e.y - targetY;
+function steerFlee(e, tx, ty) {
+    const dx = e.x - tx;
+    const dy = e.y - ty;
     const mag = Math.hypot(dx, dy) || 1;
     return { vx: dx / mag, vy: dy / mag };
 }
@@ -95,9 +95,9 @@ function steerWander(e) {
     };
 }
 
-function steerArrive(e, targetX, targetY) {
-    const dx = targetX - e.x;
-    const dy = targetY - e.y;
+function steerArrive(e, tx, ty) {
+    const dx = tx - e.x;
+    const dy = ty - e.y;
     const dist = Math.hypot(dx, dy) || 1;
 
     const speed = e.type.speed;
@@ -111,11 +111,9 @@ function steerArrive(e, targetX, targetY) {
     };
 }
 
-// Separation / avoidance from nearby entities
-function steerAvoidOthers(e, entities, radius = 60) {
-    let ax = 0;
-    let ay = 0;
-    let count = 0;
+// Avoid neighbors
+function steerAvoidOthers(e, entities, radius = 80) {
+    let ax = 0, ay = 0, count = 0;
 
     for (const other of entities) {
         if (other === e) continue;
@@ -176,7 +174,7 @@ function simLoop(timestamp) {
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE
+// ENTITY UPDATE — Steering Blending + Priority
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
@@ -185,47 +183,59 @@ function updateEntities(dt) {
     const entities = simState.entities;
 
     for (const e of entities) {
-        let steer = { vx: 0, vy: 0 };
+        // --- Primary steering (behavior)
+        let primary = { vx: 0, vy: 0 };
 
         switch (e.behavior) {
             case "seek":
-                steer = steerSeek(e, width / 2, height / 2);
+                primary = steerSeek(e, width / 2, height / 2);
                 break;
 
             case "flee":
-                steer = steerFlee(e, width / 2, height / 2);
+                primary = steerFlee(e, width / 2, height / 2);
                 break;
 
             case "wander":
-                steer = steerWander(e);
+                primary = steerWander(e);
                 break;
 
             case "arrive":
-                steer = steerArrive(e, width / 2, height / 2);
+                primary = steerArrive(e, width / 2, height / 2);
                 break;
         }
 
-        // avoidance from neighbors
+        // --- Secondary steering (avoidance)
         const avoid = steerAvoidOthers(e, entities, 80);
 
-        // blend steering: main behavior + avoidance
-        const steerWeight = 1.0;
-        const avoidWeight = 2.0;
+        // --- Weighted blending
+        const weights = {
+            primary: 1.0,
+            avoid: 2.0,
+            wander: 0.3
+        };
 
-        const ax = steer.vx * steerWeight + avoid.vx * avoidWeight;
-        const ay = steer.vy * steerWeight + avoid.vy * avoidWeight;
+        const ax =
+            primary.vx * weights.primary +
+            avoid.vx * weights.avoid;
 
+        const ay =
+            primary.vy * weights.primary +
+            avoid.vy * weights.avoid;
+
+        // --- Apply acceleration
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
 
+        // --- Clamp velocity
         const limited = limit(e.vx, e.vy, e.type.speed);
         e.vx = limited.vx;
         e.vy = limited.vy;
 
+        // --- Move
         e.x += e.vx * dt;
         e.y += e.vy * dt;
 
-        // bounce off edges
+        // --- Bounce off edges
         if (e.x < 40) { e.x = 40; e.vx *= -1; }
         if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
         if (e.y < 40) { e.y = 40; e.vy *= -1; }
