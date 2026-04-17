@@ -1,28 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>APEXCORE — Encounter Builder</title>
+    <meta charset="UTF-8">
+    <title>APEXSIM v4.5</title>
+    <style>
+        body {
+            margin: 0;
+            background: #05070a;
+            color: #e5f0ff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            overflow: hidden;
+        }
 
-    <link rel="stylesheet" href="core.css" />
-    <link rel="stylesheet" href="apex-ui.css" />
+        #apex-tactical-console {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 12, 16, 0.85);
+            border: 1px solid #1a1f26;
+            padding: 12px;
+            border-radius: 6px;
+            display: flex;
+            gap: 8px;
+            z-index: 9999;
+            backdrop-filter: blur(4px);
+        }
+
+        #apex-tactical-console button {
+            background: #0f141a;
+            border: 1px solid #2a313c;
+            color: #e5f0ff;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+            transition: 0.15s ease;
+        }
+
+        #apex-tactical-console button:hover {
+            background: #1b222c;
+            border-color: #00ffc8;
+            color: #00ffc8;
+        }
+
+        #apex-tactical-console button:active {
+            transform: scale(0.96);
+        }
+    </style>
 </head>
-
 <body>
-    <!-- SYSTEM OVERVIEW PANEL -->
-    <div id="system-overview" class="panel system-overview"></div>
+    <div id="apex-tactical-console">
+        <button data-cmd="hold">HOLD</button>
+        <button data-cmd="flank">FLANK</button>
+        <button data-cmd="fallback">FALLBACK</button>
+        <button data-cmd="regroup">REGROUP</button>
+        <button data-cmd="push">PUSH</button>
+    </div>
 
-    <!-- SCENARIO FEED PANEL -->
-    <div id="scenario-feed" class="panel scenario-feed"></div>
-
-    <!-- MAIN SIMULATION CANVAS -->
-    <canvas id="apex-field" width="1280" height="720"></canvas>
-
-    <!-- CONTROL BUTTONS -->
-    <div id="controls" class="controls"></div>
-
-    <!-- MAIN ENTRY POINT (MODULE) -->
-    <script type="module" src="index.js"></script>
+    <script type="module" src="./index.js"></script>
 </body>
 </html>
