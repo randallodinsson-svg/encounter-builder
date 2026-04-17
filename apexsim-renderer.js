@@ -1,55 +1,49 @@
-// apexsim-renderer.js — NUKE baseline renderer
+// apexim-renderer.js — Minimal APEXSIM Renderer
+// ------------------------------------------------------------
+// Renders the APEXSIM state onto the main canvas without
+// interfering with HALO or other render layers.
+// ------------------------------------------------------------
 
-(function () {
-  const Renderer = {
-    canvas: null,
-    ctx: null,
+import { getSimState } from "./apexsim.js";
 
-    start() {
-      console.log("APEXSIM Renderer — NUKE baseline online.");
-      this.canvas = document.getElementById("haloCanvas");
-      this.ctx = this.canvas.getContext("2d");
-      this.resize();
-      window.addEventListener("resize", () => this.resize());
-    },
+console.log("APEXSIM Renderer — initializing…");
 
-    resize() {
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-    },
+let ctx = null;
 
-    update(dt) {
-      const ctx = this.ctx;
-      const w = this.canvas.width;
-      const h = this.canvas.height;
+export function initAPEXSIMRenderer() {
+    const canvas = document.getElementById("apex-field");
+    if (!canvas) {
+        console.error("APEXSIM Renderer — canvas not found");
+        return;
+    }
 
-      ctx.fillStyle = "rgba(0,0,0,0.2)";
-      ctx.fillRect(0, 0, w, h);
+    ctx = canvas.getContext("2d");
+    if (!ctx) {
+        console.error("APEXSIM Renderer — 2D context unavailable");
+        return;
+    }
 
-      const sim = APEX.getModule("apexsim");
-      if (!sim) return;
+    requestAnimationFrame(renderLoop);
+    console.log("APEXSIM Renderer — online");
+}
 
-      ctx.globalCompositeOperation = "lighter";
+function renderLoop() {
+    const state = getSimState();
+    if (!ctx) return;
 
-      for (const p of sim.particles) {
-        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        const t = Math.min(speed / 200, 1);
-        const r = Math.floor(100 + 155 * t);
-        const g = Math.floor(180 + 75 * (1 - t));
-        const b = 255;
+    // Draw a simple oscillating dot to prove the sim is alive
+    const cx = ctx.canvas.width / 2;
+    const cy = ctx.canvas.height / 2;
 
-        ctx.strokeStyle = `rgba(${r},${g},${b},0.6)`;
-        ctx.lineWidth = 1.2;
+    ctx.fillStyle = "#05070A";
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
-        ctx.stroke();
-      }
+    const radius = 20 + state.osc * 10;
 
-      ctx.globalCompositeOperation = "source-over";
-    },
-  };
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#00FFC8";
+    ctx.fill();
 
-  APEX.register("apexsim-renderer", Renderer);
-})();
+    requestAnimationFrame(renderLoop);
+}
