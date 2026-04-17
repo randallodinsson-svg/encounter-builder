@@ -1,4 +1,5 @@
-// apexim.js — APEXSIM v4.1 (Formation + Influence Maps + Role-Based Tactical AI)
+// apexim.js — APEXSIM v4.5
+// Formation + Influence Maps + Role-Based Tactical AI + Hybrid Tactical Maneuvers (Dynamic Arc Flank)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -17,7 +18,7 @@ const simState = {
     entities: [],
     formation: {
         mode: "line",       // line | wedge | circle | v
-        leaderId: "scout‑1",
+        leaderId: "scout-1",
         spacing: 80,
         switchCooldown: 0
     },
@@ -27,6 +28,14 @@ const simState = {
         cellWidth: FIELD_WIDTH / GRID_COLS,
         cellHeight: FIELD_HEIGHT / GRID_ROWS,
         threat: createGrid(GRID_COLS, GRID_ROWS)
+    },
+    tactics: {
+        state: "hold",          // hold | flank | fallback | regroup | push
+        manualCommand: null,    // same values as state or null
+        cooldown: 0,
+        threatDir: { x: 0, y: 0 },
+        threatMag: 0,
+        threatCenter: { x: FIELD_WIDTH / 2, y: FIELD_HEIGHT / 2 }
     }
 };
 
@@ -100,9 +109,9 @@ function createEntity(id, type, x, y, behavior = "formation") {
 
 function initEntities() {
     simState.entities = [
-        createEntity("scout‑1", ENTITY_TYPES.SCOUT, 400, 300, "leader"),
-        createEntity("tank‑1", ENTITY_TYPES.TANK, 300, 300, "formation"),
-        createEntity("support‑1", ENTITY_TYPES.SUPPORT, 500, 300, "formation")
+        createEntity("scout-1", ENTITY_TYPES.SCOUT, 400, 300, "leader"),
+        createEntity("tank-1", ENTITY_TYPES.TANK, 300, 300, "formation"),
+        createEntity("support-1", ENTITY_TYPES.SUPPORT, 500, 300, "formation")
     ];
 
     simState.entities.forEach((e, i) => {
@@ -162,7 +171,7 @@ function steerAvoidOthers(e, entities, radius = 80) {
     return { vx: ax / mag, vy: ay / mag };
 }
 
-// influence steering: SCOUT/SUPPORT move toward safer cells, TANK toward higher threat
+// role-based influence steering: SCOUT/SUPPORT move toward safer cells, TANK toward higher threat
 function steerByRoleAndThreat(e, influence) {
     const { cellWidth, cellHeight, cols, rows, threat } = influence;
 
@@ -297,6 +306,211 @@ function updateInfluence() {
 }
 
 // ------------------------------------------------------------
+// TACTICAL SYSTEM — HYBRID CONTROL + DYNAMIC ARC FLANK
+// ------------------------------------------------------------
+
+// external/manual command API (for future UI / scripting)
+export function setTacticalCommand(command) {
+    const valid = ["hold", "flank", "fallback", "regroup", "push", null];
+    if (!valid.includes(command)) return;
+    simState.tactics.manualCommand = command;
+    if (command) {
+        simState.tactics.state = command;
+        simState.tactics.cooldown = 1.0;
+        console.log("APEXSIM — Manual tactical command:", command);
+    }
+}
+
+// compute threat vector relative to leader using influence grid
+function computeThreatVector(leader) {
+    const inf = simState.influence;
+    const grid = inf.threat;
+
+    let sumX = 0;
+    let sumY = 0;
+    let totalThreat = 0;
+
+    for (let y = 0; y < inf.rows; y++) {
+        for (let x = 0; x < inf.cols; x++) {
+            const v = grid[y][x];
+            if (v <= 0) continue;
+
+            const cx = (x + 0.5) * inf.cellWidth;
+            const cy = (y + 0.5) * inf.cellHeight;
+
+            const dx = cx - leader.x;
+            const dy = cy - leader.y;
+
+            sumX += dx * v;
+            sumY += dy * v;
+            totalThreat += v;
+        }
+    }
+
+    if (totalThreat <= 0) {
+        return {
+            dir: { x: 0, y: 0 },
+            mag: 0,
+            center: { x: leader.x, y: leader.y }
+        };
+    }
+
+    const avgX = leader.x + sumX / totalThreat;
+    const avgY = leader.y + sumY / totalThreat;
+
+    const vx = avgX - leader.x;
+    const vy = avgY - leader.y;
+    const mag = Math.hypot(vx, vy) || 1;
+
+    return {
+        dir: { x: vx / mag, y: vy / mag },
+        mag: totalThreat,
+        center: { x: avgX, y: avgY }
+    };
+}
+
+function updateTactics(dt) {
+    const tactics = simState.tactics;
+    const entities = simState.entities;
+    const leader = entities.find(e => e.id === simState.formation.leaderId);
+    if (!leader) return;
+
+    // update threat vector
+    const threatInfo = computeThreatVector(leader);
+    tactics.threatDir = threatInfo.dir;
+    tactics.threatMag = threatInfo.mag;
+    tactics.threatCenter = threatInfo.center;
+
+    if (tactics.cooldown > 0) {
+        tactics.cooldown -= dt;
+    }
+
+    // manual command has priority
+    if (tactics.manualCommand) {
+        tactics.state = tactics.manualCommand;
+        return;
+    }
+
+    // automatic logic (only when no manual command)
+    if (tactics.cooldown > 0) return;
+
+    const threatMag = tactics.threatMag;
+    const dir = tactics.threatDir;
+
+    // compute formation spread (for regroup)
+    let maxDist = 0;
+    for (const e of entities) {
+        const d = Math.hypot(e.x - leader.x, e.y - leader.y);
+        if (d > maxDist) maxDist = d;
+    }
+
+    // thresholds (tunable)
+    const LOW_THREAT = 5;
+    const HIGH_THREAT = 25;
+    const SPREAD_THRESHOLD = 260;
+
+    // REGROUP if squad is too spread
+    if (maxDist > SPREAD_THRESHOLD) {
+        tactics.state = "regroup";
+        tactics.cooldown = 1.0;
+        return;
+    }
+
+    // no significant threat → HOLD
+    if (threatMag < LOW_THREAT || (dir.x === 0 && dir.y === 0)) {
+        tactics.state = "hold";
+        return;
+    }
+
+    // high threat → FALLBACK or PUSH depending on roles
+    const hasTank = entities.some(e => e.type.role === "frontline");
+    if (threatMag > HIGH_THREAT) {
+        if (hasTank) {
+            tactics.state = "push";
+        } else {
+            tactics.state = "fallback";
+        }
+        tactics.cooldown = 1.0;
+        return;
+    }
+
+    // medium threat → FLANK (dynamic arc)
+    tactics.state = "flank";
+    tactics.cooldown = 1.0;
+}
+
+// tactical state vector (dynamic arc flank, fallback, regroup, push, hold)
+function getTacticalStateVector(e, leader, tactics) {
+    const state = tactics.state;
+    const dir = tactics.threatDir;
+    const mag = tactics.threatMag;
+
+    if (state === "hold" || mag === 0) {
+        return { vx: 0, vy: 0 };
+    }
+
+    // normalize threat direction
+    let tx = dir.x;
+    let ty = dir.y;
+    const tmag = Math.hypot(tx, ty) || 1;
+    tx /= tmag;
+    ty /= tmag;
+
+    // dynamic scaling based on threat magnitude
+    const threatNorm = Math.max(0, Math.min(1, mag / 40)); // clamp 0..1
+
+    if (state === "fallback") {
+        // move opposite threat direction
+        return { vx: -tx, vy: -ty };
+    }
+
+    if (state === "push") {
+        // move into threat
+        return { vx: tx, vy: ty };
+    }
+
+    if (state === "regroup") {
+        // move toward leader
+        const dx = leader.x - e.x;
+        const dy = leader.y - e.y;
+        const dmag = Math.hypot(dx, dy) || 1;
+        return { vx: dx / dmag, vy: dy / dmag };
+    }
+
+    if (state === "flank") {
+        // dynamic arc flank:
+        // base on perpendicular to threat direction, blended with slight forward/back
+        // choose side based on role to create organic asymmetry
+        const perpLeft = { x: -ty, y: tx };
+        const perpRight = { x: ty, y: -tx };
+
+        let side = perpLeft;
+        if (e.type.role === "support") side = perpRight; // support tends to opposite side
+        if (e.type.role === "frontline") side = perpLeft; // tank leads main flank
+
+        // dynamic blend: more lateral at medium threat, more forward/back at high threat
+        const lateralWeight = 0.6 + 0.3 * (1 - threatNorm); // more lateral when threat lower
+        const forwardWeight = 0.4 * threatNorm;             // more forward when threat higher
+
+        // frontline leans more forward, support more lateral
+        let roleForwardBoost = 0;
+        if (e.type.role === "frontline") roleForwardBoost = 0.2;
+        if (e.type.role === "support") roleForwardBoost = -0.1;
+
+        const fw = forwardWeight + roleForwardBoost;
+        const lw = lateralWeight - roleForwardBoost * 0.5;
+
+        const vx = side.x * lw + (-tx) * fw; // arc around threat center while slightly advancing/retreating
+        const vy = side.y * lw + (-ty) * fw;
+
+        const magArc = Math.hypot(vx, vy) || 1;
+        return { vx: vx / magArc, vy: vy / magArc };
+    }
+
+    return { vx: 0, vy: 0 };
+}
+
+// ------------------------------------------------------------
 // SIMULATION LOOP
 // ------------------------------------------------------------
 
@@ -331,18 +545,20 @@ function simLoop(timestamp) {
         simState.formation.switchCooldown -= dt;
     }
 
+    // keep formation switching demo
     if (simState.tick % 300 === 0 && simState.formation.switchCooldown <= 0) {
         cycleFormationMode();
     }
 
     updateEntities(dt);
     updateInfluence();
+    updateTactics(dt);
 
     requestAnimationFrame(simLoop);
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE — Formation + Role-Based Tactical AI
+// ENTITY UPDATE — Formation + Role-Based Tactical AI + Maneuvers
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
@@ -351,17 +567,20 @@ function updateEntities(dt) {
     const entities = simState.entities;
     const formation = simState.formation;
     const influence = simState.influence;
+    const tactics = simState.tactics;
 
     const leader = entities.find(e => e.id === formation.leaderId);
 
     for (const e of entities) {
         let primary = { vx: 0, vy: 0 };
 
+        // leader behavior
         if (e.behavior === "leader") {
             primary = steerWander(e);
         }
 
-        if (e.behavior === "formation") {
+        // formation followers
+        if (e.behavior === "formation" && leader) {
             const offset = getFormationOffset(
                 formation.mode,
                 e.slotIndex,
@@ -375,22 +594,33 @@ function updateEntities(dt) {
         }
 
         const avoid = steerAvoidOthers(e, entities, 80);
-        const tactical = steerByRoleAndThreat(e, influence);
+        const roleTactical = steerByRoleAndThreat(e, influence);
+        const stateTactical = leader
+            ? getTacticalStateVector(e, leader, tactics)
+            : { vx: 0, vy: 0 };
 
-        // role-based tactical weight
-        let tacticalWeight = 1.5;
-        if (e.type.role === "support") tacticalWeight = 2.0;
-        if (e.type.role === "frontline") tacticalWeight = 1.2;
+        // weights
+        let roleWeight = 1.5;
+        if (e.type.role === "support") roleWeight = 2.0;
+        if (e.type.role === "frontline") roleWeight = 1.2;
+
+        let stateWeight = 1.0;
+        if (tactics.state === "flank") stateWeight = 1.6;
+        if (tactics.state === "fallback") stateWeight = 1.8;
+        if (tactics.state === "push") stateWeight = 1.8;
+        if (tactics.state === "regroup") stateWeight = 2.0;
 
         const ax =
             primary.vx * 1.0 +
             avoid.vx * 2.0 +
-            tactical.vx * tacticalWeight;
+            roleTactical.vx * roleWeight +
+            stateTactical.vx * stateWeight;
 
         const ay =
             primary.vy * 1.0 +
             avoid.vy * 2.0 +
-            tactical.vy * tacticalWeight;
+            roleTactical.vy * roleWeight +
+            stateTactical.vy * stateWeight;
 
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
