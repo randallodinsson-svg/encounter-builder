@@ -1,4 +1,4 @@
-// apexim-renderer.js - APEXSIM Renderer v6.0 (Tactical Clean)
+// apexim-renderer.js - APEXSIM Renderer v7.0 (Tactical Clean + Command Layer)
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -9,8 +9,13 @@ import {
     getThreatCenter,
     getThreatMagnitude,
     getEntities,
+    getSquads,
+    getEnemies,
+    getCommandLayerState,
+    getReplayState,
     drawHeatmap
 } from "./apexsim.js";
+import { isHeatmapEnabled, getRadialMenuState } from "./index.js";
 
 // ------------------------------------------------------------
 // CANVAS SETUP
@@ -24,7 +29,7 @@ if (!canvas || !ctx) {
 }
 
 // ------------------------------------------------------------
-// COMMAND CONSOLE OVERLAY (APEXCORE TERMINAL STYLE)
+// COMMAND CONSOLE OVERLAY
 // ------------------------------------------------------------
 
 const consoleLog = [];
@@ -266,8 +271,11 @@ function drawSectorGrid(ctx) {
 
 function drawEntities(ctx, simState) {
     const entities = getEntities();
+    const squads = getSquads();
 
     for (const e of entities) {
+        const squad = squads.find(s => s.id === e.squadId);
+
         ctx.save();
         ctx.translate(e.x, e.y);
 
@@ -280,44 +288,30 @@ function drawEntities(ctx, simState) {
 
         const size = e.type.size;
 
-        if (e.type.shape === "circle") {
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        if (squad) {
             ctx.beginPath();
-            ctx.arc(0, 0, size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        } else if (e.type.shape === "square") {
-            ctx.beginPath();
-            ctx.rect(-size, -size, size * 2, size * 2);
-            ctx.fill();
-            ctx.stroke();
-        } else if (e.type.shape === "diamond") {
-            ctx.beginPath();
-            ctx.moveTo(0, -size);
-            ctx.lineTo(size, 0);
-            ctx.lineTo(0, size);
-            ctx.lineTo(-size, 0);
-            ctx.closePath();
-            ctx.fill();
+            ctx.arc(0, 0, size + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = squad.color + "88";
+            ctx.lineWidth = 1.5;
             ctx.stroke();
         }
-
-        ctx.beginPath();
-        ctx.moveTo(size + 6, 0);
-        ctx.lineTo(size + 16, 0);
-        ctx.strokeStyle = "rgba(255,255,255,0.7)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
 
         ctx.restore();
     }
 }
 
 // ------------------------------------------------------------
-// ROLE ICONS / UNIT LABELS (TACTICAL CLEAN)
+// ROLE ICONS / UNIT LABELS
 // ------------------------------------------------------------
 
 function drawRoleIconsAndLabels(ctx, simState) {
     const entities = simState.entities;
+    const squads = simState.squads;
 
     ctx.save();
     ctx.font = "11px system-ui";
@@ -334,15 +328,18 @@ function drawRoleIconsAndLabels(ctx, simState) {
         if (role === "heavy") color = "#FF6B6B";
         if (role === "scout") color = "#4DA3FF";
 
+        const squad = squads.find(s => s.id === e.squadId);
+        const label = squad ? squad.label : role.toUpperCase();
+
         ctx.fillStyle = "rgba(5, 10, 18, 0.7)";
-        ctx.fillRect(x - 18, y - 16, 36, 16);
+        ctx.fillRect(x - 22, y - 16, 44, 16);
 
         ctx.strokeStyle = "rgba(120, 150, 200, 0.6)";
         ctx.lineWidth = 1;
-        ctx.strokeRect(x - 18, y - 16, 36, 16);
+        ctx.strokeRect(x - 22, y - 16, 44, 16);
 
         ctx.fillStyle = color;
-        ctx.fillText(role.toUpperCase(), x, y - 3);
+        ctx.fillText(label, x, y - 3);
     }
 
     ctx.restore();
@@ -356,6 +353,8 @@ function drawHUD(ctx, simState) {
     const tactical = getTacticalState();
     const form = getFormationMode();
     const leader = getLeaderPosition();
+    const cmd = getCommandLayerState();
+    const replay = getReplayState();
 
     ctx.save();
     ctx.font = "14px system-ui";
@@ -364,17 +363,21 @@ function drawHUD(ctx, simState) {
 
     const baseX = canvas.width - 260;
     const baseY = 20;
-    const lineH = 20;
+    const lineH = 18;
 
     ctx.fillText(`TACTICAL: ${tactical.toUpperCase()}`, baseX, baseY);
     ctx.fillText(`FORMATION: ${form.toUpperCase()}`, baseX, baseY + lineH);
     ctx.fillText(`LEADER: ${Math.round(leader.x)}, ${Math.round(leader.y)}`, baseX, baseY + lineH * 2);
+    ctx.fillText(`ORDER: ${cmd.highLevelOrder.toUpperCase()}`, baseX, baseY + lineH * 3);
+
+    const replayLabel = replay.playing ? "REPLAY: PLAY" : "REPLAY: LIVE";
+    ctx.fillText(replayLabel, baseX, baseY + lineH * 4);
 
     ctx.restore();
 }
 
 // ------------------------------------------------------------
-// THREAT CENTER MARKER (PULSE)
+// THREAT CENTER MARKER
 // ------------------------------------------------------------
 
 function drawThreatCenterMarker(ctx) {
@@ -507,7 +510,7 @@ function drawFormationGhostOverlay(ctx, simState) {
 }
 
 // ------------------------------------------------------------
-// FORMATION SHAPE VISUALIZER (TACTICAL CLEAN)
+// FORMATION SHAPE VISUALIZER
 // ------------------------------------------------------------
 
 function drawFormationShape(ctx, simState) {
@@ -561,6 +564,7 @@ function drawMinimap(ctx, simState) {
     const entities = simState.entities;
     const leader = entities.find(e => e.id === simState.formation.leaderId);
     const threatCenter = simState.tactics.threatCenter;
+    const enemies = simState.enemies;
 
     ctx.save();
 
@@ -617,6 +621,19 @@ function drawMinimap(ctx, simState) {
         ctx.fill();
     }
 
+    for (const enemy of enemies) {
+        ctx.beginPath();
+        ctx.arc(
+            MINIMAP_X + enemy.x * sx,
+            MINIMAP_Y + enemy.y * sy,
+            2,
+            0,
+            Math.PI * 2
+        );
+        ctx.fillStyle = "#FF6B6B";
+        ctx.fill();
+    }
+
     ctx.restore();
 }
 
@@ -658,7 +675,7 @@ function drawFogOfWar(ctx, simState) {
 // ------------------------------------------------------------
 
 const pings = [];
-const PING_LIFETIME = 2000; // ms
+const PING_LIFETIME = 2000;
 
 function addPing(x, y) {
     const now = performance.now();
@@ -714,11 +731,11 @@ if (canvas) {
 }
 
 // ------------------------------------------------------------
-// ENEMY MARKERS + THREAT ARCS (TACTICAL CLEAN)
+// ENEMY MARKERS + THREAT ARCS
 // ------------------------------------------------------------
 
 function drawEnemyMarkersAndArcs(ctx, simState) {
-    const enemies = simState.enemies || [];
+    const enemies = getEnemies();
     if (!enemies.length) return;
 
     ctx.save();
@@ -753,7 +770,7 @@ function drawEnemyMarkersAndArcs(ctx, simState) {
 }
 
 // ------------------------------------------------------------
-// TACTICAL RANGE RINGS (TACTICAL CLEAN)
+// TACTICAL RANGE RINGS
 // ------------------------------------------------------------
 
 function drawRangeRings(ctx, simState) {
@@ -765,9 +782,9 @@ function drawRangeRings(ctx, simState) {
     const cy = leader.y;
 
     const rings = [
-        { r: 120, color: "rgba(0, 255, 200, 0.18)" }, // command
-        { r: 220, color: "rgba(77, 163, 255, 0.16)" }, // influence
-        { r: 320, color: "rgba(255, 77, 77, 0.14)" }   // threat
+        { r: 120, color: "rgba(0, 255, 200, 0.18)" },
+        { r: 220, color: "rgba(77, 163, 255, 0.16)" },
+        { r: 320, color: "rgba(255, 77, 77, 0.14)" }
     ];
 
     ctx.save();
@@ -784,7 +801,7 @@ function drawRangeRings(ctx, simState) {
 }
 
 // ------------------------------------------------------------
-// CINEMATIC CAMERA SHAKE / IMPACT PULSES (TACTICAL CLEAN)
+// CINEMATIC CAMERA SHAKE / IMPACT PULSES
 // ------------------------------------------------------------
 
 let cameraShakeIntensity = 0;
@@ -827,6 +844,84 @@ function drawImpactPulse(ctx) {
 }
 
 // ------------------------------------------------------------
+// RADIAL MENU RENDERING
+// ------------------------------------------------------------
+
+function drawRadialMenu(ctx) {
+    const menu = getRadialMenuState();
+    if (!menu.visible) return;
+
+    const x = menu.x;
+    const y = menu.y;
+    const options = menu.options;
+    const radiusInner = 24;
+    const radiusOuter = 70;
+
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.arc(x, y, radiusOuter, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(5, 10, 18, 0.92)";
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(120, 150, 200, 0.7)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const segment = (Math.PI * 2) / options.length;
+
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let i = 0; i < options.length; i++) {
+        const angle = i * segment + segment / 2;
+        const tx = x + Math.cos(angle) * ((radiusInner + radiusOuter) / 2);
+        const ty = y + Math.sin(angle) * ((radiusInner + radiusOuter) / 2);
+
+        ctx.fillStyle = "rgba(0, 255, 200, 0.85)";
+        ctx.fillText(options[i].label, tx, ty);
+    }
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
+// REPLAY TIMELINE OVERLAY
+// ------------------------------------------------------------
+
+function drawReplayOverlay(ctx) {
+    const replay = getReplayState();
+    if (replay.duration <= 0) return;
+
+    const x = 20;
+    const y = canvas.height - 90;
+    const width = canvas.width - 40;
+    const height = 10;
+
+    ctx.save();
+
+    ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
+    ctx.fillRect(x, y, width, height);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, width, height);
+
+    const pct = replay.time / replay.duration;
+    const px = x + width * pct;
+
+    ctx.beginPath();
+    ctx.moveTo(px, y - 4);
+    ctx.lineTo(px, y + height + 4);
+    ctx.strokeStyle = "rgba(0, 255, 200, 0.9)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
 // MAIN RENDER LOOP
 // ------------------------------------------------------------
 
@@ -845,8 +940,14 @@ function renderFrame() {
     ctx.save();
     applyCameraShake(ctx);
 
+    if (isHeatmapEnabled()) {
+        drawHeatmap(ctx, simState);
+    } else {
+        ctx.fillStyle = "#05070B";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
     drawSectorGrid(ctx);
-    drawHeatmap(ctx, simState);
 
     drawThreatCenterMarker(ctx);
     drawThreatVectorArrow(ctx, simState);
@@ -870,6 +971,8 @@ function renderFrame() {
 
     drawCommandConsole(ctx);
     drawTacticalTimelineRibbon(ctx);
+    drawReplayOverlay(ctx);
+    drawRadialMenu(ctx);
 
     drawImpactPulse(ctx);
 
