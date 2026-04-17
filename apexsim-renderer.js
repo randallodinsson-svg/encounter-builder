@@ -1,324 +1,168 @@
-// apexim-renderer.js - APEXSIM Renderer + Steel-Tablet Tactical HUD
-
-import { getSimState } from "./apexsim.js";
+// apexim-renderer.js - APEXSIM Renderer v4.6
 
 console.log("APEXSIM Renderer - initializing");
 
-let _running = false;
-let _lastTime = 0;
-let _canvas = null;
-let _ctx = null;
+import {
+    getSimState,
+    getTacticalState,
+    getFormationMode,
+    getLeaderPosition,
+    getThreatCenter,
+    getEntities,
+    drawHeatmap
+} from "./apexsim.js";
 
-const BG_COLOR = "#05070A";
-const FIELD_BORDER = "#1A1F26";
+const canvas = document.getElementById("apex-canvas");
+const ctx = canvas ? canvas.getContext("2d") : null;
 
-const TEXT_COLOR = "#E5F0FF";
-const ACCENT_CYAN = "#00FFC8";
-const ACCENT_AMBER = "#FFC857";
-const ACCENT_RED = "#FF3B3B";
-const ACCENT_BLUE = "#4DA3FF";
-const ACCENT_GREEN = "#4CFF7A";
-
-export function startAPEXSIMRenderer() {
-    if (_running) return;
-
-    _canvas = document.getElementById("apexsim-canvas");
-    if (!_canvas) {
-        _canvas = document.createElement("canvas");
-        _canvas.id = "apexsim-canvas";
-        _canvas.width = 1280;
-        _canvas.height = 720;
-        document.body.appendChild(_canvas);
-    }
-
-    _ctx = _canvas.getContext("2d");
-    _running = true;
-    _lastTime = performance.now();
-    requestAnimationFrame(renderLoop);
-
-    console.log("APEXSIM Renderer - online");
-}
-
-export function stopAPEXSIMRenderer() {
-    _running = false;
-}
-
-function renderLoop(timestamp) {
-    if (!_running) return;
-
-    const dt = (timestamp - _lastTime) / 1000;
-    _lastTime = timestamp;
-
-    const state = getSimState();
-    if (!state || !_ctx) {
-        requestAnimationFrame(renderLoop);
-        return;
-    }
-
-    drawScene(state, dt);
-
-    requestAnimationFrame(renderLoop);
-}
-
-function drawScene(simState, dt) {
-    const ctx = _ctx;
-    const w = _canvas.width;
-    const h = _canvas.height;
-
-    ctx.fillStyle = BG_COLOR;
-    ctx.fillRect(0, 0, w, h);
-
-    ctx.strokeStyle = FIELD_BORDER;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-
-    drawEntities(simState);
-    drawThreatArrow(simState);
-    drawFlankArc(simState);
-    drawTacticalHUD(simState, dt);
+if (!canvas || !ctx) {
+    console.warn("APEXSIM Renderer - canvas not found");
 }
 
 // ------------------------------------------------------------
-// WORLD RENDERING
+// DRAW ENTITIES
 // ------------------------------------------------------------
 
-function drawEntities(simState) {
-    const ctx = _ctx;
-    const entities = simState.entities || [];
+function drawEntities(ctx, simState) {
+    const entities = getEntities();
 
     for (const e of entities) {
         ctx.save();
         ctx.translate(e.x, e.y);
 
-        ctx.fillStyle = e.type.color || ACCENT_CYAN;
-        const size = e.type.size || 12;
+        // Direction arrow (based on velocity)
+        const angle = Math.atan2(e.vy, e.vx);
+        if (!Number.isNaN(angle)) {
+            ctx.rotate(angle);
+        }
 
-        if (e.type.shape === "square") {
-            ctx.fillRect(-size / 2, -size / 2, size, size);
+        ctx.fillStyle = e.type.color;
+        ctx.strokeStyle = "rgba(0,0,0,0.6)";
+        ctx.lineWidth = 2;
+
+        const size = e.type.size;
+
+        if (e.type.shape === "circle") {
+            ctx.beginPath();
+            ctx.arc(0, 0, size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        } else if (e.type.shape === "square") {
+            ctx.beginPath();
+            ctx.rect(-size, -size, size * 2, size * 2);
+            ctx.fill();
+            ctx.stroke();
         } else if (e.type.shape === "diamond") {
             ctx.beginPath();
-            ctx.moveTo(0, -size / 1.2);
-            ctx.lineTo(size / 1.2, 0);
-            ctx.lineTo(0, size / 1.2);
-            ctx.lineTo(-size / 1.2, 0);
+            ctx.moveTo(0, -size);
+            ctx.lineTo(size, 0);
+            ctx.lineTo(0, size);
+            ctx.lineTo(-size, 0);
             ctx.closePath();
             ctx.fill();
-        } else {
-            ctx.beginPath();
-            ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.stroke();
         }
+
+        // Direction pointer
+        ctx.beginPath();
+        ctx.moveTo(size + 6, 0);
+        ctx.lineTo(size + 16, 0);
+        ctx.strokeStyle = "rgba(255,255,255,0.7)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
         ctx.restore();
     }
 }
 
 // ------------------------------------------------------------
-// THREAT ARROW
+// DRAW HUD
 // ------------------------------------------------------------
 
-function drawThreatArrow(simState) {
-    const ctx = _ctx;
-    const tactics = simState.tactics;
-    const entities = simState.entities || [];
-    const leader = entities.find(e => e.id === simState.formation.leaderId);
-    if (!leader || !tactics) return;
-
-    const mag = tactics.threatMag || 0;
-    if (mag <= 0.1) return;
-
-    const dir = tactics.threatDir || { x: 0, y: 0 };
-    const norm = Math.hypot(dir.x, dir.y) || 1;
-    const dx = dir.x / norm;
-    const dy = dir.y / norm;
-
-    const baseLen = 80;
-    const len = baseLen + Math.min(1, mag / 40) * 80;
-
-    const startX = leader.x;
-    const startY = leader.y;
-    const endX = startX + dx * len;
-    const endY = startY + dy * len;
-
-    const tNorm = Math.max(0, Math.min(1, mag / 40));
-    const color = lerpColor(ACCENT_GREEN, ACCENT_RED, tNorm);
+function drawHUD(ctx, simState) {
+    const tactical = getTacticalState();
+    const form = getFormationMode();
+    const leader = getLeaderPosition();
 
     ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.85;
-
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-
-    const angle = Math.atan2(dy, dx);
-    const ah = 10;
-    ctx.beginPath();
-    ctx.moveTo(endX, endY);
-    ctx.lineTo(
-        endX - Math.cos(angle - Math.PI / 6) * ah,
-        endY - Math.sin(angle - Math.PI / 6) * ah
-    );
-    ctx.lineTo(
-        endX - Math.cos(angle + Math.PI / 6) * ah,
-        endY - Math.sin(angle + Math.PI / 6) * ah
-    );
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// ARC FLANK PREVIEW
-// ------------------------------------------------------------
-
-function drawFlankArc(simState) {
-    const ctx = _ctx;
-    const tactics = simState.tactics;
-    const entities = simState.entities || [];
-    const leader = entities.find(e => e.id === simState.formation.leaderId);
-    if (!leader || !tactics) return;
-
-    if (tactics.state !== "flank") return;
-
-    const dir = tactics.threatDir || { x: 0, y: 0 };
-    const mag = tactics.threatMag || 0;
-    const norm = Math.hypot(dir.x, dir.y) || 1;
-    if (norm === 0) return;
-
-    const tx = dir.x / norm;
-    const ty = dir.y / norm;
-
-    const perp = { x: -ty, y: tx };
-
-    const tNorm = Math.max(0, Math.min(1, mag / 40));
-    const radius = 120 + tNorm * 80;
-    const arcSpan = Math.PI / 2 + tNorm * (Math.PI / 4);
-
-    const centerX = leader.x - tx * 40;
-    const centerY = leader.y - ty * 40;
-
-    const startAngle = Math.atan2(perp.y, perp.x) - arcSpan / 2;
-    const endAngle = startAngle + arcSpan;
-
-    ctx.save();
-    ctx.strokeStyle = ACCENT_CYAN;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.25;
-
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
-    ctx.stroke();
-
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// HUD
-// ------------------------------------------------------------
-
-let _hudLerpThreat = 0;
-
-function drawTacticalHUD(simState, dt) {
-    const ctx = _ctx;
-    const w = _canvas.width;
-
-    const tactics = simState.tactics || {};
-    const formation = simState.formation || {};
-    const entities = simState.entities || [];
-    const leader = entities.find(e => e.id === formation.leaderId);
-
-    const state = tactics.state || "hold";
-    const threatMag = tactics.threatMag || 0;
-
-    const threatNorm = Math.max(0, Math.min(1, threatMag / 40));
-    _hudLerpThreat += (threatNorm - _hudLerpThreat) * Math.min(1, dt * 8);
-
-    const margin = 24;
-    const xRight = w - margin;
-    let y = margin + 8;
-
-    ctx.save();
-    ctx.textAlign = "right";
+    ctx.font = "14px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillStyle = "#E5F0FF";
     ctx.textBaseline = "top";
-    ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
-    const stateLabel = "TACTICAL: " + state.toUpperCase();
-    ctx.fillStyle = getStateColor(state);
-    ctx.globalAlpha = 0.95;
-    ctx.fillText(stateLabel, xRight, y);
+    const baseX = canvas.width - 260;
+    const baseY = 20;
+    const lineH = 20;
 
-    y += 18;
-
-    const barWidth = 160;
-    const barHeight = 6;
-    const barX = xRight - barWidth;
-    const barY = y + 4;
-
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = "#151A22";
-    ctx.fillRect(barX, barY, barWidth, barHeight);
-
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = lerpColor(ACCENT_GREEN, ACCENT_RED, _hudLerpThreat);
-    ctx.fillRect(barX, barY, barWidth * _hudLerpThreat, barHeight);
-
-    y += 18;
-
-    const formLabel = "FORM: " + (formation.mode || "line").toUpperCase();
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = TEXT_COLOR;
-    ctx.fillText(formLabel, xRight, y);
-
-    y += 18;
-
-    if (leader) {
-        const posLabel =
-            "LEADER: " + Math.round(leader.x) + ", " + Math.round(leader.y);
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = "#9BA4B5";
-        ctx.fillText(posLabel, xRight, y);
-    }
+    ctx.fillText(`TACTICAL: ${tactical.toUpperCase()}`, baseX, baseY + lineH * 0);
+    ctx.fillText(`FORM: ${form.toUpperCase()}`, baseX, baseY + lineH * 1);
+    ctx.fillText(`LEADER: ${Math.round(leader.x)}, ${Math.round(leader.y)}`, baseX, baseY + lineH * 2);
 
     ctx.restore();
 }
 
-function getStateColor(state) {
-    switch (state) {
-        case "hold": return TEXT_COLOR;
-        case "flank": return ACCENT_CYAN;
-        case "fallback": return ACCENT_AMBER;
-        case "regroup": return ACCENT_BLUE;
-        case "push": return ACCENT_RED;
-        default: return TEXT_COLOR;
-    }
+// ------------------------------------------------------------
+// THREAT CENTER MARKER
+// ------------------------------------------------------------
+
+function drawThreatCenter(ctx) {
+    const center = getThreatCenter();
+    const x = center.x;
+    const y = center.y;
+
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(x, y, 22, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(0, 255, 200, 0.25)";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // Inner ring
+    ctx.beginPath();
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Core dot
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#00FFC8";
+    ctx.fill();
 }
 
 // ------------------------------------------------------------
-// UTIL
+// MAIN RENDER LOOP
 // ------------------------------------------------------------
 
-function lerpColor(a, b, t) {
-    t = Math.max(0, Math.min(1, t));
-    const ca = hexToRgb(a);
-    const cb = hexToRgb(b);
-    if (!ca || !cb) return a;
-    const r = Math.round(ca.r + (cb.r - ca.r) * t);
-    const g = Math.round(ca.g + (cb.g - ca.g) * t);
-    const bch = Math.round(ca.b + (cb.b - ca.b) * t);
-    return `rgb(${r},${g},${bch})`;
+function renderFrame() {
+    if (!ctx || !canvas) return;
+
+    const simState = getSimState();
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Underlay
+    drawHeatmap(ctx, simState);
+
+    // Threat center marker
+    drawThreatCenter(ctx);
+
+    // Units + HUD
+    drawEntities(ctx, simState);
+    drawHUD(ctx, simState);
+
+    requestAnimationFrame(renderFrame);
 }
 
-function hexToRgb(hex) {
-    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    if (!m) return null;
-    return {
-        r: parseInt(m[1], 16),
-        g: parseInt(m[2], 16),
-        b: parseInt(m[3], 16)
-    };
+// ------------------------------------------------------------
+// START RENDERER
+// ------------------------------------------------------------
+
+export function startAPEXSIMRenderer() {
+    if (!ctx || !canvas) return;
+    console.log("APEXSIM Renderer - online");
+    requestAnimationFrame(renderFrame);
 }
+
+// Auto-start for current setup
+startAPEXSIMRenderer();
