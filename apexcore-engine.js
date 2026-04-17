@@ -1,58 +1,35 @@
-// apexcore-engine.js
-// DROP AND REPLACE EVERYTHING IN THIS FILE
+// apexcore-engine.js — minimal bootloader for Encounter Builder
 
-import { emitEvent, processEventQueue } from "./apexcore-events.js"
-import { executeCommand } from "./formation-commands.js"
-import { resolveTemporalFutures } from "./phase62-temporal-alignment.js"
+console.log("APEXCORE ENGINE — initializing…");
 
-// STATE ENGINE (new)
-import {
-  initState,
-  getCurrentState,
-  applyState,
-  createSnapshot
-} from "./engine/StateEngine/src/index.js"
-
-export function runApexCore(initialState, initialEvents = [], initialCommands = []) {
-  // Initialize canonical state
-  initState(initialState)
-
-  // Seed initial events
-  for (const e of initialEvents) {
-    emitEvent(e)
-  }
-
-  // Execute initial commands
-  for (const cmd of initialCommands) {
-    const result = executeCommand(cmd, getCurrentState())
-
-    if (result?.proposedState) {
-      applyState(result.proposedState, { source: "command" })
+function bootMinimalField() {
+    const canvas = document.getElementById("apex-field");
+    if (!canvas) {
+        console.error("APEXCORE ENGINE — canvas #apex-field not found");
+        return;
     }
 
-    if (result?.emittedEvents) {
-      for (const e of result.emittedEvents) {
-        emitEvent(e)
-      }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        console.error("APEXCORE ENGINE — 2D context not available");
+        return;
     }
-  }
 
-  // Process event queue → produces futures
-  const futures = processEventQueue(getCurrentState())
+    // Clear and paint background
+    ctx.fillStyle = "#05070A";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // TPE chooses the winning future
-  const chosen = resolveTemporalFutures(futures, getCurrentState())
+    // Draw a simple “APEXCORE ONLINE” marker
+    ctx.fillStyle = "#00FFC8";
+    ctx.font = "24px system-ui, sans-serif";
+    ctx.fillText("APEXCORE — MINIMAL BOOT ONLINE", 40, 60);
 
-  // Commit chosen future to State Engine
-  if (chosen?.proposedState) {
-    applyState(chosen.proposedState, { source: "TPE" })
-  }
+    console.log("APEXCORE ENGINE — minimal field rendered");
+}
 
-  // Snapshot after full cycle
-  createSnapshot()
-
-  return {
-    finalState: getCurrentState(),
-    chosenFuture: chosen
-  }
+// Simple DOM-ready guard
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootMinimalField);
+} else {
+    bootMinimalField();
 }
