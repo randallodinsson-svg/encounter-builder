@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v1.3 (Steering Behaviors)
+// apexim.js — APEXSIM v1.4 (Steering + Collision + Avoidance)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -111,6 +111,34 @@ function steerArrive(e, targetX, targetY) {
     };
 }
 
+// Separation / avoidance from nearby entities
+function steerAvoidOthers(e, entities, radius = 60) {
+    let ax = 0;
+    let ay = 0;
+    let count = 0;
+
+    for (const other of entities) {
+        if (other === e) continue;
+        const dx = e.x - other.x;
+        const dy = e.y - other.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 0 && dist < radius) {
+            const strength = (radius - dist) / radius;
+            ax += (dx / dist) * strength;
+            ay += (dy / dist) * strength;
+            count++;
+        }
+    }
+
+    if (count === 0) return { vx: 0, vy: 0 };
+
+    ax /= count;
+    ay /= count;
+
+    const mag = Math.hypot(ax, ay) || 1;
+    return { vx: ax / mag, vy: ay / mag };
+}
+
 // ------------------------------------------------------------
 // SIMULATION LOOP
 // ------------------------------------------------------------
@@ -154,8 +182,9 @@ function simLoop(timestamp) {
 function updateEntities(dt) {
     const width = 1280;
     const height = 720;
+    const entities = simState.entities;
 
-    for (const e of simState.entities) {
+    for (const e of entities) {
         let steer = { vx: 0, vy: 0 };
 
         switch (e.behavior) {
@@ -176,22 +205,31 @@ function updateEntities(dt) {
                 break;
         }
 
-        // blend steering with velocity
-        e.vx += steer.vx * dt * e.type.speed;
-        e.vy += steer.vy * dt * e.type.speed;
+        // avoidance from neighbors
+        const avoid = steerAvoidOthers(e, entities, 80);
 
-        // clamp velocity
+        // blend steering: main behavior + avoidance
+        const steerWeight = 1.0;
+        const avoidWeight = 2.0;
+
+        const ax = steer.vx * steerWeight + avoid.vx * avoidWeight;
+        const ay = steer.vy * steerWeight + avoid.vy * avoidWeight;
+
+        e.vx += ax * dt * e.type.speed;
+        e.vy += ay * dt * e.type.speed;
+
         const limited = limit(e.vx, e.vy, e.type.speed);
         e.vx = limited.vx;
         e.vy = limited.vy;
 
-        // apply movement
         e.x += e.vx * dt;
         e.y += e.vy * dt;
 
         // bounce off edges
-        if (e.x < 40 || e.x > width - 40) e.vx *= -1;
-        if (e.y < 40 || e.y > height - 40) e.vy *= -1;
+        if (e.x < 40) { e.x = 40; e.vx *= -1; }
+        if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
+        if (e.y < 40) { e.y = 40; e.vy *= -1; }
+        if (e.y > height - 40) { e.y = height - 40; e.vy *= -1; }
     }
 }
 
