@@ -1,4 +1,4 @@
-// apexim-renderer.js - APEXSIM Renderer v5.0
+// apexim-renderer.js - APEXSIM Renderer v5.1
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -121,6 +121,7 @@ function drawCommandConsole(ctx) {
         if (entry.type === "formation") color = "#FFB84D";
         if (entry.type === "threat") color = "#FF4D4D";
         if (entry.type === "system") color = "#9B59FF";
+        if (entry.type === "ping") color = "#00FFC8";
 
         const ageFactor = (consoleLog.length - 1 - i) / consoleLog.length;
         const alpha = 0.35 + 0.65 * (1 - ageFactor);
@@ -575,6 +576,66 @@ function drawFogOfWar(ctx, simState) {
 }
 
 // ------------------------------------------------------------
+// TACTICAL PING SYSTEM
+// ------------------------------------------------------------
+
+const pings = [];
+const PING_LIFETIME = 2000; // ms
+
+function addPing(x, y) {
+    const now = performance.now();
+    pings.push({
+        x,
+        y,
+        created: now
+    });
+
+    addConsoleEntry("ping", `PING @ ${Math.round(x)}, ${Math.round(y)}`);
+}
+
+function drawPings(ctx) {
+    const now = performance.now();
+
+    for (let i = pings.length - 1; i >= 0; i--) {
+        const ping = pings[i];
+        const age = now - ping.created;
+        if (age > PING_LIFETIME) {
+            pings.splice(i, 1);
+            continue;
+        }
+
+        const t = age / PING_LIFETIME;
+        const alpha = 1 - t;
+        const radius = 12 + 40 * t;
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.arc(ping.x, ping.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(0, 255, 200, ${0.4 * alpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(ping.x, ping.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 255, 200, ${0.8 * alpha})`;
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// Mouse → ping
+if (canvas) {
+    canvas.addEventListener("click", (ev) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+        addPing(x, y);
+    });
+}
+
+// ------------------------------------------------------------
 // MAIN RENDER LOOP
 // ------------------------------------------------------------
 
@@ -597,6 +658,9 @@ function renderFrame() {
 
     drawEntities(ctx, simState);
     drawFormationGhostOverlay(ctx, simState);
+
+    // Pings sit on top of entities but under fog + UI
+    drawPings(ctx);
 
     // Fog-of-war over world, under UI
     drawFogOfWar(ctx, simState);
