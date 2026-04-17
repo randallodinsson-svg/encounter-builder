@@ -1,4 +1,4 @@
-// apexim-renderer.js - APEXSIM Renderer v4.8
+// apexim-renderer.js - APEXSIM Renderer v4.9
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -24,7 +24,128 @@ if (!canvas || !ctx) {
 }
 
 // ------------------------------------------------------------
-// TACTICAL TIMELINE RIBBON (NEW)
+// COMMAND CONSOLE OVERLAY (APEXCORE TERMINAL STYLE)
+// ------------------------------------------------------------
+
+const consoleLog = [];
+const MAX_CONSOLE_LINES = 10;
+
+let lastTacticalState = null;
+let lastFormationMode = null;
+let lastThreatBand = null;
+
+function addConsoleEntry(type, message) {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+
+    consoleLog.push({
+        time: `${hh}:${mm}:${ss}`,
+        type,
+        message
+    });
+
+    if (consoleLog.length > MAX_CONSOLE_LINES) {
+        consoleLog.shift();
+    }
+}
+
+function getThreatBand(mag) {
+    if (mag < 10) return "low";
+    if (mag < 25) return "medium";
+    return "high";
+}
+
+function updateConsoleFromState(simState) {
+    const tactical = getTacticalState();
+    const formation = getFormationMode();
+    const threatMag = getThreatMagnitude();
+    const band = getThreatBand(threatMag);
+
+    if (lastTacticalState === null) {
+        lastTacticalState = tactical;
+        addConsoleEntry("system", `Simulation online`);
+        addConsoleEntry("tactical", `Initial tactical state: ${tactical.toUpperCase()}`);
+    } else if (tactical !== lastTacticalState) {
+        addConsoleEntry("tactical", `TACTICAL → ${tactical.toUpperCase()}`);
+        lastTacticalState = tactical;
+    }
+
+    if (lastFormationMode === null) {
+        lastFormationMode = formation;
+        addConsoleEntry("formation", `Initial formation: ${formation.toUpperCase()}`);
+    } else if (formation !== lastFormationMode) {
+        addConsoleEntry("formation", `FORMATION → ${formation.toUpperCase()}`);
+        lastFormationMode = formation;
+    }
+
+    if (lastThreatBand === null) {
+        lastThreatBand = band;
+        addConsoleEntry("threat", `Threat level: ${band.toUpperCase()} (${Math.round(threatMag)})`);
+    } else if (band !== lastThreatBand) {
+        addConsoleEntry("threat", `THREAT → ${band.toUpperCase()} (${Math.round(threatMag)})`);
+        lastThreatBand = band;
+    }
+}
+
+function drawCommandConsole(ctx) {
+    const width = 420;
+    const height = 180;
+    const x = 20;
+    const y = canvas.height - height - 80; // bottom-left, above timeline
+
+    ctx.save();
+
+    ctx.fillStyle = "rgba(5, 10, 18, 0.92)";
+    ctx.fillRect(x, y, width, height);
+
+    ctx.strokeStyle = "rgba(120, 150, 200, 0.7)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, height);
+
+    ctx.fillStyle = "rgba(0, 255, 200, 0.85)";
+    ctx.font = "12px 'SF Mono', 'Consolas', monospace";
+    ctx.textBaseline = "top";
+    ctx.fillText("APEXCORE // COMMAND CONSOLE", x + 12, y + 10);
+
+    const lineStartY = y + 32;
+    const lineHeight = 14;
+
+    for (let i = 0; i < consoleLog.length; i++) {
+        const entry = consoleLog[i];
+        const lineY = lineStartY + i * lineHeight;
+
+        let color = "#E5F0FF";
+        if (entry.type === "tactical") color = "#4DA3FF";
+        if (entry.type === "formation") color = "#FFB84D";
+        if (entry.type === "threat") color = "#FF4D4D";
+        if (entry.type === "system") color = "#9B59FF";
+
+        const ageFactor = (consoleLog.length - 1 - i) / consoleLog.length;
+        const alpha = 0.35 + 0.65 * (1 - ageFactor);
+
+        ctx.fillStyle = `rgba(${hexToRgb(color)}, ${alpha.toFixed(2)})`;
+        ctx.fillText(
+            `[${entry.time}] ${entry.message}`,
+            x + 12,
+            lineY
+        );
+    }
+
+    ctx.restore();
+}
+
+function hexToRgb(hex) {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `${r}, ${g}, ${b}`;
+}
+
+// ------------------------------------------------------------
+// TACTICAL TIMELINE RIBBON
 // ------------------------------------------------------------
 
 const tacticalTimeline = [];
@@ -60,7 +181,6 @@ function drawTacticalTimelineRibbon(ctx) {
 
     ctx.save();
 
-    // Background
     ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
     ctx.fillRect(x, y, width, height);
 
@@ -432,6 +552,7 @@ function renderFrame() {
     const tacticalState = getTacticalState();
 
     updateTacticalTimeline(tacticalState);
+    updateConsoleFromState(simState);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -447,6 +568,7 @@ function renderFrame() {
     drawHUD(ctx, simState);
     drawMinimap(ctx, simState);
 
+    drawCommandConsole(ctx);
     drawTacticalTimelineRibbon(ctx);
 
     requestAnimationFrame(renderFrame);
@@ -459,6 +581,7 @@ function renderFrame() {
 export function startAPEXSIMRenderer() {
     if (!ctx || !canvas) return;
     console.log("APEXSIM Renderer - online");
+    addConsoleEntry("system", "Renderer online");
     requestAnimationFrame(renderFrame);
 }
 
