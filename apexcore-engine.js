@@ -1,54 +1,58 @@
-// apexcore-engine.js — main loop
+// apexcore-engine.js
+// DROP AND REPLACE EVERYTHING IN THIS FILE
 
-(function () {
-  const Engine = {
-    lastTime: 0,
-    fpsElem: null,
-    countElem: null,
-    fpsAccum: 0,
-    fpsFrames: 0,
-    fpsValue: 0,
+import { emitEvent, processEventQueue } from "./apexcore-events.js"
+import { executeCommand } from "./formation-commands.js"
+import { resolveTemporalFutures } from "./phase62-temporal-alignment.js"
 
-    start() {
-      console.log("APEX Engine v4.4 — Starting...");
+// STATE ENGINE (new)
+import {
+  initState,
+  getCurrentState,
+  applyState,
+  createSnapshot
+} from "./engine/StateEngine/src/index.js"
 
-      this.fpsElem = document.getElementById("hud-fps");
-      this.countElem = document.getElementById("hud-count");
+export function runApexCore(initialState, initialEvents = [], initialCommands = []) {
+  // Initialize canonical state
+  initState(initialState)
 
-      APEX.startAll();
+  // Seed initial events
+  for (const e of initialEvents) {
+    emitEvent(e)
+  }
 
-      this.lastTime = performance.now();
-      requestAnimationFrame(this.loop.bind(this));
-    },
+  // Execute initial commands
+  for (const cmd of initialCommands) {
+    const result = executeCommand(cmd, getCurrentState())
 
-    loop(now) {
-      const dt = Math.min((now - this.lastTime) / 1000, 0.05);
-      this.lastTime = now;
+    if (result?.proposedState) {
+      applyState(result.proposedState, { source: "command" })
+    }
 
-      APEX.updateAll(dt);
-      this.updateHUD(dt);
-
-      requestAnimationFrame(this.loop.bind(this));
-    },
-
-    updateHUD(dt) {
-      this.fpsAccum += dt;
-      this.fpsFrames += 1;
-      if (this.fpsAccum >= 0.25) {
-        this.fpsValue = this.fpsFrames / this.fpsAccum;
-        this.fpsAccum = 0;
-        this.fpsFrames = 0;
-        if (this.fpsElem) {
-          this.fpsElem.textContent = "FPS: " + this.fpsValue.toFixed(0);
-        }
+    if (result?.emittedEvents) {
+      for (const e of result.emittedEvents) {
+        emitEvent(e)
       }
+    }
+  }
 
-      const sim = APEX.getModule("apexsim");
-      if (sim && this.countElem) {
-        this.countElem.textContent = "Particles: " + sim.particles.length;
-      }
-    },
-  };
+  // Process event queue → produces futures
+  const futures = processEventQueue(getCurrentState())
 
-  window.addEventListener("load", () => Engine.start());
-})();
+  // TPE chooses the winning future
+  const chosen = resolveTemporalFutures(futures, getCurrentState())
+
+  // Commit chosen future to State Engine
+  if (chosen?.proposedState) {
+    applyState(chosen.proposedState, { source: "TPE" })
+  }
+
+  // Snapshot after full cycle
+  createSnapshot()
+
+  return {
+    finalState: getCurrentState(),
+    chosenFuture: chosen
+  }
+}
