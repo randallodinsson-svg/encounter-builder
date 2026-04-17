@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v1.6 (Target Switching + Steering Blending)
+// apexim.js — APEXSIM v2.0 (Formation Anchors + Steering Blending)
 
 console.log("APEXSIM — Core initializing…");
 
@@ -8,7 +8,12 @@ let _lastTime = 0;
 const simState = {
     tick: 0,
     time: 0,
-    entities: []
+    entities: [],
+    formation: {
+        mode: "line",       // line | wedge | circle | v
+        leaderId: "scout‑1",
+        spacing: 80
+    }
 };
 
 // ------------------------------------------------------------
@@ -40,7 +45,7 @@ const ENTITY_TYPES = {
 // ENTITY CREATION
 // ------------------------------------------------------------
 
-function createEntity(id, type, x, y, behavior = "wander") {
+function createEntity(id, type, x, y, behavior = "formation") {
     return {
         id,
         type,
@@ -50,17 +55,21 @@ function createEntity(id, type, x, y, behavior = "wander") {
         vy: 0,
         behavior,
         wanderAngle: Math.random() * Math.PI * 2,
-        target: null,          // dynamic target entity
-        patrolIndex: 0         // for patrol behavior
+        slotIndex: 0
     };
 }
 
 function initEntities() {
     simState.entities = [
-        createEntity("scout‑1", ENTITY_TYPES.SCOUT, 200, 200, "seekNearest"),
-        createEntity("tank‑1", ENTITY_TYPES.TANK, 600, 300, "orbit"),
-        createEntity("support‑1", ENTITY_TYPES.SUPPORT, 400, 500, "patrol")
+        createEntity("scout‑1", ENTITY_TYPES.SCOUT, 400, 300, "leader"),
+        createEntity("tank‑1", ENTITY_TYPES.TANK, 300, 300, "formation"),
+        createEntity("support‑1", ENTITY_TYPES.SUPPORT, 500, 300, "formation")
     ];
+
+    // assign formation slots
+    simState.entities.forEach((e, i) => {
+        e.slotIndex = i;
+    });
 }
 
 // ------------------------------------------------------------
@@ -82,34 +91,11 @@ function steerSeek(e, tx, ty) {
     return { vx: dx / mag, vy: dy / mag };
 }
 
-function steerFlee(e, tx, ty) {
-    const dx = e.x - tx;
-    const dy = e.y - ty;
-    const mag = Math.hypot(dx, dy) || 1;
-    return { vx: dx / mag, vy: dy / mag };
-}
-
 function steerWander(e) {
     e.wanderAngle += (Math.random() - 0.5) * 0.4;
     return {
         vx: Math.cos(e.wanderAngle),
         vy: Math.sin(e.wanderAngle)
-    };
-}
-
-function steerArrive(e, tx, ty) {
-    const dx = tx - e.x;
-    const dy = ty - e.y;
-    const dist = Math.hypot(dx, dy) || 1;
-
-    const speed = e.type.speed;
-    const slowRadius = 150;
-
-    const desiredSpeed = dist < slowRadius ? speed * (dist / slowRadius) : speed;
-
-    return {
-        vx: (dx / dist) * desiredSpeed,
-        vy: (dy / dist) * desiredSpeed
     };
 }
 
@@ -139,34 +125,31 @@ function steerAvoidOthers(e, entities, radius = 80) {
 }
 
 // ------------------------------------------------------------
-// TARGET SELECTION
+// FORMATION SLOT CALCULATION
 // ------------------------------------------------------------
 
-function findNearestEntity(e, entities) {
-    let nearest = null;
-    let bestDist = Infinity;
+function getFormationOffset(mode, index, spacing) {
+    switch (mode) {
+        case "line":
+            return { x: index * spacing - spacing, y: 0 };
 
-    for (const other of entities) {
-        if (other === e) continue;
-        const dist = Math.hypot(e.x - other.x, e.y - other.y);
-        if (dist < bestDist) {
-            bestDist = dist;
-            nearest = other;
+        case "wedge":
+            return { x: (index - 1) * spacing, y: Math.abs(index - 1) * spacing };
+
+        case "circle": {
+            const angle = index * (Math.PI * 2 / 3);
+            return {
+                x: Math.cos(angle) * spacing,
+                y: Math.sin(angle) * spacing
+            };
         }
+
+        case "v":
+            return { x: (index - 1) * spacing, y: Math.abs(index - 1) * spacing * 0.7 };
+
+        default:
+            return { x: 0, y: 0 };
     }
-
-    return nearest;
-}
-
-function getPatrolPoint(e) {
-    const points = [
-        { x: 200, y: 200 },
-        { x: 1000, y: 200 },
-        { x: 1000, y: 600 },
-        { x: 200, y: 600 }
-    ];
-
-    return points[e.patrolIndex % points.length];
 }
 
 // ------------------------------------------------------------
@@ -206,88 +189,60 @@ function simLoop(timestamp) {
 }
 
 // ------------------------------------------------------------
-// ENTITY UPDATE — Target Switching + Blending
+// ENTITY UPDATE — Formation Anchors
 // ------------------------------------------------------------
 
 function updateEntities(dt) {
     const width = 1280;
     const height = 720;
     const entities = simState.entities;
+    const formation = simState.formation;
+
+    const leader = entities.find(e => e.id === formation.leaderId);
 
     for (const e of entities) {
         let primary = { vx: 0, vy: 0 };
 
-        // --- Dynamic target switching behaviors ---
-        switch (e.behavior) {
-            case "seekNearest": {
-                const target = findNearestEntity(e, entities);
-                if (target) {
-                    primary = steerSeek(e, target.x, target.y);
-                }
-                break;
-            }
-
-            case "fleeNearest": {
-                const target = findNearestEntity(e, entities);
-                if (target) {
-                    primary = steerFlee(e, target.x, target.y);
-                }
-                break;
-            }
-
-            case "orbit": {
-                const center = { x: width / 2, y: height / 2 };
-                const toCenter = steerSeek(e, center.x, center.y);
-                const tangent = { vx: -toCenter.vy, vy: toCenter.vx };
-                primary = tangent;
-                break;
-            }
-
-            case "patrol": {
-                const p = getPatrolPoint(e);
-                primary = steerArrive(e, p.x, p.y);
-
-                const dist = Math.hypot(e.x - p.x, e.y - p.y);
-                if (dist < 40) e.patrolIndex++;
-                break;
-            }
-
-            case "wander":
-                primary = steerWander(e);
-                break;
+        // Leader moves freely (wander)
+        if (e.behavior === "leader") {
+            primary = steerWander(e);
         }
 
-        // --- Avoidance (secondary) ---
+        // Formation followers
+        if (e.behavior === "formation") {
+            const offset = getFormationOffset(
+                formation.mode,
+                e.slotIndex,
+                formation.spacing
+            );
+
+            const targetX = leader.x + offset.x;
+            const targetY = leader.y + offset.y;
+
+            primary = steerSeek(e, targetX, targetY);
+        }
+
+        // Avoidance
         const avoid = steerAvoidOthers(e, entities, 80);
 
-        // --- Weighted blending ---
-        const weights = {
-            primary: 1.0,
-            avoid: 2.0
-        };
+        // Weighted blending
+        const ax = primary.vx * 1.0 + avoid.vx * 2.0;
+        const ay = primary.vy * 1.0 + avoid.vy * 2.0;
 
-        const ax =
-            primary.vx * weights.primary +
-            avoid.vx * weights.avoid;
-
-        const ay =
-            primary.vy * weights.primary +
-            avoid.vy * weights.avoid;
-
-        // --- Apply acceleration ---
+        // Apply acceleration
         e.vx += ax * dt * e.type.speed;
         e.vy += ay * dt * e.type.speed;
 
-        // --- Clamp velocity ---
+        // Clamp velocity
         const limited = limit(e.vx, e.vy, e.type.speed);
         e.vx = limited.vx;
         e.vy = limited.vy;
 
-        // --- Move ---
+        // Move
         e.x += e.vx * dt;
         e.y += e.vy * dt;
 
-        // --- Bounce off edges ---
+        // Bounce off edges
         if (e.x < 40) { e.x = 40; e.vx *= -1; }
         if (e.x > width - 40) { e.x = width - 40; e.vx *= -1; }
         if (e.y < 40) { e.y = 40; e.vy *= -1; }
