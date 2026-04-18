@@ -1,4 +1,5 @@
-// apexim-renderer.js — APEXSIM Renderer v7.2
+// apexim-renderer.js — APEXSIM Renderer v7.2 (Full Cinematic)
+// ------------------------------------------------------------
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -30,6 +31,12 @@ canvas.width = 1280;
 canvas.height = 720;
 
 // ------------------------------------------------------------
+// FLAGS
+// ------------------------------------------------------------
+
+const DEBUG_OVERLAY = true;
+
+// ------------------------------------------------------------
 // CAMERA CORE STATE
 // ------------------------------------------------------------
 
@@ -37,21 +44,62 @@ const camera = {
     x: 640,
     y: 360,
     zoom: 1.0,
-    shake: 0,
-    mode: "tracking",
     targetX: 640,
     targetY: 360,
-    targetZoom: 1.0
+    targetZoom: 1.0,
+    shake: 0,
+    mode: "tracking"
 };
 
 // ------------------------------------------------------------
-// WORLD → SCREEN TRANSFORM
+// DIRECTOR STATE
+// ------------------------------------------------------------
+
+const director = {
+    shotTimer: 0,
+    shotDuration: 3.0,
+    lastShot: "",
+    blend: 0,
+    weightLeader: 3,
+    weightHotspot: 2,
+    weightCentroid: 1,
+    weightThreat: 1
+};
+
+// ------------------------------------------------------------
+// EXPORT STATE
+// ------------------------------------------------------------
+
+let exportFrames = [];
+let exportMetadata = [];
+
+// ------------------------------------------------------------
+// TIME
+// ------------------------------------------------------------
+
+let lastTimestamp = performance.now();
+
+// ------------------------------------------------------------
+// MATH HELPERS
+// ------------------------------------------------------------
+
+function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
+}
+
+function smoothstep(edge0, edge1, x) {
+    const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+}
+
+// ------------------------------------------------------------
+// WORLD <-> SCREEN
 // ------------------------------------------------------------
 
 function worldToScreen(x, y) {
-    const zx = (x - camera.x) * camera.zoom + canvas.width / 2;
-    const zy = (y - camera.y) * camera.zoom + canvas.height / 2;
-    return { x: zx, y: zy };
+    const sx = (x - camera.x) * camera.zoom + canvas.width / 2;
+    const sy = (y - camera.y) * camera.zoom + canvas.height / 2;
+    return { x: sx, y: sy };
 }
 
 function screenToWorld(x, y) {
@@ -101,10 +149,10 @@ function drawLine(x1, y1, x2, y2, color, width = 1, alpha = 1.0) {
     ctx.restore();
 }
 
-function drawLabel(x, y, text, color = "#FFFFFF", align = "center") {
+function drawLabel(x, y, text, color = "#FFFFFF", align = "center", size = 12) {
     const p = worldToScreen(x, y);
     ctx.save();
-    ctx.font = `${12 * camera.zoom}px system-ui, sans-serif`;
+    ctx.font = `${size * camera.zoom}px system-ui, sans-serif`;
     ctx.fillStyle = color;
     ctx.textAlign = align;
     ctx.textBaseline = "middle";
@@ -113,7 +161,7 @@ function drawLabel(x, y, text, color = "#FFFFFF", align = "center") {
 }
 
 // ------------------------------------------------------------
-// GRID + BACKDROP
+// BACKDROP + GRID
 // ------------------------------------------------------------
 
 function drawGrid() {
@@ -154,13 +202,18 @@ function drawGrid() {
 }
 
 // ------------------------------------------------------------
-// ENTITY RENDERING
+// ENTITIES + ENEMIES
 // ------------------------------------------------------------
 
 function drawEntities() {
     const entities = getEntities();
     for (const e of entities) {
         drawCircle(e.x, e.y, e.type.size, e.type.color, 0.95);
+
+        // Velocity vectors (debug)
+        if (DEBUG_OVERLAY && (e.vx || e.vy)) {
+            drawLine(e.x, e.y, e.x + e.vx * 0.5, e.y + e.vy * 0.5, "rgba(0,255,200,0.5)", 1, 0.8);
+        }
     }
 }
 
@@ -169,11 +222,30 @@ function drawEnemies() {
     for (const enemy of enemies) {
         drawCircle(enemy.x, enemy.y, 8, "#FF4D4D", 0.9);
         drawRing(enemy.x, enemy.y, 26, 1.5, "rgba(255,77,77,0.6)", 0.9);
+
+        // Facing cone (cinematic)
+        const facing = enemy.facing || 0;
+        const angleWidth = Math.PI / 4;
+        const r = 80;
+
+        const p = worldToScreen(enemy.x, enemy.y);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(facing);
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, r * camera.zoom, -angleWidth / 2, angleWidth / 2);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(255,77,77,0.18)";
+        ctx.fill();
+
+        ctx.restore();
     }
 }
 
 // ------------------------------------------------------------
-// THREAT + HEATMAP
+// THREAT + HEATMAP + HOTSPOT
 // ------------------------------------------------------------
 
 function drawThreat() {
@@ -189,8 +261,29 @@ function drawThreat() {
     drawRing(tc.x, tc.y, radius, 2, "rgba(0,255,200,0.5)", 0.8);
 }
 
+function drawThreatArcs() {
+    const tc = getThreatCenter();
+    const mag = getThreatMagnitude();
+    const r = 80 + mag * 3;
+
+    drawRing(tc.x, tc.y, r, 2, "rgba(255,0,0,0.25)", 0.8);
+    drawRing(tc.x, tc.y, r * 1.3, 1.5, "rgba(255,0,0,0.15)", 0.6);
+}
+
+function drawHotspotPulse() {
+    const sim = getSimState();
+    const hotspot = sim.cameraAnchors.engagementHotspot;
+    const t = sim.time;
+
+    const baseR = 30;
+    const pulse = (Math.sin(t * 2) + 1) * 0.5;
+    const r = baseR + pulse * 20;
+
+    drawRing(hotspot.x, hotspot.y, r, 2, "rgba(0,200,255,0.5)", 0.9);
+}
+
 // ------------------------------------------------------------
-// RADIAL MENU RENDER
+// RADIAL MENU
 // ------------------------------------------------------------
 
 function drawRadialMenu() {
@@ -231,338 +324,7 @@ function drawRadialMenu() {
 }
 
 // ------------------------------------------------------------
-// HUD: TOP BAR + SUMMARY (SIMPLE VERSION)
-// ------------------------------------------------------------
-
-function drawHud() {
-    const sim = getSimState();
-    const replay = getReplayState();
-    const camState = getCameraState();
-    const exportState = getExportState();
-
-    ctx.save();
-
-    // Top bar
-    ctx.fillStyle = "rgba(5,10,20,0.96)";
-    ctx.fillRect(0, 0, canvas.width, 40);
-
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillStyle = "#9FA8B8";
-    ctx.textBaseline = "middle";
-
-    ctx.fillText("APEXSIM // ENCOUNTER BUILDER", 20, 20);
-
-    const tactical = sim.tactics.state.toUpperCase();
-    const formation = sim.formation.mode.toUpperCase();
-    const leader = sim.entities.find(e => e.id === sim.formation.leaderId);
-    const leaderText = leader ? `${leader.x.toFixed(0)}, ${leader.y.toFixed(0)}` : "N/A";
-    const order = sim.command.highLevelOrder.toUpperCase();
-    const replayLabel = replay.playing ? "REPLAY" : "LIVE";
-    const perfLabel = isPerformanceMode() ? "ON" : "OFF";
-
-    const summary = [
-        `Tactical: ${tactical}`,
-        `Formation: ${formation}`,
-        `Leader: ${leaderText}`,
-        `Order: ${order}`,
-        `Replay: ${replayLabel}`,
-        `Perf: ${perfLabel}`,
-        `Cam: ${camState.mode.toUpperCase()}`,
-        `Zoom: ${camState.zoom.toFixed(2)}`,
-        `Export: ${exportState.active ? exportState.mode.toUpperCase() : "OFF"}`
-    ].join("   |   ");
-
-    ctx.fillText(summary, 260, 20);
-
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// MAIN RENDER PIPELINE (CAMERA UPDATE COMES IN CHUNK 2)
-// ------------------------------------------------------------
-
-function updateCameraFromState() {
-    const sim = getSimState();
-    const camState = getCameraState();
-
-    camera.mode = camState.mode;
-    camera.targetZoom = camState.zoom;
-
-    const anchors = sim.cameraAnchors;
-
-    let targetX = camera.x;
-    let targetY = camera.y;
-
-    if (camera.mode === "tracking") {
-        targetX = anchors.leader.x;
-        targetY = anchors.leader.y;
-    } else if (camera.mode === "orbit") {
-        targetX = anchors.engagementHotspot.x;
-        targetY = anchors.engagementHotspot.y;
-    } else if (camera.mode === "rail") {
-        targetX = anchors.squadCentroid.x;
-        targetY = anchors.squadCentroid.y;
-    } else if (camera.mode === "free") {
-        // Free cam will be extended in Chunk 2
-        targetX = camera.targetX;
-        targetY = camera.targetY;
-    } else if (camera.mode === "auto") {
-        // Auto-director logic in Chunk 2
-        targetX = anchors.engagementHotspot.x;
-        targetY = anchors.engagementHotspot.y;
-    }
-
-    camera.targetX = targetX;
-    camera.targetY = targetY;
-
-    const lerp = 3.0 * (isPerformanceMode() ? 0.5 : 1.0) * (1 / 60);
-    camera.x += (camera.targetX - camera.x) * lerp;
-    camera.y += (camera.targetY - camera.y) * lerp;
-    camera.zoom += (camera.targetZoom - camera.zoom) * lerp;
-}
-
-function renderFrame() {
-    updateCameraFromState();
-
-    drawGrid();
-    drawThreat();
-    drawEntities();
-    drawEnemies();
-    drawRadialMenu();
-    drawHud();
-
-    requestAnimationFrame(renderFrame);
-}
-
-requestAnimationFrame(renderFrame);
-
-console.log("APEXSIM Renderer - online");
-// ------------------------------------------------------------
-// CINEMATIC CAMERA ENGINE (v7.2)
-// ------------------------------------------------------------
-
-function applyCameraShake() {
-    if (camera.shake > 0.001) {
-        const intensity = camera.shake * camera.zoom;
-        camera.x += (Math.random() - 0.5) * intensity;
-        camera.y += (Math.random() - 0.5) * intensity;
-        camera.shake *= 0.92;
-    }
-}
-
-function triggerImpactPulse(strength = 1.0) {
-    camera.shake = Math.min(camera.shake + strength * 0.5, 3.0);
-}
-
-// ------------------------------------------------------------
-// AUTO-DIRECTOR LOGIC
-// ------------------------------------------------------------
-
-let director = {
-    mode: "idle",
-    shotTimer: 0,
-    shotDuration: 3.0,
-    lastShot: "",
-    blend: 0
-};
-
-function chooseDirectorShot(sim) {
-    const anchors = sim.cameraAnchors;
-
-    const shots = [
-        { name: "leader", x: anchors.leader.x, y: anchors.leader.y },
-        { name: "centroid", x: anchors.squadCentroid.x, y: anchors.squadCentroid.y },
-        { name: "threat", x: anchors.threatCenter.x, y: anchors.threatCenter.y },
-        { name: "hotspot", x: anchors.engagementHotspot.x, y: anchors.engagementHotspot.y }
-    ];
-
-    // Avoid repeating the same shot
-    let candidates = shots.filter(s => s.name !== director.lastShot);
-    if (candidates.length === 0) candidates = shots;
-
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-    director.lastShot = pick.name;
-
-    return pick;
-}
-
-function updateAutoDirector(sim, dt) {
-    director.shotTimer -= dt;
-    if (director.shotTimer <= 0) {
-        const shot = chooseDirectorShot(sim);
-        camera.targetX = shot.x;
-        camera.targetY = shot.y;
-
-        director.shotTimer = director.shotDuration;
-        director.blend = 0;
-    }
-
-    // Smooth blend-in
-    director.blend = Math.min(director.blend + dt * 0.5, 1.0);
-}
-
-// ------------------------------------------------------------
-// CAMERA MODE LOGIC
-// ------------------------------------------------------------
-
-function updateCameraMode(sim, dt) {
-    const camState = getCameraState();
-    const anchors = sim.cameraAnchors;
-
-    if (camState.mode === "tracking") {
-        camera.targetX = anchors.leader.x;
-        camera.targetY = anchors.leader.y;
-    }
-
-    else if (camState.mode === "orbit") {
-        const t = sim.time * 0.4;
-        const r = 140;
-        camera.targetX = anchors.engagementHotspot.x + Math.cos(t) * r;
-        camera.targetY = anchors.engagementHotspot.y + Math.sin(t) * r;
-    }
-
-    else if (camState.mode === "rail") {
-        camera.targetX = anchors.squadCentroid.x;
-        camera.targetY = anchors.squadCentroid.y;
-    }
-
-    else if (camState.mode === "free") {
-        // Free cam uses whatever targetX/Y were last set by UI
-        // No automatic movement
-    }
-
-    else if (camState.mode === "auto") {
-        updateAutoDirector(sim, dt);
-    }
-}
-
-// ------------------------------------------------------------
-// CAMERA SMOOTHING + ZOOM
-// ------------------------------------------------------------
-
-function updateCamera(dt) {
-    const sim = getSimState();
-    const camState = getCameraState();
-
-    updateCameraMode(sim, dt);
-
-    // Smooth position
-    const posLerp = 2.5 * dt;
-    camera.x += (camera.targetX - camera.x) * posLerp;
-    camera.y += (camera.targetY - camera.y) * posLerp;
-
-    // Smooth zoom
-    const zoomLerp = 3.0 * dt;
-    camera.zoom += (camState.zoom - camera.zoom) * zoomLerp;
-
-    applyCameraShake();
-}
-
-// ------------------------------------------------------------
-// REPLAY-AWARE CAMERA
-// ------------------------------------------------------------
-
-function updateCameraReplay(dt) {
-    const replay = getReplayState();
-    if (!replay.playing) {
-        updateCamera(dt);
-        return;
-    }
-
-    // During replay, camera follows recorded anchors
-    const frame = replay.frames.find(f => f.time >= replay.time);
-    if (!frame) {
-        updateCamera(dt);
-        return;
-    }
-
-    const anchors = frame.cameraAnchors;
-    const camState = getCameraState();
-
-    camera.targetX = anchors.engagementHotspot.x;
-    camera.targetY = anchors.engagementHotspot.y;
-
-    const posLerp = 2.5 * dt;
-    camera.x += (camera.targetX - camera.x) * posLerp;
-    camera.y += (camera.targetY - camera.y) * posLerp;
-
-    const zoomLerp = 3.0 * dt;
-    camera.zoom += (camState.zoom - camera.zoom) * zoomLerp;
-}
-
-// ------------------------------------------------------------
-// CAMERA UPDATE WRAPPER
-// ------------------------------------------------------------
-
-function updateCameraFromState() {
-    const dt = 1 / 60;
-    updateCameraReplay(dt);
-}
-// ------------------------------------------------------------
-// EXPORT PIPELINE (HUD / CLEAN / HYBRID)
-// ------------------------------------------------------------
-
-let exportRecorder = null;
-let exportFrames = [];
-
-function beginExport() {
-    exportFrames = [];
-    console.log("APEXSIM Renderer - Export capture started");
-}
-
-function endExport() {
-    console.log("APEXSIM Renderer - Export capture stopped");
-    // Placeholder: user can download frames or encode externally
-    console.log(`Captured ${exportFrames.length} frames`);
-}
-
-function captureFrame() {
-    const exportState = getExportState();
-    if (!exportState.active) return;
-
-    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    exportFrames.push(frame);
-}
-
-// ------------------------------------------------------------
-// MINIMAP RENDERING
-// ------------------------------------------------------------
-
-function drawMinimap() {
-    const sim = getSimState();
-    const entities = sim.entities;
-    const enemies = sim.enemies;
-
-    const w = 180;
-    const h = 120;
-    const x0 = canvas.width - w - 20;
-    const y0 = canvas.height - h - 20;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(5,10,20,0.85)";
-    ctx.fillRect(x0, y0, w, h);
-
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
-    ctx.strokeRect(x0, y0, w, h);
-
-    function mapX(x) { return x0 + (x / 1280) * w; }
-    function mapY(y) { return y0 + (y / 720) * h; }
-
-    for (const e of entities) {
-        ctx.fillStyle = e.type.color;
-        ctx.fillRect(mapX(e.x), mapY(e.y), 3, 3);
-    }
-
-    for (const en of enemies) {
-        ctx.fillStyle = "#FF4D4D";
-        ctx.fillRect(mapX(en.x), mapY(en.y), 3, 3);
-    }
-
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// TACTICAL OVERLAYS
+// FORMATION GHOSTS + SQUAD LABELS
 // ------------------------------------------------------------
 
 function drawFormationGhosts() {
@@ -610,33 +372,345 @@ function drawFormationGhosts() {
 
         drawRing(gx, gy, 10, 1.5, "rgba(255,255,255,0.15)", 0.6);
     }
+
+    // Squad labels (centered on centroid)
+    const sx = sim.cameraAnchors.squadCentroid.x;
+    const sy = sim.cameraAnchors.squadCentroid.y;
+    drawLabel(sx, sy - 40, "SQUAD", "rgba(255,255,255,0.7)", "center", 11);
 }
 
-function drawThreatArcs() {
-    const tc = getThreatCenter();
+// ------------------------------------------------------------
+// MINIMAP
+// ------------------------------------------------------------
+
+function drawMinimap() {
+    const sim = getSimState();
+    const entities = sim.entities;
+    const enemies = sim.enemies;
+
+    const w = 180;
+    const h = 120;
+    const x0 = canvas.width - w - 20;
+    const y0 = canvas.height - h - 20;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(5,10,20,0.85)";
+    ctx.fillRect(x0, y0, w, h);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.strokeRect(x0, y0, w, h);
+
+    function mapX(x) { return x0 + (x / 1280) * w; }
+    function mapY(y) { return y0 + (y / 720) * h; }
+
+    for (const e of entities) {
+        ctx.fillStyle = e.type.color;
+        ctx.fillRect(mapX(e.x), mapY(e.y), 3, 3);
+    }
+
+    for (const en of enemies) {
+        ctx.fillStyle = "#FF4D4D";
+        ctx.fillRect(mapX(en.x), mapY(en.y), 3, 3);
+    }
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
+// HUD + LETTERBOXING
+// ------------------------------------------------------------
+
+function drawHud() {
+    const sim = getSimState();
+    const replay = getReplayState();
+    const camState = getCameraState();
+    const exportState = getExportState();
+
+    ctx.save();
+
+    // Top bar
+    ctx.fillStyle = "rgba(5,10,20,0.96)";
+    ctx.fillRect(0, 0, canvas.width, 40);
+
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillStyle = "#9FA8B8";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText("APEXSIM // ENCOUNTER BUILDER", 20, 20);
+
+    const tactical = sim.tactics.state.toUpperCase();
+    const formation = sim.formation.mode.toUpperCase();
+    const leader = sim.entities.find(e => e.id === sim.formation.leaderId);
+    const leaderText = leader ? `${leader.x.toFixed(0)}, ${leader.y.toFixed(0)}` : "N/A";
+    const order = sim.command.highLevelOrder.toUpperCase();
+    const replayLabel = replay.playing ? "REPLAY" : "LIVE";
+    const perfLabel = isPerformanceMode() ? "ON" : "OFF";
+
+    const summary = [
+        `Tactical: ${tactical}`,
+        `Formation: ${formation}`,
+        `Leader: ${leaderText}`,
+        `Order: ${order}`,
+        `Replay: ${replayLabel}`,
+        `Perf: ${perfLabel}`,
+        `Cam: ${camState.mode.toUpperCase()}`,
+        `Zoom: ${camState.zoom.toFixed(2)}`,
+        `Export: ${exportState.active ? exportState.mode.toUpperCase() : "OFF"}`
+    ].join("   |   ");
+
+    ctx.fillText(summary, 260, 20);
+
+    ctx.restore();
+}
+
+function drawLetterbox() {
+    const exportState = getExportState();
+    if (!exportState.active) return;
+    if (exportState.mode === "hud") return;
+
+    const barHeight = 60;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.9)";
+    ctx.fillRect(0, 0, canvas.width, barHeight);
+    ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
+// CAMERA SHAKE + IMPACT
+// ------------------------------------------------------------
+
+function applyCameraShake() {
+    if (camera.shake > 0.001) {
+        const intensity = camera.shake * camera.zoom;
+        camera.x += (Math.random() - 0.5) * intensity;
+        camera.y += (Math.random() - 0.5) * intensity;
+        camera.shake *= 0.92;
+    }
+}
+
+export function triggerImpactPulse(strength = 1.0) {
+    camera.shake = Math.min(camera.shake + strength * 0.5, 3.0);
+}
+
+// ------------------------------------------------------------
+// AUTO-DIRECTOR
+// ------------------------------------------------------------
+
+function chooseDirectorShot(sim) {
+    const anchors = sim.cameraAnchors;
+
+    const shots = [
+        { name: "leader", x: anchors.leader.x, y: anchors.leader.y, w: director.weightLeader },
+        { name: "hotspot", x: anchors.engagementHotspot.x, y: anchors.engagementHotspot.y, w: director.weightHotspot },
+        { name: "centroid", x: anchors.squadCentroid.x, y: anchors.squadCentroid.y, w: director.weightCentroid },
+        { name: "threat", x: anchors.threatCenter.x, y: anchors.threatCenter.y, w: director.weightThreat }
+    ];
+
+    // Avoid repeating last shot
+    const filtered = shots.filter(s => s.name !== director.lastShot);
+    const pool = filtered.length > 0 ? filtered : shots;
+
+    const totalWeight = pool.reduce((a, s) => a + s.w, 0);
+    let r = Math.random() * totalWeight;
+
+    for (const s of pool) {
+        if (r < s.w) {
+            director.lastShot = s.name;
+            return s;
+        }
+        r -= s.w;
+    }
+
+    return pool[0];
+}
+
+function updateAutoDirector(sim, dt) {
+    director.shotTimer -= dt;
+    if (director.shotTimer <= 0) {
+        const shot = chooseDirectorShot(sim);
+        camera.targetX = shot.x;
+        camera.targetY = shot.y;
+
+        director.shotTimer = director.shotDuration;
+        director.blend = 0;
+    }
+
+    director.blend = clamp(director.blend + dt * 0.5, 0, 1);
+}
+
+// ------------------------------------------------------------
+// CAMERA MODES + ZOOM
+// ------------------------------------------------------------
+
+function updateCameraMode(sim, dt) {
+    const camState = getCameraState();
+    const anchors = sim.cameraAnchors;
+
+    if (camState.mode === "tracking") {
+        camera.targetX = anchors.leader.x;
+        camera.targetY = anchors.leader.y;
+    } else if (camState.mode === "orbit") {
+        const t = sim.time * 0.4;
+        const r = 140;
+        camera.targetX = anchors.engagementHotspot.x + Math.cos(t) * r;
+        camera.targetY = anchors.engagementHotspot.y + Math.sin(t) * r;
+    } else if (camState.mode === "rail") {
+        camera.targetX = anchors.squadCentroid.x;
+        camera.targetY = anchors.squadCentroid.y;
+    } else if (camState.mode === "free") {
+        // Free cam: targetX/Y controlled externally (future)
+    } else if (camState.mode === "auto") {
+        updateAutoDirector(sim, dt);
+    }
+
+    // Dynamic zoom based on threat magnitude
     const mag = getThreatMagnitude();
+    const baseZoom = camState.zoom;
+    const zoomOffset = smoothstep(10, 40, mag) * 0.25; // zoom in as threat rises
+    camera.targetZoom = baseZoom + zoomOffset;
+}
 
-    const r = 80 + mag * 3;
+function updateCamera(dt) {
+    const sim = getSimState();
+    const camState = getCameraState();
 
-    drawRing(tc.x, tc.y, r, 2, "rgba(255,0,0,0.25)", 0.8);
-    drawRing(tc.x, tc.y, r * 1.3, 1.5, "rgba(255,0,0,0.15)", 0.6);
+    updateCameraMode(sim, dt);
+
+    const posLerp = 2.5 * dt * (isPerformanceMode() ? 0.7 : 1.0);
+    camera.x += (camera.targetX - camera.x) * posLerp;
+    camera.y += (camera.targetY - camera.y) * posLerp;
+
+    const zoomLerp = 3.0 * dt;
+    camera.zoom += (camera.targetZoom - camera.zoom) * zoomLerp;
+
+    applyCameraShake();
 }
 
 // ------------------------------------------------------------
-// FINAL RENDER LOOP
+// REPLAY-AWARE CAMERA
 // ------------------------------------------------------------
 
-function renderFrame() {
-    const dt = 1 / 60;
+function updateCameraReplay(dt) {
+    const replay = getReplayState();
+    if (!replay.playing || replay.frames.length === 0) {
+        updateCamera(dt);
+        return;
+    }
+
+    const frame = replay.frames.find(f => f.time >= replay.time);
+    if (!frame) {
+        updateCamera(dt);
+        return;
+    }
+
+    const anchors = frame.cameraAnchors;
+    const camState = getCameraState();
+
+    camera.targetX = anchors.engagementHotspot.x;
+    camera.targetY = anchors.engagementHotspot.y;
+
+    const posLerp = 2.5 * dt;
+    camera.x += (camera.targetX - camera.x) * posLerp;
+    camera.y += (camera.targetY - camera.y) * posLerp;
+
+    const zoomLerp = 3.0 * dt;
+    camera.zoom += (camState.zoom - camera.zoom) * zoomLerp;
+
+    applyCameraShake();
+}
+
+// ------------------------------------------------------------
+// CAMERA UPDATE WRAPPER
+// ------------------------------------------------------------
+
+function updateCameraFromState(dt) {
+    updateCameraReplay(dt);
+}
+
+// ------------------------------------------------------------
+// EXPORT PIPELINE
+// ------------------------------------------------------------
+
+function beginExport() {
+    exportFrames = [];
+    exportMetadata = [];
+    console.log("APEXSIM Renderer - Export capture started");
+}
+
+function endExport() {
+    console.log("APEXSIM Renderer - Export capture stopped");
+    console.log(`Captured ${exportFrames.length} frames with metadata.`);
+    // At this point you could serialize exportMetadata or frames for offline encoding.
+}
+
+function captureFrame() {
+    const exportState = getExportState();
+    if (!exportState.active) return;
+
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    exportFrames.push(frame);
+
+    const sim = getSimState();
+    exportMetadata.push({
+        time: sim.time,
+        camera: { x: camera.x, y: camera.y, zoom: camera.zoom },
+        tactics: { ...sim.tactics },
+        formation: { ...sim.formation },
+        command: { ...sim.command }
+    });
+}
+
+// ------------------------------------------------------------
+// DEBUG OVERLAY
+// ------------------------------------------------------------
+
+function drawDebugOverlay() {
+    if (!DEBUG_OVERLAY) return;
+
+    const sim = getSimState();
+    const replay = getReplayState();
+
+    ctx.save();
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.textBaseline = "top";
+
+    const lines = [
+        `TIME: ${sim.time.toFixed(2)}`,
+        `CAM: (${camera.x.toFixed(1)}, ${camera.y.toFixed(1)}) Z=${camera.zoom.toFixed(2)}`,
+        `MODE: ${getCameraState().mode.toUpperCase()}`,
+        `REPLAY: ${replay.playing ? "ON" : "OFF"} t=${replay.time.toFixed(2)}/${replay.duration.toFixed(2)}`,
+        `THREAT: ${getThreatMagnitude().toFixed(1)}`,
+        `SHAKE: ${camera.shake.toFixed(2)}`
+    ];
+
+    let y = 50;
+    for (const line of lines) {
+        ctx.fillText(line, 20, y);
+        y += 12;
+    }
+
+    ctx.restore();
+}
+
+// ------------------------------------------------------------
+// MAIN RENDER LOOP
+// ------------------------------------------------------------
+
+function renderFrame(timestamp) {
+    const dt = clamp((timestamp - lastTimestamp) / 1000, 0.001, 0.05);
+    lastTimestamp = timestamp;
 
     updateCameraFromState(dt);
 
     // BACKDROP + GRID
     drawGrid();
 
-    // THREAT + HEATMAP
+    // THREAT + HEATMAP + ARCS + HOTSPOT
     drawThreat();
     drawThreatArcs();
+    drawHotspotPulse();
 
     // FORMATION GHOSTS
     drawFormationGhosts();
@@ -648,12 +722,18 @@ function renderFrame() {
     // RADIAL MENU
     drawRadialMenu();
 
-    // HUD
+    // HUD + MINIMAP
     const exportState = getExportState();
     if (exportState.mode !== "clean") {
         drawHud();
         drawMinimap();
     }
+
+    // LETTERBOXING (CLEAN / HYBRID)
+    drawLetterbox();
+
+    // DEBUG
+    drawDebugOverlay();
 
     // EXPORT CAPTURE
     captureFrame();
