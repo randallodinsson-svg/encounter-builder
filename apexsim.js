@@ -1,4 +1,4 @@
-// apexim.js — APEXSIM v7.2 Core Simulation + Replay Metadata + Camera Anchors
+// apexim.js — APEXSIM v7.2 Core Simulation + Replay Metadata + Camera Anchors + Tactical Movement
 console.log("APEXSIM - Core initializing");
 
 // ------------------------------------------------------------
@@ -176,7 +176,7 @@ function updateCameraAnchors() {
     simState.cameraAnchors.threatCenter.x = simState.tactics.threatCenter.x;
     simState.cameraAnchors.threatCenter.y = simState.tactics.threatCenter.y;
 
-    // Engagement hotspot (midpoint between squads and enemies)
+    // Engagement hotspot
     const ex = simState.enemies.reduce((a, e) => a + e.x, 0) / simState.enemies.length;
     const ey = simState.enemies.reduce((a, e) => a + e.y, 0) / simState.enemies.length;
 
@@ -231,6 +231,131 @@ export function scrubReplay(t) {
 
 export function getReplayState() {
     return simState.replay;
+}
+
+// ------------------------------------------------------------
+// TACTICAL MOVEMENT (v7.2)
+// ------------------------------------------------------------
+
+function updateTacticalMovement(dt) {
+    const entities = simState.entities;
+    const enemies = simState.enemies;
+    const tactics = simState.tactics;
+    const formation = simState.formation;
+
+    const leader = entities.find(e => e.id === formation.leaderId);
+    if (!leader) return;
+
+    // --- Leader behavior based on tactical state ---
+    let leaderTargetX = leader.x;
+    let leaderTargetY = leader.y;
+
+    const baseAdvance = 40;
+    const baseLateral = 60;
+
+    if (tactics.state === "hold") {
+        // Minimal movement
+    } else if (tactics.state === "push") {
+        const tc = tactics.threatCenter;
+        const dx = tc.x - leader.x;
+        const dy = tc.y - leader.y;
+        const d = Math.hypot(dx, dy) || 1;
+        leaderTargetX += (dx / d) * baseAdvance;
+        leaderTargetY += (dy / d) * baseAdvance;
+    } else if (tactics.state === "fallback") {
+        const tc = tactics.threatCenter;
+        const dx = leader.x - tc.x;
+        const dy = leader.y - tc.y;
+        const d = Math.hypot(dx, dy) || 1;
+        leaderTargetX += (dx / d) * baseAdvance;
+        leaderTargetY += (dy / d) * baseAdvance;
+    } else if (tactics.state === "flank") {
+        const tc = tactics.threatCenter;
+        const dx = tc.x - leader.x;
+        const dy = tc.y - leader.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const nx = dx / d;
+        const ny = dy / d;
+        const px = -ny;
+        const py = nx;
+        leaderTargetX += px * baseLateral;
+        leaderTargetY += py * baseLateral;
+    } else if (tactics.state === "regroup") {
+        const cx = simState.cameraAnchors.squadCentroid.x;
+        const cy = simState.cameraAnchors.squadCentroid.y;
+        const dx = cx - leader.x;
+        const dy = cy - leader.y;
+        const d = Math.hypot(dx, dy) || 1;
+        leaderTargetX += (dx / d) * baseAdvance;
+        leaderTargetY += (dy / d) * baseAdvance;
+    }
+
+    // Smooth leader toward target
+    const leaderLerp = 2.0 * dt;
+    leader.x += (leaderTargetX - leader.x) * leaderLerp;
+    leader.y += (leaderTargetY - leader.y) * leaderLerp;
+
+    // --- Formation followers ---
+    const count = entities.length;
+    const mode = formation.mode;
+
+    for (let i = 0; i < entities.length; i++) {
+        const e = entities[i];
+        if (e.id === leader.id) continue;
+
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (mode === "tight") {
+            const angle = (i / count) * Math.PI * 2;
+            const r = 60;
+            offsetX = Math.cos(angle) * r;
+            offsetY = Math.sin(angle) * r;
+        } else if (mode === "spread") {
+            const angle = (i / count) * Math.PI * 2;
+            const r = 110;
+            offsetX = Math.cos(angle) * r;
+            offsetY = Math.sin(angle) * r;
+        } else if (mode === "line") {
+            const spacing = 26;
+            const idx = i - count / 2;
+            offsetX = idx * spacing;
+            offsetY = 0;
+        } else if (mode === "wedge") {
+            const row = Math.floor(i / 4);
+            const col = i % 4;
+            const spacingX = 26;
+            const spacingY = 26;
+            offsetX = (col - 1.5) * spacingX * (row + 1);
+            offsetY = row * spacingY;
+        }
+
+        const targetX = leader.x + offsetX;
+        const targetY = leader.y + offsetY;
+
+        const followLerp = 3.0 * dt;
+        e.x += (targetX - e.x) * followLerp;
+        e.y += (targetY - e.y) * followLerp;
+    }
+
+    // --- Enemy drift toward hotspot ---
+    const hotspot = simState.cameraAnchors.engagementHotspot;
+    for (const enemy of enemies) {
+        const dx = hotspot.x - enemy.x;
+        const dy = hotspot.y - enemy.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const speed = 20;
+        enemy.x += (dx / d) * speed * dt;
+        enemy.y += (dy / d) * speed * dt;
+    }
+
+    // Update threat center
+    if (enemies.length > 0) {
+        const ex = enemies.reduce((a, e) => a + e.x, 0) / enemies.length;
+        const ey = enemies.reduce((a, e) => a + e.y, 0) / enemies.length;
+        simState.tactics.threatCenter.x = (leader.x + ex) / 2;
+        simState.tactics.threatCenter.y = (leader.y + ey) / 2;
+    }
 }
 
 // ------------------------------------------------------------
@@ -342,6 +467,9 @@ function updateSimulation(dt) {
 
     // Threat magnitude oscillation (placeholder)
     simState.tactics.threatMagnitude = 20 + Math.sin(simState.time * 0.5) * 10;
+
+    // Tactical movement (v7.2)
+    updateTacticalMovement(dt);
 
     // Update camera anchors
     updateCameraAnchors();
