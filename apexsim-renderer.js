@@ -1,5 +1,8 @@
-// apexim-renderer.js — APEXSIM Renderer v7.2 (Full Cinematic)
 // ------------------------------------------------------------
+// APEXSIM RENDERER v7.2 — CHUNK 1/3
+// Core renderer, draw helpers, grid, entities, enemies
+// ------------------------------------------------------------
+
 console.log("APEXSIM Renderer - initializing");
 
 import {
@@ -210,7 +213,6 @@ function drawEntities() {
     for (const e of entities) {
         drawCircle(e.x, e.y, e.type.size, e.type.color, 0.95);
 
-        // Velocity vectors (debug)
         if (DEBUG_OVERLAY && (e.vx || e.vy)) {
             drawLine(e.x, e.y, e.x + e.vx * 0.5, e.y + e.vy * 0.5, "rgba(0,255,200,0.5)", 1, 0.8);
         }
@@ -223,7 +225,6 @@ function drawEnemies() {
         drawCircle(enemy.x, enemy.y, 8, "#FF4D4D", 0.9);
         drawRing(enemy.x, enemy.y, 26, 1.5, "rgba(255,77,77,0.6)", 0.9);
 
-        // Facing cone (cinematic)
         const facing = enemy.facing || 0;
         const angleWidth = Math.PI / 4;
         const r = 80;
@@ -243,256 +244,6 @@ function drawEnemies() {
         ctx.restore();
     }
 }
-
-// ------------------------------------------------------------
-// THREAT + HEATMAP + HOTSPOT
-// ------------------------------------------------------------
-
-function drawThreat() {
-    const sim = getSimState();
-    if (isHeatmapEnabled()) {
-        drawHeatmap(ctx, sim);
-    }
-
-    const tc = getThreatCenter();
-    const mag = getThreatMagnitude();
-
-    const radius = 40 + mag * 4;
-    drawRing(tc.x, tc.y, radius, 2, "rgba(0,255,200,0.5)", 0.8);
-}
-
-function drawThreatArcs() {
-    const tc = getThreatCenter();
-    const mag = getThreatMagnitude();
-    const r = 80 + mag * 3;
-
-    drawRing(tc.x, tc.y, r, 2, "rgba(255,0,0,0.25)", 0.8);
-    drawRing(tc.x, tc.y, r * 1.3, 1.5, "rgba(255,0,0,0.15)", 0.6);
-}
-
-function drawHotspotPulse() {
-    const sim = getSimState();
-    const hotspot = sim.cameraAnchors.engagementHotspot;
-    const t = sim.time;
-
-    const baseR = 30;
-    const pulse = (Math.sin(t * 2) + 1) * 0.5;
-    const r = baseR + pulse * 20;
-
-    drawRing(hotspot.x, hotspot.y, r, 2, "rgba(0,200,255,0.5)", 0.9);
-}
-
-// ------------------------------------------------------------
-// RADIAL MENU
-// ------------------------------------------------------------
-
-function drawRadialMenu() {
-    const radial = getRadialMenuState();
-    if (!radial.visible) return;
-
-    const p = worldToScreen(radial.x, radial.y);
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-
-    const radiusInner = 20 * camera.zoom;
-    const radiusOuter = 80 * camera.zoom;
-
-    ctx.beginPath();
-    ctx.arc(0, 0, radiusOuter, 0, Math.PI * 2);
-    ctx.arc(0, 0, radiusInner, Math.PI * 2, 0, true);
-    ctx.fillStyle = "rgba(5,10,20,0.95)";
-    ctx.fill();
-
-    const options = radial.options || [];
-    const segment = (Math.PI * 2) / options.length;
-
-    ctx.font = `${10 * camera.zoom}px system-ui, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    for (let i = 0; i < options.length; i++) {
-        const angle = i * segment + segment / 2;
-        const tx = Math.cos(angle) * (radiusInner + (radiusOuter - radiusInner) * 0.6);
-        const ty = Math.sin(angle) * (radiusInner + (radiusOuter - radiusInner) * 0.6);
-
-        ctx.fillStyle = "rgba(0,255,200,0.9)";
-        ctx.fillText(options[i].label, tx, ty);
-    }
-
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// FORMATION GHOSTS + SQUAD LABELS
-// ------------------------------------------------------------
-
-function drawFormationGhosts() {
-    const sim = getSimState();
-    const entities = sim.entities;
-    const leader = entities.find(e => e.id === sim.formation.leaderId);
-    if (!leader) return;
-
-    const count = entities.length;
-    const mode = sim.formation.mode;
-
-    for (let i = 0; i < entities.length; i++) {
-        const e = entities[i];
-        if (e.id === leader.id) continue;
-
-        let offsetX = 0;
-        let offsetY = 0;
-
-        if (mode === "tight") {
-            const angle = (i / count) * Math.PI * 2;
-            const r = 60;
-            offsetX = Math.cos(angle) * r;
-            offsetY = Math.sin(angle) * r;
-        } else if (mode === "spread") {
-            const angle = (i / count) * Math.PI * 2;
-            const r = 110;
-            offsetX = Math.cos(angle) * r;
-            offsetY = Math.sin(angle) * r;
-        } else if (mode === "line") {
-            const spacing = 26;
-            const idx = i - count / 2;
-            offsetX = idx * spacing;
-            offsetY = 0;
-        } else if (mode === "wedge") {
-            const row = Math.floor(i / 4);
-            const col = i % 4;
-            const spacingX = 26;
-            const spacingY = 26;
-            offsetX = (col - 1.5) * spacingX * (row + 1);
-            offsetY = row * spacingY;
-        }
-
-        const gx = leader.x + offsetX;
-        const gy = leader.y + offsetY;
-
-        drawRing(gx, gy, 10, 1.5, "rgba(255,255,255,0.15)", 0.6);
-    }
-
-    // Squad labels (centered on centroid)
-    const sx = sim.cameraAnchors.squadCentroid.x;
-    const sy = sim.cameraAnchors.squadCentroid.y;
-    drawLabel(sx, sy - 40, "SQUAD", "rgba(255,255,255,0.7)", "center", 11);
-}
-
-// ------------------------------------------------------------
-// MINIMAP
-// ------------------------------------------------------------
-
-function drawMinimap() {
-    const sim = getSimState();
-    const entities = sim.entities;
-    const enemies = sim.enemies;
-
-    const w = 180;
-    const h = 120;
-    const x0 = canvas.width - w - 20;
-    const y0 = canvas.height - h - 20;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(5,10,20,0.85)";
-    ctx.fillRect(x0, y0, w, h);
-
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
-    ctx.strokeRect(x0, y0, w, h);
-
-    function mapX(x) { return x0 + (x / 1280) * w; }
-    function mapY(y) { return y0 + (y / 720) * h; }
-
-    for (const e of entities) {
-        ctx.fillStyle = e.type.color;
-        ctx.fillRect(mapX(e.x), mapY(e.y), 3, 3);
-    }
-
-    for (const en of enemies) {
-        ctx.fillStyle = "#FF4D4D";
-        ctx.fillRect(mapX(en.x), mapY(en.y), 3, 3);
-    }
-
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// HUD + LETTERBOXING
-// ------------------------------------------------------------
-
-function drawHud() {
-    const sim = getSimState();
-    const replay = getReplayState();
-    const camState = getCameraState();
-    const exportState = getExportState();
-
-    ctx.save();
-
-    // Top bar
-    ctx.fillStyle = "rgba(5,10,20,0.96)";
-    ctx.fillRect(0, 0, canvas.width, 40);
-
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillStyle = "#9FA8B8";
-    ctx.textBaseline = "middle";
-
-    ctx.fillText("APEXSIM // ENCOUNTER BUILDER", 20, 20);
-
-    const tactical = sim.tactics.state.toUpperCase();
-    const formation = sim.formation.mode.toUpperCase();
-    const leader = sim.entities.find(e => e.id === sim.formation.leaderId);
-    const leaderText = leader ? `${leader.x.toFixed(0)}, ${leader.y.toFixed(0)}` : "N/A";
-    const order = sim.command.highLevelOrder.toUpperCase();
-    const replayLabel = replay.playing ? "REPLAY" : "LIVE";
-    const perfLabel = isPerformanceMode() ? "ON" : "OFF";
-
-    const summary = [
-        `Tactical: ${tactical}`,
-        `Formation: ${formation}`,
-        `Leader: ${leaderText}`,
-        `Order: ${order}`,
-        `Replay: ${replayLabel}`,
-        `Perf: ${perfLabel}`,
-        `Cam: ${camState.mode.toUpperCase()}`,
-        `Zoom: ${camState.zoom.toFixed(2)}`,
-        `Export: ${exportState.active ? exportState.mode.toUpperCase() : "OFF"}`
-    ].join("   |   ");
-
-    ctx.fillText(summary, 260, 20);
-
-    ctx.restore();
-}
-
-function drawLetterbox() {
-    const exportState = getExportState();
-    if (!exportState.active) return;
-    if (exportState.mode === "hud") return;
-
-    const barHeight = 60;
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.9)";
-    ctx.fillRect(0, 0, canvas.width, barHeight);
-    ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
-    ctx.restore();
-}
-
-// ------------------------------------------------------------
-// CAMERA SHAKE + IMPACT
-// ------------------------------------------------------------
-
-function applyCameraShake() {
-    if (camera.shake > 0.001) {
-        const intensity = camera.shake * camera.zoom;
-        camera.x += (Math.random() - 0.5) * intensity;
-        camera.y += (Math.random() - 0.5) * intensity;
-        camera.shake *= 0.92;
-    }
-}
-
-export function triggerImpactPulse(strength = 1.0) {
-    camera.shake = Math.min(camera.shake + strength * 0.5, 3.0);
-}
-
 // ------------------------------------------------------------
 // AUTO-DIRECTOR
 // ------------------------------------------------------------
@@ -550,16 +301,20 @@ function updateCameraMode(sim, dt) {
     if (camState.mode === "tracking") {
         camera.targetX = anchors.leader.x;
         camera.targetY = anchors.leader.y;
+
     } else if (camState.mode === "orbit") {
         const t = sim.time * 0.4;
         const r = 140;
         camera.targetX = anchors.engagementHotspot.x + Math.cos(t) * r;
         camera.targetY = anchors.engagementHotspot.y + Math.sin(t) * r;
+
     } else if (camState.mode === "rail") {
         camera.targetX = anchors.squadCentroid.x;
         camera.targetY = anchors.squadCentroid.y;
+
     } else if (camState.mode === "free") {
-        // Free cam: targetX/Y controlled externally (future)
+        // Free cam: targetX/Y controlled externally
+
     } else if (camState.mode === "auto") {
         updateAutoDirector(sim, dt);
     }
@@ -567,7 +322,7 @@ function updateCameraMode(sim, dt) {
     // Dynamic zoom based on threat magnitude
     const mag = getThreatMagnitude();
     const baseZoom = camState.zoom;
-    const zoomOffset = smoothstep(10, 40, mag) * 0.25; // zoom in as threat rises
+    const zoomOffset = smoothstep(10, 40, mag) * 0.25;
     camera.targetZoom = baseZoom + zoomOffset;
 }
 
@@ -585,6 +340,23 @@ function updateCamera(dt) {
     camera.zoom += (camera.targetZoom - camera.zoom) * zoomLerp;
 
     applyCameraShake();
+}
+
+// ------------------------------------------------------------
+// CAMERA SHAKE + IMPACT
+// ------------------------------------------------------------
+
+function applyCameraShake() {
+    if (camera.shake > 0.001) {
+        const intensity = camera.shake * camera.zoom;
+        camera.x += (Math.random() - 0.5) * intensity;
+        camera.y += (Math.random() - 0.5) * intensity;
+        camera.shake *= 0.92;
+    }
+}
+
+export function triggerImpactPulse(strength = 1.0) {
+    camera.shake = Math.min(camera.shake + strength * 0.5, 3.0);
 }
 
 // ------------------------------------------------------------
@@ -627,7 +399,6 @@ function updateCameraReplay(dt) {
 function updateCameraFromState(dt) {
     updateCameraReplay(dt);
 }
-
 // ------------------------------------------------------------
 // EXPORT PIPELINE
 // ------------------------------------------------------------
@@ -641,7 +412,6 @@ function beginExport() {
 function endExport() {
     console.log("APEXSIM Renderer - Export capture stopped");
     console.log(`Captured ${exportFrames.length} frames with metadata.`);
-    // At this point you could serialize exportMetadata or frames for offline encoding.
 }
 
 function captureFrame() {
