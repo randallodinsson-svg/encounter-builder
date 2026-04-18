@@ -1,198 +1,258 @@
-// apexsim.js - APEXSIM v7.0 Tactical Core
+// apexim.js — APEXSIM v7.2 Core Simulation + Replay Metadata + Camera Anchors
 console.log("APEXSIM - Core initializing");
 
 // ------------------------------------------------------------
-// CORE STATE
+// SIMULATION STATE
 // ------------------------------------------------------------
 
-const APEXSIM_TICK_RATE = 60;
-const DT = 1 / APEXSIM_TICK_RATE;
-
-let simState = {
+const simState = {
     time: 0,
-    entities: [],
-    enemies: [],
-    squads: [],
-    formation: {
-        leaderId: null,
-        mode: "tight",
-        count: 0
-    },
-    tactics: {
-        state: "hold", // hold, flank, fallback, regroup, push
+    dt: 0.016,
+
+    // -------------------------------
+    // CAMERA ANCHORS (v7.2)
+    // -------------------------------
+    cameraAnchors: {
+        leader: { x: 640, y: 360 },
+        squadCentroid: { x: 640, y: 360 },
         threatCenter: { x: 640, y: 360 },
-        threatMagnitude: 0
+        engagementHotspot: { x: 640, y: 360 }
     },
-    commandLayer: {
-        highLevelOrder: "none", // defend, advance, sweep, secure
-        lastOrderTime: 0
-    },
+
+    // -------------------------------
+    // DIRECTOR EVENTS (v7.2)
+    // -------------------------------
+    directorEvents: [],
+
+    // -------------------------------
+    // REPLAY METADATA (v7.2)
+    // -------------------------------
     replay: {
-        recording: true,
         playing: false,
         time: 0,
         duration: 0,
-        events: []
+        frames: [],
+        eventMarkers: []
+    },
+
+    // -------------------------------
+    // TACTICAL STATE
+    // -------------------------------
+    tactics: {
+        state: "hold",
+        threatCenter: { x: 640, y: 360 },
+        threatMagnitude: 0
+    },
+
+    // -------------------------------
+    // FORMATION STATE
+    // -------------------------------
+    formation: {
+        mode: "tight",
+        leaderId: null,
+        count: 0
+    },
+
+    // -------------------------------
+    // ENTITIES
+    // -------------------------------
+    entities: [],
+    squads: [],
+    enemies: [],
+
+    // -------------------------------
+    // COMMAND LAYER
+    // -------------------------------
+    command: {
+        highLevelOrder: "defend"
     }
 };
 
 // ------------------------------------------------------------
-// UTILS
+// ENTITY TYPES
 // ------------------------------------------------------------
 
-function randRange(min, max) {
-    return min + Math.random() * (max - min);
-}
-
-function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
-}
-
-function dist(a, b) {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return Math.hypot(dx, dy);
-}
+const ENTITY_TYPES = {
+    infantry: {
+        size: 6,
+        speed: 60,
+        color: "#4DA3FF",
+        role: "unit"
+    },
+    support: {
+        size: 7,
+        speed: 55,
+        color: "#00FFC8",
+        role: "support"
+    },
+    heavy: {
+        size: 8,
+        speed: 45,
+        color: "#FF6B6B",
+        role: "heavy"
+    },
+    scout: {
+        size: 5,
+        speed: 75,
+        color: "#4DFFB8",
+        role: "scout"
+    }
+};
 
 // ------------------------------------------------------------
-// ENTITY / SQUAD SETUP
+// INITIALIZATION
 // ------------------------------------------------------------
 
-function createEntity(id, x, y, role, squadId) {
-    return {
-        id,
-        x,
-        y,
-        vx: 0,
-        vy: 0,
-        type: {
-            role,
-            size: 10,
-            shape: "circle",
-            color:
-                role === "support" ? "#00FFC8" :
-                role === "heavy" ? "#FF6B6B" :
-                role === "scout" ? "#4DA3FF" :
-                "#E5F0FF"
-        },
-        squadId
-    };
-}
+function initSimulation() {
+    // Create two squads
+    simState.squads = [
+        { id: "alpha", label: "ALPHA", color: "#4DA3FF" },
+        { id: "bravo", label: "BRAVO", color: "#FFB84D" }
+    ];
 
-function createEnemy(id, x, y) {
-    return {
-        id,
-        x,
-        y,
-        vx: 0,
-        vy: 0,
-        facing: randRange(0, Math.PI * 2),
-        threat: randRange(0.5, 1.5),
-        state: "patrol", // patrol, engage, retreat
-        targetSquadId: null
-    };
-}
-
-function createSquad(id, color, label, leaderId) {
-    return {
-        id,
-        color,
-        label,
-        leaderId,
-        members: [],
-        state: "idle", // idle, moving, engaging, regrouping
-        target: { x: 640, y: 360 }
-    };
-}
-
-function initSim() {
-    const squads = [];
+    // Create entities
     const entities = [];
-    const enemies = [];
-
-    const squadA = createSquad("alpha", "#4DA3FF", "ALPHA", "a1");
-    const squadB = createSquad("bravo", "#00FFC8", "BRAVO", "b1");
-
-    const roles = ["scout", "support", "heavy", "scout", "support"];
-
     let idCounter = 1;
 
-    for (let i = 0; i < roles.length; i++) {
-        const e = createEntity(
-            "a" + idCounter,
-            480 + randRange(-40, 40),
-            360 + randRange(-40, 40),
-            roles[i],
-            squadA.id
-        );
-        entities.push(e);
-        squadA.members.push(e.id);
-        idCounter++;
+    function spawnSquad(squadId, x, y, count) {
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const r = 40;
+            entities.push({
+                id: idCounter++,
+                squadId,
+                x: x + Math.cos(angle) * r,
+                y: y + Math.sin(angle) * r,
+                vx: 0,
+                vy: 0,
+                type: ENTITY_TYPES.infantry
+            });
+        }
     }
 
-    idCounter = 1;
-    for (let i = 0; i < roles.length; i++) {
-        const e = createEntity(
-            "b" + idCounter,
-            800 + randRange(-40, 40),
-            360 + randRange(-40, 40),
-            roles[i],
-            squadB.id
-        );
-        entities.push(e);
-        squadB.members.push(e.id);
-        idCounter++;
-    }
-
-    squadA.leaderId = squadA.members[0];
-    squadB.leaderId = squadB.members[0];
-
-    squads.push(squadA, squadB);
-
-    for (let i = 0; i < 6; i++) {
-        enemies.push(
-            createEnemy(
-                "e" + (i + 1),
-                randRange(300, 1000),
-                randRange(200, 520)
-            )
-        );
-    }
+    spawnSquad("alpha", 500, 360, 12);
+    spawnSquad("bravo", 780, 360, 12);
 
     simState.entities = entities;
-    simState.enemies = enemies;
-    simState.squads = squads;
-
-    simState.formation.leaderId = squadA.leaderId;
-    simState.formation.mode = "tight";
+    simState.formation.leaderId = entities[0].id;
     simState.formation.count = entities.length;
 
-    simState.tactics.state = "hold";
-    simState.tactics.threatCenter = { x: 640, y: 360 };
-    simState.tactics.threatMagnitude = 0;
-
-    simState.commandLayer.highLevelOrder = "none";
-    simState.commandLayer.lastOrderTime = 0;
-
-    simState.replay.recording = true;
-    simState.replay.playing = false;
-    simState.replay.time = 0;
-    simState.replay.duration = 0;
-    simState.replay.events = [];
+    // Spawn enemies
+    simState.enemies = [
+        { x: 640, y: 200, facing: 0, threat: 1 },
+        { x: 700, y: 240, facing: 0.5, threat: 0.8 },
+        { x: 580, y: 240, facing: -0.5, threat: 0.8 }
+    ];
 }
 
-initSim();
+initSimulation();
 
 // ------------------------------------------------------------
-// TACTICAL STATE ACCESSORS
+// CAMERA ANCHOR UPDATES (v7.2)
 // ------------------------------------------------------------
 
-export function getSimState() {
-    return simState;
+function updateCameraAnchors() {
+    const entities = simState.entities;
+    const leader = entities.find(e => e.id === simState.formation.leaderId);
+
+    if (leader) {
+        simState.cameraAnchors.leader.x = leader.x;
+        simState.cameraAnchors.leader.y = leader.y;
+    }
+
+    // Squad centroid
+    let sx = 0, sy = 0;
+    for (const e of entities) {
+        sx += e.x;
+        sy += e.y;
+    }
+    sx /= entities.length;
+    sy /= entities.length;
+
+    simState.cameraAnchors.squadCentroid.x = sx;
+    simState.cameraAnchors.squadCentroid.y = sy;
+
+    // Threat center
+    simState.cameraAnchors.threatCenter.x = simState.tactics.threatCenter.x;
+    simState.cameraAnchors.threatCenter.y = simState.tactics.threatCenter.y;
+
+    // Engagement hotspot (midpoint between squads and enemies)
+    const ex = simState.enemies.reduce((a, e) => a + e.x, 0) / simState.enemies.length;
+    const ey = simState.enemies.reduce((a, e) => a + e.y, 0) / simState.enemies.length;
+
+    simState.cameraAnchors.engagementHotspot.x = (sx + ex) / 2;
+    simState.cameraAnchors.engagementHotspot.y = (sy + ey) / 2;
+}
+
+// ------------------------------------------------------------
+// DIRECTOR EVENT TAGGING (v7.2)
+// ------------------------------------------------------------
+
+function tagDirectorEvent(type, data = {}) {
+    simState.directorEvents.push({
+        time: simState.time,
+        type,
+        ...data
+    });
+}
+
+// ------------------------------------------------------------
+// REPLAY SYSTEM (v7.2)
+// ------------------------------------------------------------
+
+function recordReplayFrame() {
+    if (simState.replay.playing) return;
+
+    simState.replay.frames.push({
+        time: simState.time,
+        entities: simState.entities.map(e => ({ ...e })),
+        enemies: simState.enemies.map(e => ({ ...e })),
+        tactics: { ...simState.tactics },
+        formation: { ...simState.formation },
+        command: { ...simState.command },
+        cameraAnchors: JSON.parse(JSON.stringify(simState.cameraAnchors))
+    });
+
+    simState.replay.duration = simState.time;
+}
+
+export function startReplay() {
+    simState.replay.playing = true;
+    simState.replay.time = 0;
+}
+
+export function stopReplay() {
+    simState.replay.playing = false;
+}
+
+export function scrubReplay(t) {
+    simState.replay.time = Math.max(0, Math.min(simState.replay.duration, t));
+}
+
+export function getReplayState() {
+    return simState.replay;
+}
+
+// ------------------------------------------------------------
+// TACTICAL STATE
+// ------------------------------------------------------------
+
+export function setTacticalState(state) {
+    simState.tactics.state = state;
+    tagDirectorEvent("tacticalChange", { state });
 }
 
 export function getTacticalState() {
     return simState.tactics.state;
+}
+
+// ------------------------------------------------------------
+// FORMATION
+// ------------------------------------------------------------
+
+export function setFormationMode(mode) {
+    simState.formation.mode = mode;
+    tagDirectorEvent("formationChange", { mode });
 }
 
 export function getFormationMode() {
@@ -201,9 +261,37 @@ export function getFormationMode() {
 
 export function getLeaderPosition() {
     const leader = simState.entities.find(e => e.id === simState.formation.leaderId);
-    if (!leader) return { x: 640, y: 360 };
-    return { x: leader.x, y: leader.y };
+    return leader ? { x: leader.x, y: leader.y } : { x: 0, y: 0 };
 }
+
+// ------------------------------------------------------------
+// HIGH-LEVEL ORDERS
+// ------------------------------------------------------------
+
+export function setHighLevelOrder(order) {
+    simState.command.highLevelOrder = order;
+    tagDirectorEvent("orderChange", { order });
+}
+
+export function getCommandLayerState() {
+    return simState.command;
+}
+
+// ------------------------------------------------------------
+// SQUAD TARGETING
+// ------------------------------------------------------------
+
+export function setActiveSquadLeader(id) {
+    simState.formation.leaderId = id;
+}
+
+export function setSquadTarget(squadId, x, y) {
+    tagDirectorEvent("squadTarget", { squadId, x, y });
+}
+
+// ------------------------------------------------------------
+// THREAT SYSTEM
+// ------------------------------------------------------------
 
 export function getThreatCenter() {
     return simState.tactics.threatCenter;
@@ -212,6 +300,10 @@ export function getThreatCenter() {
 export function getThreatMagnitude() {
     return simState.tactics.threatMagnitude;
 }
+
+// ------------------------------------------------------------
+// ENTITIES
+// ------------------------------------------------------------
 
 export function getEntities() {
     return simState.entities;
@@ -225,341 +317,56 @@ export function getEnemies() {
     return simState.enemies;
 }
 
-export function getCommandLayerState() {
-    return simState.commandLayer;
-}
-
-export function getReplayState() {
-    return simState.replay;
-}
-
 // ------------------------------------------------------------
-// HEATMAP DRAW (STUB FOR RENDERER)
+// HEATMAP (CPU PATH)
 // ------------------------------------------------------------
 
-export function drawHeatmap(ctx, state) {
-    // Simple subtle background gradient based on threat magnitude
-    const mag = clamp(state.tactics.threatMagnitude / 50, 0, 1);
-    const g = ctx.createLinearGradient(0, 0, ctx.canvas.width, ctx.canvas.height);
-    g.addColorStop(0, `rgba(10, 20, 40, 1)`);
-    g.addColorStop(1, `rgba(${20 + 80 * mag}, ${30}, ${60}, 1)`);
-    ctx.fillStyle = g;
+export function drawHeatmap(ctx, simState) {
+    const tc = simState.tactics.threatCenter;
+    const mag = simState.tactics.threatMagnitude;
+
+    const grad = ctx.createRadialGradient(tc.x, tc.y, 20, tc.x, tc.y, 300);
+    grad.addColorStop(0, "rgba(0,255,200,0.35)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 }
 
 // ------------------------------------------------------------
-// COMMAND LAYER INPUT (FROM UI)
+// SIMULATION UPDATE
 // ------------------------------------------------------------
 
-export function setTacticalState(state) {
-    simState.tactics.state = state;
-}
-
-export function setFormationMode(mode) {
-    simState.formation.mode = mode;
-}
-
-export function setHighLevelOrder(order) {
-    simState.commandLayer.highLevelOrder = order;
-    simState.commandLayer.lastOrderTime = simState.time;
-}
-
-export function setActiveSquadLeader(squadId) {
-    const squad = simState.squads.find(s => s.id === squadId);
-    if (!squad) return;
-    simState.formation.leaderId = squad.leaderId;
-}
-
-export function setSquadTarget(squadId, x, y) {
-    const squad = simState.squads.find(s => s.id === squadId);
-    if (!squad) return;
-    squad.target.x = x;
-    squad.target.y = y;
-}
-
-// Replay controls
-export function startReplay() {
-    simState.replay.playing = true;
-    simState.replay.recording = false;
-    simState.replay.time = 0;
-}
-
-export function stopReplay() {
-    simState.replay.playing = false;
-    simState.replay.recording = true;
-}
-
-export function scrubReplay(t) {
-    simState.replay.time = clamp(t, 0, simState.replay.duration);
-}
-
-// ------------------------------------------------------------
-// REPLAY RECORDING
-// ------------------------------------------------------------
-
-function recordFrame() {
-    if (!simState.replay.recording) return;
-
-    simState.replay.events.push({
-        time: simState.time,
-        entities: simState.entities.map(e => ({
-            id: e.id,
-            x: e.x,
-            y: e.y
-        })),
-        enemies: simState.enemies.map(e => ({
-            id: e.id,
-            x: e.x,
-            y: e.y
-        })),
-        tactics: {
-            state: simState.tactics.state,
-            threatCenter: { ...simState.tactics.threatCenter },
-            threatMagnitude: simState.tactics.threatMagnitude
-        }
-    });
-
-    simState.replay.duration = simState.time;
-}
-
-// ------------------------------------------------------------
-// ENEMY AI BEHAVIOR
-// ------------------------------------------------------------
-
-function updateEnemyAI(dt) {
-    const squads = simState.squads;
-    const enemies = simState.enemies;
-
-    for (const enemy of enemies) {
-        let closestSquad = null;
-        let closestDist = Infinity;
-
-        for (const squad of squads) {
-            const leader = simState.entities.find(e => e.id === squad.leaderId);
-            if (!leader) continue;
-            const d = dist(enemy, leader);
-            if (d < closestDist) {
-                closestDist = d;
-                closestSquad = squad;
-            }
-        }
-
-        if (closestSquad) {
-            enemy.targetSquadId = closestSquad.id;
-
-            if (closestDist < 180) {
-                enemy.state = "engage";
-            } else if (closestDist > 400) {
-                enemy.state = "patrol";
-            } else if (closestDist < 120) {
-                enemy.state = "retreat";
-            }
-        }
-
-        let speed = 40;
-        if (enemy.state === "engage") speed = 70;
-        if (enemy.state === "retreat") speed = 60;
-
-        let tx = enemy.x + Math.cos(enemy.facing) * 10;
-        let ty = enemy.y + Math.sin(enemy.facing) * 10;
-
-        if (closestSquad) {
-            const leader = simState.entities.find(e => e.id === closestSquad.leaderId);
-            if (leader) {
-                if (enemy.state === "engage") {
-                    tx = leader.x;
-                    ty = leader.y;
-                } else if (enemy.state === "retreat") {
-                    const dx = enemy.x - leader.x;
-                    const dy = enemy.y - leader.y;
-                    tx = enemy.x + dx;
-                    ty = enemy.y + dy;
-                }
-            }
-        }
-
-        const dx = tx - enemy.x;
-        const dy = ty - enemy.y;
-        const d = Math.hypot(dx, dy) || 1;
-
-        const nx = dx / d;
-        const ny = dy / d;
-
-        enemy.vx = nx * speed;
-        enemy.vy = ny * speed;
-        enemy.x += enemy.vx * dt;
-        enemy.y += enemy.vy * dt;
-
-        enemy.facing = Math.atan2(enemy.vy, enemy.vx);
-    }
-}
-
-// ------------------------------------------------------------
-// SQUAD / FORMATION LOGIC
-// ------------------------------------------------------------
-
-function updateSquads(dt) {
-    const squads = simState.squads;
-    const entities = simState.entities;
-    const tactics = simState.tactics;
-    const cmd = simState.commandLayer;
-
-    for (const squad of squads) {
-        let desiredState = squad.state;
-
-        if (cmd.highLevelOrder === "defend") {
-            desiredState = "idle";
-        } else if (cmd.highLevelOrder === "advance") {
-            desiredState = "moving";
-        } else if (cmd.highLevelOrder === "sweep") {
-            desiredState = "moving";
-        } else if (cmd.highLevelOrder === "secure") {
-            desiredState = "engaging";
-        }
-
-        if (tactics.state === "fallback") {
-            desiredState = "regrouping";
-        } else if (tactics.state === "regroup") {
-            desiredState = "regrouping";
-        } else if (tactics.state === "push") {
-            desiredState = "engaging";
-        }
-
-        squad.state = desiredState;
-
-        const leader = entities.find(e => e.id === squad.leaderId);
-        if (!leader) continue;
-
-        let targetX = squad.target.x;
-        let targetY = squad.target.y;
-
-        if (cmd.highLevelOrder === "sweep") {
-            targetX += Math.sin(simState.time * 0.1) * 80;
-        }
-
-        const dx = targetX - leader.x;
-        const dy = targetY - leader.y;
-        const d = Math.hypot(dx, dy) || 1;
-
-        let leaderSpeed = 0;
-        if (squad.state === "moving") leaderSpeed = 80;
-        if (squad.state === "engaging") leaderSpeed = 90;
-        if (squad.state === "regrouping") leaderSpeed = 70;
-
-        const lnx = dx / d;
-        const lny = dy / d;
-
-        leader.vx = lnx * leaderSpeed;
-        leader.vy = lny * leaderSpeed;
-
-        leader.x += leader.vx * dt;
-        leader.y += leader.vy * dt;
-
-        const mode = simState.formation.mode;
-        let radius = 80;
-        if (mode === "tight") radius = 50;
-        if (mode === "spread") radius = 120;
-
-        const members = squad.members.map(id => entities.find(e => e.id === id)).filter(Boolean);
-
-        for (let i = 0; i < members.length; i++) {
-            const m = members[i];
-            if (m.id === leader.id) continue;
-
-            const angle = (i / members.length) * Math.PI * 2;
-            const gx = leader.x + Math.cos(angle) * radius;
-            const gy = leader.y + Math.sin(angle) * radius;
-
-            const mdx = gx - m.x;
-            const mdy = gy - m.y;
-            const md = Math.hypot(mdx, mdy) || 1;
-
-            const mSpeed = 70;
-            const mnx = mdx / md;
-            const mny = mdy / md;
-
-            m.vx = mnx * mSpeed;
-            m.vy = mny * mSpeed;
-
-            m.x += m.vx * dt;
-            m.y += m.vy * dt;
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// THREAT COMPUTATION
-// ------------------------------------------------------------
-
-function updateThreat() {
-    const enemies = simState.enemies;
-    const squads = simState.squads;
-
-    if (!enemies.length || !squads.length) {
-        simState.tactics.threatCenter = { x: 640, y: 360 };
-        simState.tactics.threatMagnitude = 0;
-        return;
-    }
-
-    let sumX = 0;
-    let sumY = 0;
-    let sumW = 0;
-
-    for (const enemy of enemies) {
-        let minDist = Infinity;
-        for (const squad of squads) {
-            const leader = simState.entities.find(e => e.id === squad.leaderId);
-            if (!leader) continue;
-            const d = dist(enemy, leader);
-            if (d < minDist) minDist = d;
-        }
-
-        const w = clamp(1 / (minDist / 200 + 0.1), 0.1, 5) * enemy.threat;
-        sumX += enemy.x * w;
-        sumY += enemy.y * w;
-        sumW += w;
-    }
-
-    if (sumW <= 0) {
-        simState.tactics.threatCenter = { x: 640, y: 360 };
-        simState.tactics.threatMagnitude = 0;
-        return;
-    }
-
-    simState.tactics.threatCenter = {
-        x: sumX / sumW,
-        y: sumY / sumW
-    };
-
-    simState.tactics.threatMagnitude = clamp(sumW * 5, 0, 60);
-}
-
-// ------------------------------------------------------------
-// MAIN UPDATE LOOP
-// ------------------------------------------------------------
-
-function updateSim(dt) {
-    if (simState.replay.playing) {
-        // Simple replay time advance
-        simState.replay.time += dt;
-        if (simState.replay.time > simState.replay.duration) {
-            simState.replay.time = simState.replay.duration;
-            simState.replay.playing = false;
-            simState.replay.recording = true;
-        }
-        return;
-    }
-
+function updateSimulation(dt) {
     simState.time += dt;
 
-    updateEnemyAI(dt);
-    updateSquads(dt);
-    updateThreat();
-    recordFrame();
+    // Threat magnitude oscillation (placeholder)
+    simState.tactics.threatMagnitude = 20 + Math.sin(simState.time * 0.5) * 10;
+
+    // Update camera anchors
+    updateCameraAnchors();
+
+    // Record replay frame
+    recordReplayFrame();
 }
 
-setInterval(() => {
-    updateSim(DT);
-}, 1000 / APEXSIM_TICK_RATE);
+// ------------------------------------------------------------
+// MAIN LOOP
+// ------------------------------------------------------------
+
+function tick() {
+    updateSimulation(simState.dt);
+    requestAnimationFrame(tick);
+}
+
+tick();
 
 console.log("APEXSIM - Core online");
+
+// ------------------------------------------------------------
+// EXPORT SIM STATE
+// ------------------------------------------------------------
+
+export function getSimState() {
+    return simState;
+}
