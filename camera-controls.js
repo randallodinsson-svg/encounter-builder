@@ -2,7 +2,7 @@
 // camera-controls.js — Free Camera + Cinematic Presets
 // ------------------------------------------------------------
 
-import { getCameraState, getReplayState } from "./index.js";
+import { getCameraState } from "./index.js";
 import { getSimState } from "./apexsim.js";
 
 // ------------------------------------------------------------
@@ -141,8 +141,7 @@ export function setCameraPreset(preset){
 }
 
 // ------------------------------------------------------------
-// OPTIONAL: QUICK UI HOOKS
+// OPTIONAL: UI HOOKS
 // ------------------------------------------------------------
 window.enableFreeCamera = enableFreeCamera;
 window.setCameraPreset = setCameraPreset;
-
