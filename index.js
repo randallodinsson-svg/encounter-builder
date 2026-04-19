@@ -1,241 +1,158 @@
-// index.js — APEXCORE State Engine v7.2
-// -------------------------------------
+// ------------------------------------------------------------
+// index.js — APEXCORE Module Runtime (Full Install)
+// ------------------------------------------------------------
+
+// ------------------------------------------------------------
+// IMPORTS
+// ------------------------------------------------------------
+import { initSim, getSimState } from "./apexsim.js";
+import { initRenderer } from "./apexsim-renderer.js";
+
+// UI + Systems
+import { enableFreeCamera, updateFreeCamera, setCameraPreset } from "./camera-controls.js";
+import { initReplayUI, updateReplayUI } from "./replay-ui.js";
+import "./apex-module-c.js";          // Enemy spawn + squad selection
+import { drawTacticalOverlays } from "./tactical-overlays.js";
+
+// ------------------------------------------------------------
+// GLOBAL STATE ENGINE
+// ------------------------------------------------------------
+const state = {
+    camera: {
+        mode: "auto",
+        x: 0,
+        y: 0,
+        zoom: 1,
+        tx: 0,
+        ty: 0,
+        tz: 1
+    },
+    replay: {
+        playing: false,
+        time: 0,
+        duration: 0,
+        frames: []
+    },
+    export: {
+        active: false,
+        mode: "hud"
+    },
+    radialMenu: {
+        visible: false,
+        x: 0,
+        y: 0,
+        options: []
+    }
+};
+
+// ------------------------------------------------------------
+// STATE ACCESSORS
+// ------------------------------------------------------------
+export function getCameraState(){ return state.camera; }
+export function getReplayState(){ return state.replay; }
+export function getExportState(){ return state.export; }
+export function getRadialMenuState(){ return state.radialMenu; }
+
+// ------------------------------------------------------------
+// CAMERA MODE SWITCHING
+// ------------------------------------------------------------
+export function setCameraMode(mode){
+    const cam = getCameraState();
+    cam.mode = mode;
+
+    if(mode === "free"){
+        enableFreeCamera();
+    }
+}
+
+// ------------------------------------------------------------
+// REPLAY CONTROL
+// ------------------------------------------------------------
+export function startReplay(){
+    const r = getReplayState();
+    r.playing = true;
+}
+
+export function pauseReplay(){
+    const r = getReplayState();
+    r.playing = false;
+}
+
+export function scrubReplay(t){
+    const r = getReplayState();
+    r.time = t * r.duration;
+    r.playing = false;
+}
+
+// ------------------------------------------------------------
+// RADIAL MENU CONTROL
+// ------------------------------------------------------------
+export function showRadialMenu(x, y, options){
+    const r = getRadialMenuState();
+    r.visible = true;
+    r.x = x;
+    r.y = y;
+    r.options = options;
+}
+
+export function hideRadialMenu(){
+    getRadialMenuState().visible = false;
+}
+
+// ------------------------------------------------------------
+// MAIN UPDATE LOOP (CORE)
+// ------------------------------------------------------------
+function updateCore(dt){
+    const cam = getCameraState();
+
+    // Free camera override
+    if(cam.mode === "free"){
+        updateFreeCamera(dt);
+    }
+
+    // Replay UI
+    updateReplayUI();
+}
+
+// ------------------------------------------------------------
+// BOOT SEQUENCE
+// ------------------------------------------------------------
 console.log("StateEngine - module entry loaded");
 
-import {
-    setTacticalState,
-    getTacticalState,
-    setFormationMode,
-    getFormationMode,
-    setHighLevelOrder,
-    getCommandLayerState,
-    getSimState,
-    startReplay,
-    stopReplay,
-    scrubReplay
-} from "./apexsim.js";
+window.addEventListener("load", ()=>{
 
-import { getReplayState as simReplayState } from "./apexsim.js";
+    console.log("APEXCORE - Booting Module Runtime...");
 
-console.log("APEXCORE - Booting Module Runtime...");
+    // Initialize simulation
+    initSim();
 
-// -------------------------------------
-// INTERNAL STATE
-// -------------------------------------
+    // Initialize renderer
+    initRenderer();
 
-const cameraState = {
-    mode: "tracking",
-    zoom: 1.0
-};
+    // Initialize replay UI
+    initReplayUI();
 
-const exportState = {
-    active: false,
-    mode: "off" // "off" | "hud" | "clean" | "hybrid"
-};
-
-const radialMenuState = {
-    visible: false,
-    x: 0,
-    y: 0,
-    options: []
-};
-
-let heatmapEnabled = false;
-let performanceMode = false;
-
-// -------------------------------------
-// EXPORTED ACCESSORS (USED BY RENDERER)
-// -------------------------------------
-
-export function getCameraState() {
-    return cameraState;
-}
-
-export function getExportState() {
-    return exportState;
-}
-
-export function getRadialMenuState() {
-    return radialMenuState;
-}
-
-export function isHeatmapEnabled() {
-    return heatmapEnabled;
-}
-
-export function isPerformanceMode() {
-    return performanceMode;
-}
-
-export function getReplayState() {
-    return simReplayState();
-}
-
-// -------------------------------------
-// DOM HOOKS
-// -------------------------------------
-
-document.addEventListener("DOMContentLoaded", () => {
     console.log("APEXCORE - Module Runtime Online");
-
-    wireTacticalButtons();
-    wireHeatmapToggle();
-    wireCameraControls();
-    wireExportControls();
-    wirePerformanceToggle();
 });
 
-// -------------------------------------
-// TACTICAL BUTTONS
-// -------------------------------------
+// ------------------------------------------------------------
+// EXPORTS FOR UI BUTTONS
+// ------------------------------------------------------------
+window.setCameraMode = setCameraMode;
+window.setCameraPreset = setCameraPreset;
+window.startReplay = startReplay;
+window.pauseReplay = pauseReplay;
+window.scrubReplay = scrubReplay;
+window.showRadialMenu = showRadialMenu;
+window.hideRadialMenu = hideRadialMenu;
 
-function wireTacticalButtons() {
-    const map = [
-        { id: "btn-hold", state: "hold" },
-        { id: "btn-flank", state: "flank" },
-        { id: "btn-fallback", state: "fallback" },
-        { id: "btn-regroup", state: "regroup" },
-        { id: "btn-push", state: "push" }
-    ];
-
-    for (const entry of map) {
-        const btn = document.getElementById(entry.id);
-        if (!btn) continue;
-
-        btn.addEventListener("click", () => {
-            setTacticalState(entry.state);
-            console.log(`APEXSIM - Manual tactical command: ${entry.state}`);
-        });
-    }
+// ------------------------------------------------------------
+// RENDERER HOOKS (CALLED FROM RENDERER)
+// ------------------------------------------------------------
+export function apexcoreUpdate(dt){
+    updateCore(dt);
 }
 
-// -------------------------------------
-// HEATMAP TOGGLE
-// -------------------------------------
-
-function wireHeatmapToggle() {
-    const btn = document.getElementById("btn-heatmap");
-    if (!btn) return;
-
-    btn.addEventListener("click", () => {
-        heatmapEnabled = !heatmapEnabled;
-        console.log("APEXSIM - Heatmap toggled");
-        btn.classList.toggle("active", heatmapEnabled);
-    });
-}
-
-// -------------------------------------
-// CAMERA CONTROLS
-// -------------------------------------
-
-function wireCameraControls() {
-    const select = document.getElementById("camera-mode");
-    const zoomSlider = document.getElementById("camera-zoom");
-
-    if (select) {
-        select.addEventListener("change", () => {
-            cameraState.mode = select.value || "tracking";
-            console.log(`APEXSIM - Camera mode: ${cameraState.mode}`);
-        });
-    }
-
-    if (zoomSlider) {
-        zoomSlider.addEventListener("input", () => {
-            const v = parseFloat(zoomSlider.value || "1");
-            cameraState.zoom = v;
-        });
-    }
-}
-
-// -------------------------------------
-// EXPORT CONTROLS
-// -------------------------------------
-
-function wireExportControls() {
-    const btnHud = document.getElementById("btn-export-hud");
-    const btnClean = document.getElementById("btn-export-clean");
-    const btnHybrid = document.getElementById("btn-export-hybrid");
-    const btnStop = document.getElementById("btn-export-stop");
-
-    if (btnHud) {
-        btnHud.addEventListener("click", () => {
-            exportState.active = true;
-            exportState.mode = "hud";
-            console.log("APEXSIM - Export mode: HUD");
-        });
-    }
-
-    if (btnClean) {
-        btnClean.addEventListener("click", () => {
-            exportState.active = true;
-            exportState.mode = "clean";
-            console.log("APEXSIM - Export mode: CLEAN");
-        });
-    }
-
-    if (btnHybrid) {
-        btnHybrid.addEventListener("click", () => {
-            exportState.active = true;
-            exportState.mode = "hybrid";
-            console.log("APEXSIM - Export mode: HYBRID");
-        });
-    }
-
-    if (btnStop) {
-        btnStop.addEventListener("click", () => {
-            exportState.active = false;
-            exportState.mode = "off";
-            console.log("APEXSIM - Export stopped");
-        });
-    }
-}
-
-// -------------------------------------
-// PERFORMANCE TOGGLE
-// -------------------------------------
-
-function wirePerformanceToggle() {
-    const btn = document.getElementById("btn-perf");
-    if (!btn) return;
-
-    btn.addEventListener("click", () => {
-        performanceMode = !performanceMode;
-        console.log(`APEXSIM - Performance mode: ${performanceMode ? "ON" : "OFF"}`);
-        btn.classList.toggle("active", performanceMode);
-    });
-}
-
-// -------------------------------------
-// OPTIONAL: REPLAY CONTROLS (HOOKS ONLY)
-// -------------------------------------
-
-const replayApi = {
-    start() {
-        startReplay();
-        console.log("APEXSIM - Replay started");
-    },
-    stop() {
-        stopReplay();
-        console.log("APEXSIM - Replay stopped");
-    },
-    scrub(t) {
-        scrubReplay(t);
-        console.log(`APEXSIM - Replay scrub: ${t.toFixed(2)}`);
-    }
-};
-
-export { replayApi };
-
-// -------------------------------------
-// DEBUG LOGGING HELPERS
-// -------------------------------------
-
-export function logSimSummary() {
-    const sim = getSimState();
-    console.log("APEXSIM STATE SNAPSHOT:", {
-        time: sim.time,
-        tactics: sim.tactics,
-        formation: sim.formation,
-        command: sim.command
-    });
+export function apexcoreDrawOverlays(){
+    drawTacticalOverlays();
 }
