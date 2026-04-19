@@ -161,4 +161,3 @@ export function drawTacticalOverlays(){
 
     document.body.appendChild(panel);
 })();
-
