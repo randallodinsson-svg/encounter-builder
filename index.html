@@ -1,24 +1,86 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>APEXSIM v8.0</title>
+  <title>APEXSIM v8.9 — Encounter Builder</title>
+
+  <!-- Core visual baseline -->
   <style>
-    html,body{margin:0;padding:0;overflow:hidden;background:#050810;}
-    #apex-canvas{display:block;}
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #050810;
+      color: #9FA8B8;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #apex-canvas {
+      display: block;
+    }
   </style>
+
+  <!-- Your existing UI skin -->
+  <link rel="stylesheet" href="./apex-ui.css">
+  <link rel="stylesheet" href="./core.css">
 </head>
 <body>
+  <!-- Primary simulation surface -->
   <canvas id="apex-canvas"></canvas>
 
-  <!-- Replay UI -->
-  <div id="apex-replay-ui" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); width:640px; padding:8px 12px; background:rgba(5,10,20,0.9); color:#9FA8B8; font-family:system-ui; font-size:12px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,0.08);">
-      <button id="apex-replay-play" style="padding:4px 10px; background:#1E88E5; color:#fff; border:none; cursor:pointer;">Play</button>
-      <button id="apex-replay-pause" style="padding:4px 10px; background:#263238; color:#fff; border:none; cursor:pointer;">Pause</button>
-      <input id="apex-replay-scrub" type="range" min="0" max="1" step="0.001" value="0" style="flex:1;">
-      <span id="apex-replay-time" style="min-width:120px; text-align:right;">00:00.0 / 00:00.0</span>
+  <!-- Replay UI (kept from your previous index.html) -->
+  <div id="apex-replay-ui"
+       style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+              width:640px; padding:8px 12px;
+              background:rgba(5,10,20,0.9); color:#9FA8B8;
+              font-family:system-ui; font-size:12px;
+              display:flex; align-items:center; gap:8px;
+              border:1px solid rgba(255,255,255,0.08);">
+    <button id="apex-replay-play"
+            style="padding:4px 10px; background:#1E88E5; color:#fff; border:none; cursor:pointer;">
+      Play
+    </button>
+    <button id="apex-replay-pause"
+            style="padding:4px 10px; background:#263238; color:#fff; border:none; cursor:pointer;">
+      Pause
+    </button>
+    <input id="apex-replay-scrub"
+           type="range" min="0" max="1" step="0.001" value="0"
+           style="flex:1;">
+    <span id="apex-replay-time"
+          style="min-width:120px; text-align:right;">
+      00:00.0 / 00:00.0
+    </span>
   </div>
 
+  <!-- ENGINE + UI STACK (all your existing files, just unified here) -->
+  <script src="./core.js"></script>
+  <script src="./apexcore.js"></script>
+  <script src="./apexcore-engine.js"></script>
+  <script src="./apexcore-events.js"></script>
+
+  <script src="./entities.js"></script>
+  <script src="./environment-field.js"></script>
+  <script src="./formations.js"></script>
+  <script src="./halo-system.js"></script>
+
+  <script src="./apex-ui.js"></script>
+  <script src="./tactical-overlays.js"></script>
+  <script src="./orders-wheel.js"></script>
+  <script src="./replay-ui.js"></script>
+  <script src="./timeline-recorder.js"></script>
+
+  <script src="./apexsim.js"></script>
+  <script src="./apexsim-renderer.js"></script>
+
+  <!-- Diagnostic / debug stack -->
+  <script src="./debug-console.js"></script>
+  <script src="./diag-fps-graph.js"></script>
+  <script src="./field-debug.js"></script>
+
+  <!-- NEW: always-on overlay (independent of engine internals) -->
+  <script src="./debug-overlay.js"></script>
+
+  <!-- Your existing bootstrap (keep your current index.js as-is) -->
   <script type="module" src="./index.js"></script>
 </body>
 </html>
