@@ -1,59 +1,104 @@
-// ------------------------------------------------------------
-// debug-overlay.js — APEXSIM v8.8.1 Debug Overlay (Guaranteed Visible)
-// ------------------------------------------------------------
+// APEXSIM Debug Overlay v1 — always-on, engine-agnostic
 
-import { getSimState } from "./apexsim.js";
-import { getReplayState, getCameraState } from "./index.js";
+(function () {
+  // Avoid double-inject
+  if (window.__APEX_DEBUG_OVERLAY__) return;
+  window.__APEX_DEBUG_OVERLAY__ = true;
 
-let panel = null;
+  const root = document.createElement('div');
+  root.id = 'apex-debug-overlay';
+  Object.assign(root.style, {
+    position: 'fixed',
+    left: '16px',
+    bottom: '16px',
+    padding: '8px 10px',
+    background: 'rgba(5,10,20,0.92)',
+    color: '#A5B4C8',
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontSize: '11px',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: '4px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    zIndex: 99999,
+    pointerEvents: 'auto'
+  });
 
-// ------------------------------------------------------------
-// INIT DEBUG PANEL
-// ------------------------------------------------------------
-export function initDebugOverlay(){
-    panel = document.createElement("div");
+  root.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+      <span style="letter-spacing:0.08em; text-transform:uppercase; color:#64B5F6;">
+        APEXSIM · DEBUG
+      </span>
+      <button id="apex-debug-toggle"
+              style="background:none; border:none; color:#78909C; cursor:pointer; font-size:11px;">
+        hide
+      </button>
+    </div>
+    <div id="apex-debug-body" style="display:flex; flex-direction:column; gap:2px;">
+      <div id="apex-debug-line-engine">engine: <span style="color:#ECEFF1;">waiting for engine…</span></div>
+      <div id="apex-debug-line-fps">fps: <span style="color:#ECEFF1;">–</span></div>
+      <div id="apex-debug-line-phase">phase: <span style="color:#ECEFF1;">–</span></div>
+      <div id="apex-debug-line-tick">tick: <span style="color:#ECEFF1;">–</span></div>
+    </div>
+    <div style="margin-top:4px; opacity:0.6;">
+      <span style="color:#546E7A;">tilde (~)</span> to toggle overlay
+    </div>
+  `;
 
-    // Position bottom-left so it never overlaps UI
-    panel.style.position = "fixed";
-    panel.style.bottom = "10px";
-    panel.style.left = "10px";
+  document.body.appendChild(root);
 
-    // Visual style
-    panel.style.padding = "10px 14px";
-    panel.style.background = "rgba(0, 0, 0, 0.75)";
-    panel.style.color = "#00ff66";
-    panel.style.fontFamily = "monospace";
-    panel.style.fontSize = "12px";
-    panel.style.whiteSpace = "pre";
-    panel.style.pointerEvents = "none";
+  const btnToggle = root.querySelector('#apex-debug-toggle');
+  const body = root.querySelector('#apex-debug-body');
+  const lineEngine = root.querySelector('#apex-debug-line-engine span');
+  const lineFps = root.querySelector('#apex-debug-line-fps span');
+  const linePhase = root.querySelector('#apex-debug-line-phase span');
+  const lineTick = root.querySelector('#apex-debug-line-tick span');
 
-    // Border so it stands out
-    panel.style.border = "1px solid #00ff66";
-    panel.style.borderRadius = "4px";
+  let visible = true;
+  btnToggle.addEventListener('click', () => {
+    visible = !visible;
+    body.style.display = visible ? 'flex' : 'none';
+    btnToggle.textContent = visible ? 'hide' : 'show';
+  });
 
-    // MAXIMUM z-index so nothing can cover it
-    panel.style.zIndex = "2147483647";
+  // Keyboard toggle: tilde (~)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === '`' || e.key === '~') {
+      visible = !visible;
+      body.style.display = visible ? 'flex' : 'none';
+      btnToggle.textContent = visible ? 'hide' : 'show';
+    }
+  });
 
-    document.body.appendChild(panel);
-}
+  // FPS sampler (independent of engine)
+  let lastTime = performance.now();
+  let frameCount = 0;
+  let fps = 0;
 
-// ------------------------------------------------------------
-// UPDATE DEBUG PANEL
-// ------------------------------------------------------------
-export function updateDebugOverlay(){
-    if(!panel) return;
+  function loop(ts) {
+    frameCount++;
+    const dt = ts - lastTime;
+    if (dt >= 500) {
+      fps = Math.round((frameCount * 1000) / dt);
+      frameCount = 0;
+      lastTime = ts;
+      lineFps.textContent = String(fps);
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
 
-    const sim = getSimState();
-    const replay = getReplayState();
-    const cam = getCameraState();
+  // Optional: hook into a global debug object if your engine exposes one
+  // e.g. window.apexDebug = { phaseName, tick, engineLabel }
+  function pollEngineDebug() {
+    const dbg = window.apexDebug || window.APEXSIM_DEBUG || null;
+    if (dbg) {
+      if (dbg.engineLabel) lineEngine.textContent = dbg.engineLabel;
+      if (dbg.phaseName) linePhase.textContent = dbg.phaseName;
+      if (typeof dbg.tick === 'number') lineTick.textContent = String(dbg.tick);
+    }
+  }
 
-    panel.textContent =
-        `APEXSIM DEBUG\n` +
-        `-------------------------\n` +
-        `Entities: ${sim.entities.length}\n` +
-        `Enemies: ${sim.enemies.length}\n` +
-        `Replay: ${replay.playing ? "PLAYING" : replay.recording ? "RECORDING" : "LIVE"}\n` +
-        `Replay Time: ${replay.time.toFixed(2)} / ${replay.duration.toFixed(2)}\n` +
-        `Camera: (${cam.x.toFixed(1)}, ${cam.y.toFixed(1)}) z=${cam.zoom.toFixed(2)}\n` +
-        `Timescale: ${sim.timescale.toFixed(2)}\n`;
-}
+  setInterval(pollEngineDebug, 200);
+})();
