@@ -5,6 +5,7 @@
     <title>APEXSIM — Encounter Builder</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- Prevent favicon 404 -->
     <link rel="icon" href="data:,">
 
     <style>
@@ -12,7 +13,7 @@
             margin: 0;
             overflow: hidden;
             background: #000;
-            font-family: sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         #ui-bar {
@@ -21,7 +22,7 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             display: flex;
             align-items: center;
             padding: 0 20px;
@@ -36,6 +37,7 @@
             border-radius: 4px;
             color: white;
             cursor: pointer;
+            font-size: 13px;
         }
 
         button:hover {
@@ -47,10 +49,11 @@
             bottom: 70px;
             left: 10px;
             padding: 8px 12px;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             color: #0ff;
             font-size: 12px;
             border-radius: 4px;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -74,8 +77,14 @@
         <button data-ui="record-stop">Stop Rec</button>
     </div>
 
-    <div id="debug-panel">APEXSIM - DEBUG<br>fps: -<br>phase: -<br>tick: -</div>
+    <div id="debug-panel">
+        APEXSIM - DEBUG<br>
+        fps: -<br>
+        phase: -<br>
+        tick: -
+    </div>
 
+    <!-- Your engine bootstrap -->
     <script type="module" src="./index.js"></script>
 </body>
 </html>
