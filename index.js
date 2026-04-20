@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// index.js — APEXCORE Runtime (v8.5 Full Install)
+// index.js — APEXCORE Runtime (v8.6 Full Install)
 // ------------------------------------------------------------
 
 // ------------------------------------------------------------
@@ -11,18 +11,20 @@ import { initRenderer } from "./apexsim-renderer.js";
 import { enableFreeCamera, updateFreeCamera, setCameraPreset } from "./camera-controls.js";
 import { initReplayUI, updateReplayUI } from "./replay-ui.js";
 
-import "./apex-module-c.js";          // Enemy spawn + squad selection
+import "./apex-module-c.js";
 import { drawTacticalOverlays } from "./tactical-overlays.js";
 
-import { updateCommands } from "./apex-commands.js";                 // v8.1 Command Layer
-import "./orders-wheel.js";                                          // v8.1 Orders Wheel UI
+import { updateCommands } from "./apex-commands.js";
+import "./orders-wheel.js";
 
-import { updateBehaviorAI } from "./behavior-ai.js";                 // v8.2 Behavior AI
-import { updateFormationFollowers } from "./formation-followers.js"; // v8.3 Formation Followers
-import { updateEnemyCoordination } from "./enemy-coordination.js";   // v8.4 Hybrid Coordination AI
+import { updateBehaviorAI } from "./behavior-ai.js";
+import { updateFormationFollowers } from "./formation-followers.js";
+import { updateEnemyCoordination } from "./enemy-coordination.js";
 
 import { recordFrame, updateReplayPlayback,
-         startRecording, stopRecording, startPlayback } from "./timeline-recorder.js"; // v8.5
+         startRecording, stopRecording, startPlayback } from "./timeline-recorder.js";
+
+import { addCameraKeyframe, updateCameraKeyframes } from "./camera-keyframes.js";
 
 // ------------------------------------------------------------
 // GLOBAL STATE ENGINE
@@ -43,7 +45,8 @@ const state = {
         time: 0,
         duration: 0,
         frames: [],
-        recording: false
+        recording: false,
+        cameraTrack: [] // v8.6 camera keyframes
     },
 
     export: {
@@ -80,7 +83,7 @@ export function setCameraMode(mode){
 }
 
 // ------------------------------------------------------------
-// REPLAY CONTROL (HIGH-LEVEL)
+// REPLAY CONTROL
 // ------------------------------------------------------------
 export function startReplay(){
     startPlayback();
@@ -100,6 +103,8 @@ export function scrubReplay(t){
 // RECORDING CONTROL
 // ------------------------------------------------------------
 export function beginRecording(){
+    const replay = getReplayState();
+    replay.cameraTrack = [];
     startRecording();
 }
 
@@ -129,14 +134,15 @@ function updateCore(dt){
     const cam = getCameraState();
     const replay = getReplayState();
 
-    // If we're in replay playback, drive from timeline
+    // Replay mode
     if(replay.playing){
         updateReplayPlayback(dt);
+        updateCameraKeyframes(dt);
         updateReplayUI();
         return;
     }
 
-    // Normal live simulation
+    // Live simulation
     if(cam.mode === "free"){
         updateFreeCamera(dt);
     }
@@ -146,7 +152,6 @@ function updateCore(dt){
     updateFormationFollowers(dt);
     updateEnemyCoordination(dt);
 
-    // Record live frames if recording
     recordFrame(dt);
 
     updateReplayUI();
@@ -180,6 +185,8 @@ window.scrubReplay = scrubReplay;
 
 window.beginRecording = beginRecording;
 window.endRecording = endRecording;
+
+window.addCameraKeyframe = addCameraKeyframe;
 
 window.showRadialMenu = showRadialMenu;
 window.hideRadialMenu = hideRadialMenu;
