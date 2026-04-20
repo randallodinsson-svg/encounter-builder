@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// index.js — APEXCORE Runtime (v8.7 Full Install)
+// index.js — APEXCORE Runtime (v8.8 Full Install)
 // ------------------------------------------------------------
 
 // ------------------------------------------------------------
@@ -26,6 +26,9 @@ import { recordFrame, updateReplayPlayback,
 
 import { addCameraKeyframe, updateCameraKeyframes } from "./camera-keyframes.js";
 import { setCameraRail, updateCameraRail } from "./camera-rails.js";
+
+import { updateCinematicEvents } from "./cinematic-events.js";
+import { initDebugOverlay, updateDebugOverlay } from "./debug-overlay.js";
 
 // ------------------------------------------------------------
 // GLOBAL STATE ENGINE
@@ -140,7 +143,9 @@ function updateCore(dt){
         updateReplayPlayback(dt);
         updateCameraKeyframes(dt);
         updateCameraRail(dt);
+        updateCinematicEvents(dt);
         updateReplayUI();
+        updateDebugOverlay();
         return;
     }
 
@@ -157,6 +162,7 @@ function updateCore(dt){
     recordFrame(dt);
 
     updateReplayUI();
+    updateDebugOverlay();
 }
 
 // ------------------------------------------------------------
@@ -171,6 +177,7 @@ window.addEventListener("load", ()=>{
     initSim();
     initRenderer();
     initReplayUI();
+    initDebugOverlay();
 
     console.log("APEXCORE - Module Runtime Online");
 });
