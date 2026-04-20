@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// index.js — APEXCORE Runtime (v8.6 Full Install)
+// index.js — APEXCORE Runtime (v8.7 Full Install)
 // ------------------------------------------------------------
 
 // ------------------------------------------------------------
@@ -25,6 +25,7 @@ import { recordFrame, updateReplayPlayback,
          startRecording, stopRecording, startPlayback } from "./timeline-recorder.js";
 
 import { addCameraKeyframe, updateCameraKeyframes } from "./camera-keyframes.js";
+import { setCameraRail, updateCameraRail } from "./camera-rails.js";
 
 // ------------------------------------------------------------
 // GLOBAL STATE ENGINE
@@ -46,7 +47,7 @@ const state = {
         duration: 0,
         frames: [],
         recording: false,
-        cameraTrack: [] // v8.6 camera keyframes
+        cameraTrack: []
     },
 
     export: {
@@ -138,6 +139,7 @@ function updateCore(dt){
     if(replay.playing){
         updateReplayPlayback(dt);
         updateCameraKeyframes(dt);
+        updateCameraRail(dt);
         updateReplayUI();
         return;
     }
@@ -187,6 +189,7 @@ window.beginRecording = beginRecording;
 window.endRecording = endRecording;
 
 window.addCameraKeyframe = addCameraKeyframe;
+window.setCameraRail = setCameraRail;
 
 window.showRadialMenu = showRadialMenu;
 window.hideRadialMenu = hideRadialMenu;
