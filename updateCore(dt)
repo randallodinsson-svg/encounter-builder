@@ -1,1 +1,11 @@
+function updateCore(dt){
+    const cam = getCameraState();
 
+    if(cam.mode === "free"){
+        updateFreeCamera(dt);
+    }
+
+    updateCommands(dt);      // v8.1
+    updateBehaviorAI(dt);    // v8.2
+    updateReplayUI();
+}
