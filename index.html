@@ -1,73 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-    <meta charset="UTF-8" />
-    <title>APEXSIM Tactical Encounter Builder</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <!-- Optional: basic reset -->
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background: #05070b;
-            color: #e5f0ff;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        header {
-            padding: 10px 16px;
-            border-bottom: 1px solid #1b2230;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #070b12;
-        }
-        header button {
-            background: #111827;
-            color: #e5f0ff;
-            border: 1px solid #1f2937;
-            padding: 6px 12px;
-            font-size: 12px;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            cursor: pointer;
-        }
-        header button:hover {
-            background: #1b2333;
-        }
-        main {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px;
-        }
-        canvas {
-            background: #020308;
-            border: 1px solid #1b2230;
-            box-shadow: 0 0 40px rgba(0,0,0,0.8);
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>APEXSIM v8.0</title>
+  <style>
+    html,body{margin:0;padding:0;overflow:hidden;background:#050810;}
+    #apex-canvas{display:block;}
+  </style>
 </head>
 <body>
-    <header>
-        <button id="btn-hold">HOLD</button>
-        <button id="btn-flank">FLANK</button>
-        <button id="btn-fallback">FALLBACK</button>
-        <button id="btn-regroup">REGROUP</button>
-        <button id="btn-push">PUSH</button>
-        <button id="btn-heatmap">HEATMAP</button>
-    </header>
+  <canvas id="apex-canvas"></canvas>
 
-    <main>
-        <canvas id="apex-canvas" width="1280" height="720"></canvas>
-    </main>
+  <!-- Replay UI -->
+  <div id="apex-replay-ui" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%); width:640px; padding:8px 12px; background:rgba(5,10,20,0.9); color:#9FA8B8; font-family:system-ui; font-size:12px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,0.08);">
+      <button id="apex-replay-play" style="padding:4px 10px; background:#1E88E5; color:#fff; border:none; cursor:pointer;">Play</button>
+      <button id="apex-replay-pause" style="padding:4px 10px; background:#263238; color:#fff; border:none; cursor:pointer;">Pause</button>
+      <input id="apex-replay-scrub" type="range" min="0" max="1" step="0.001" value="0" style="flex:1;">
+      <span id="apex-replay-time" style="min-width:120px; text-align:right;">00:00.0 / 00:00.0</span>
+  </div>
 
-    <!-- Module scripts -->
-    <script type="module" src="./apexsim.js"></script>
-    <script type="module" src="./apexsim-renderer.js"></script>
-    <script type="module" src="./index.js"></script>
+  <script type="module" src="./index.js"></script>
 </body>
 </html>
