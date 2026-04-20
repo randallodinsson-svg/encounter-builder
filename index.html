@@ -1,52 +1,79 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>APEXSIM v8 — Encounter Builder</title>
+    <meta charset="UTF-8" />
+    <title>APEXSIM — Encounter Builder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #050810;
-    }
-    #apex-canvas {
-      display: block;
-    }
-  </style>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: sans-serif;
+        }
 
-  <link rel="stylesheet" href="./apex-ui.css">
-  <link rel="stylesheet" href="./core.css">
+        #ui-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 10px;
+            color: #fff;
+        }
+
+        button {
+            background: #1e88e5;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #42a5f5;
+        }
+
+        #debug-panel {
+            position: fixed;
+            bottom: 70px;
+            left: 10px;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.6);
+            color: #0ff;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 
 <body>
-  <canvas id="apex-canvas"></canvas>
 
-  <div id="apex-replay-ui"
-       style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
-              width:640px; padding:8px 12px;
-              background:rgba(5,10,20,0.9); color:#9FA8B8;
-              font-family:system-ui; font-size:12px;
-              display:flex; align-items:center; gap:8px;
-              border:1px solid rgba(255,255,255,0.08);">
-    <button id="apex-replay-play"
-            style="padding:4px 10px; background:#1E88E5; color:#fff; border:none; cursor:pointer;">
-      Play
-    </button>
-    <button id="apex-replay-pause"
-            style="padding:4px 10px; background:#263238; color:#fff; border:none; cursor:pointer;">
-      Pause
-    </button>
-    <input id="apex-replay-scrub"
-           type="range" min="0" max="1" step="0.001" value="0"
-           style="flex:1;">
-    <span id="apex-replay-time"
-          style="min-width:120px; text-align:right;">
-      00:00.0 / 00:00.0
-    </span>
-  </div>
+    <canvas id="apex-canvas"></canvas>
 
-  <script type="module" src="./index.js"></script>
+    <div id="ui-bar">
+        <button data-ui="reset">Reset</button>
+        <button data-ui="play">Play</button>
+        <button data-ui="pause">Pause</button>
+
+        <button data-ui="cam-free">Free Cam</button>
+        <button data-ui="cam-follow">Follow Cam</button>
+        <button data-ui="cam-chase">Chase</button>
+        <button data-ui="cam-low">Low Angle</button>
+        <button data-ui="cam-shoulder">Shoulder</button>
+
+        <button data-ui="record-start">Start Rec</button>
+        <button data-ui="record-stop">Stop Rec</button>
+    </div>
+
+    <div id="debug-panel">APEXSIM - DEBUG<br>fps: -<br>phase: -<br>tick: -</div>
+
+    <script type="module" src="./index.js"></script>
 </body>
 </html>
