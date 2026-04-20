@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// index.js — APEXCORE Runtime (v8.3 Full Install)
+// index.js — APEXCORE Runtime (v8.4 Full Install)
 // ------------------------------------------------------------
 
 // ------------------------------------------------------------
@@ -14,11 +14,12 @@ import { initReplayUI, updateReplayUI } from "./replay-ui.js";
 import "./apex-module-c.js";          // Enemy spawn + squad selection
 import { drawTacticalOverlays } from "./tactical-overlays.js";
 
-import { updateCommands } from "./apex-commands.js";          // v8.1 Command Layer
-import "./orders-wheel.js";                                   // v8.1 Orders Wheel UI
+import { updateCommands } from "./apex-commands.js";             // v8.1 Command Layer
+import "./orders-wheel.js";                                      // v8.1 Orders Wheel UI
 
-import { updateBehaviorAI } from "./behavior-ai.js";          // v8.2 Behavior AI
+import { updateBehaviorAI } from "./behavior-ai.js";             // v8.2 Behavior AI
 import { updateFormationFollowers } from "./formation-followers.js"; // v8.3 Formation Followers
+import { updateEnemyCoordination } from "./enemy-coordination.js";   // v8.4 Hybrid Coordination AI
 
 // ------------------------------------------------------------
 // GLOBAL STATE ENGINE
@@ -121,11 +122,14 @@ function updateCore(dt){
     // v8.1 Command Layer
     updateCommands(dt);
 
-    // v8.2 Behavior AI
+    // v8.2 Behavior AI (per-enemy behavior)
     updateBehaviorAI(dt);
 
-    // v8.3 Formation Followers
+    // v8.3 Formation Followers (your squad obeys orders)
     updateFormationFollowers(dt);
+
+    // v8.4 Hybrid Coordination AI (packs, surround, adaptive)
+    updateEnemyCoordination(dt);
 
     // Replay UI
     updateReplayUI();
