@@ -44,8 +44,6 @@ function applyMoveCommand(leader, entities, data) {
 
     leader.targetX = x;
     leader.targetY = y;
-
-    // Followers will automatically reposition via formation logic
 }
 
 // ------------------------------------------------------------
