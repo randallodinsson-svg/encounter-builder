@@ -1,5 +1,5 @@
 // ------------------------------------------------------------
-// debug-overlay.js — APEXSIM v8.8 Debug Overlay
+// debug-overlay.js — APEXSIM v8.8.1 Debug Overlay (Guaranteed Visible)
 // ------------------------------------------------------------
 
 import { getSimState } from "./apexsim.js";
@@ -12,17 +12,28 @@ let panel = null;
 // ------------------------------------------------------------
 export function initDebugOverlay(){
     panel = document.createElement("div");
+
+    // Position bottom-left so it never overlaps UI
     panel.style.position = "fixed";
-    panel.style.top = "10px";
+    panel.style.bottom = "10px";
     panel.style.left = "10px";
+
+    // Visual style
     panel.style.padding = "10px 14px";
-    panel.style.background = "rgba(0,0,0,0.65)";
-    panel.style.color = "#0f0";
+    panel.style.background = "rgba(0, 0, 0, 0.75)";
+    panel.style.color = "#00ff66";
     panel.style.fontFamily = "monospace";
     panel.style.fontSize = "12px";
     panel.style.whiteSpace = "pre";
-    panel.style.zIndex = "99999";
     panel.style.pointerEvents = "none";
+
+    // Border so it stands out
+    panel.style.border = "1px solid #00ff66";
+    panel.style.borderRadius = "4px";
+
+    // MAXIMUM z-index so nothing can cover it
+    panel.style.zIndex = "2147483647";
+
     document.body.appendChild(panel);
 }
 
