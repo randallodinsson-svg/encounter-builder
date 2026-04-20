@@ -1,56 +1,95 @@
 // ------------------------------------------------------------
-// apexsim.js — APEXSIM Core
+// apexsim.js — Core sim state + update
 // ------------------------------------------------------------
 
-const sim = {
+import { applyFormations } from "./formation-logic.js";
+
+const simState = {
     time: 0,
-    entities: [],
-    enemies: [],
-    formation: {
-        leaderId: null,
-        ghosts: []
-    },
-    cameraAnchors: {
-        leader: { x: 0, y: 0 }
-    }
+    tick: 0,
+    entities: []
 };
 
-export function getSimState(){
-    return sim;
+// ------------------------------------------------------------
+// Accessors
+// ------------------------------------------------------------
+export function getSimState() {
+    return simState;
 }
 
-export function initSim(){
-    console.log("APEXSIM - Core initializing");
+// ------------------------------------------------------------
+// Init / Reset
+// ------------------------------------------------------------
+export function initSim() {
+    simState.time = 0;
+    simState.tick = 0;
 
-    sim.entities = [
-        { id: 1, x: 0,   y: 0,   facing: 0 },
-        { id: 2, x: 40,  y: 0,   facing: 0 },
-        { id: 3, x: -40, y: 0,   facing: 0 },
-        { id: 4, x: 0,   y: 40,  facing: 0 }
-    ];
+    simState.entities = [];
 
-    sim.formation.leaderId = 1;
+    // Leader in the center
+    simState.entities.push({
+        id: 1,
+        role: "leader",
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        radius: 12,
+        color: "#4FC3F7"
+    });
 
-    sim.formation.ghosts = [
-        { x: 0,   y: -40 },
-        { x: 40,  y: -40 },
-        { x: -40, y: -40 },
-        { x: 0,   y: -80 }
-    ];
-
-    updateCameraAnchors();
-
-    console.log("APEXSIM - Core online");
+    // Four followers to demonstrate formation
+    for (let i = 0; i < 4; i++) {
+        simState.entities.push({
+            id: 2 + i,
+            role: "follower",
+            x: (Math.random() - 0.5) * 120,
+            y: (Math.random() - 0.5) * 120,
+            vx: 0,
+            vy: 0,
+            radius: 10,
+            color: "#81C784"
+        });
+    }
 }
 
-function updateCameraAnchors(){
-    const leader = sim.entities.find(e => e.id === sim.formation.leaderId);
-    if(!leader) return;
-    sim.cameraAnchors.leader.x = leader.x;
-    sim.cameraAnchors.leader.y = leader.y;
+// Call once at startup
+initSim();
+
+// ------------------------------------------------------------
+// Movement helper — move toward targetX / targetY
+// ------------------------------------------------------------
+function moveTowardTargets(entities, dt) {
+    const speed = 80; // units per second
+
+    for (const e of entities) {
+        if (e.targetX === undefined || e.targetY === undefined) continue;
+
+        const dx = e.targetX - e.x;
+        const dy = e.targetY - e.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 1) continue;
+
+        const step = Math.min(speed * dt, dist);
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        e.x += nx * step;
+        e.y += ny * step;
+    }
 }
 
-export function updateSim(dt){
-    sim.time += dt;
-    updateCameraAnchors();
+// ------------------------------------------------------------
+// Main sim update
+// ------------------------------------------------------------
+export function updateSim(dt) {
+    simState.time += dt;
+    simState.tick++;
+
+    // 1) Compute formation targets
+    applyFormations(simState, dt);
+
+    // 2) Move entities toward their targets
+    moveTowardTargets(simState.entities, dt);
 }
