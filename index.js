@@ -1,15 +1,25 @@
 // ------------------------------------------------------------
-// index.js — APEXCORE Module Runtime (Full Install)
+// index.js — APEXCORE Runtime (v8.1 Full Install)
 // ------------------------------------------------------------
 
-import { initSim, getSimState } from "./apexsim.js";
+// ------------------------------------------------------------
+// IMPORTS
+// ------------------------------------------------------------
+import { initSim } from "./apexsim.js";
 import { initRenderer } from "./apexsim-renderer.js";
 
 import { enableFreeCamera, updateFreeCamera, setCameraPreset } from "./camera-controls.js";
 import { initReplayUI, updateReplayUI } from "./replay-ui.js";
-import "./apex-module-c.js";
+
+import "./apex-module-c.js";          // Enemy spawn + squad selection
 import { drawTacticalOverlays } from "./tactical-overlays.js";
 
+import { updateCommands } from "./apex-commands.js";  // v8.1 Command Layer
+import "./orders-wheel.js";                           // v8.1 Orders Wheel UI
+
+// ------------------------------------------------------------
+// GLOBAL STATE ENGINE
+// ------------------------------------------------------------
 const state = {
     camera: {
         mode: "auto",
@@ -20,6 +30,7 @@ const state = {
         ty: 0,
         tz: 1
     },
+
     replay: {
         playing: false,
         time: 0,
@@ -27,10 +38,12 @@ const state = {
         frames: [],
         recording: false
     },
+
     export: {
         active: false,
         mode: "hud"
     },
+
     radialMenu: {
         visible: false,
         x: 0,
@@ -39,17 +52,29 @@ const state = {
     }
 };
 
+// ------------------------------------------------------------
+// STATE ACCESSORS
+// ------------------------------------------------------------
 export function getCameraState(){ return state.camera; }
 export function getReplayState(){ return state.replay; }
 export function getExportState(){ return state.export; }
 export function getRadialMenuState(){ return state.radialMenu; }
 
+// ------------------------------------------------------------
+// CAMERA MODE
+// ------------------------------------------------------------
 export function setCameraMode(mode){
     const cam = getCameraState();
     cam.mode = mode;
-    if(mode === "free") enableFreeCamera();
+
+    if(mode === "free"){
+        enableFreeCamera();
+    }
 }
 
+// ------------------------------------------------------------
+// REPLAY CONTROL
+// ------------------------------------------------------------
 export function startReplay(){
     getReplayState().playing = true;
 }
@@ -64,6 +89,9 @@ export function scrubReplay(t){
     r.playing = false;
 }
 
+// ------------------------------------------------------------
+// RADIAL MENU CONTROL
+// ------------------------------------------------------------
 export function showRadialMenu(x, y, options){
     const r = getRadialMenuState();
     r.visible = true;
@@ -76,32 +104,56 @@ export function hideRadialMenu(){
     getRadialMenuState().visible = false;
 }
 
+// ------------------------------------------------------------
+// CORE UPDATE LOOP
+// ------------------------------------------------------------
 function updateCore(dt){
     const cam = getCameraState();
+
+    // Free camera
     if(cam.mode === "free"){
         updateFreeCamera(dt);
     }
+
+    // v8.1 Command Layer
+    updateCommands(dt);
+
+    // Replay UI
     updateReplayUI();
 }
 
+// ------------------------------------------------------------
+// BOOT SEQUENCE
+// ------------------------------------------------------------
 console.log("StateEngine - module entry loaded");
 
 window.addEventListener("load", ()=>{
+
     console.log("APEXCORE - Booting Module Runtime...");
+
     initSim();
     initRenderer();
     initReplayUI();
+
     console.log("APEXCORE - Module Runtime Online");
 });
 
+// ------------------------------------------------------------
+// EXPORTS FOR UI BUTTONS
+// ------------------------------------------------------------
 window.setCameraMode = setCameraMode;
 window.setCameraPreset = setCameraPreset;
+
 window.startReplay = startReplay;
 window.pauseReplay = pauseReplay;
 window.scrubReplay = scrubReplay;
+
 window.showRadialMenu = showRadialMenu;
 window.hideRadialMenu = hideRadialMenu;
 
+// ------------------------------------------------------------
+// RENDERER HOOKS
+// ------------------------------------------------------------
 export function apexcoreUpdate(dt){
     updateCore(dt);
 }
