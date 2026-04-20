@@ -1,50 +1,80 @@
-// apex-ui.js — binds buttons to ops / presets / halo presets
+// ------------------------------------------------------------
+// apex-ui.js — Modern UI Controller (No APEX Global)
+// ------------------------------------------------------------
 
-(function () {
-  const UI = {
-    start() {
-      console.log("APEX UI — online.");
+import { enableFreeCamera, disableFreeCamera, setCinematicChase, setCinematicLowAngle, setCinematicShoulder } from "./camera-controls.js";
+import { startRecording, stopRecording } from "./timeline-recorder.js";
+import { getReplayState } from "./replay-ui.js";
+import { getSimState, initSim } from "./apexsim.js";
 
-      this.bindButton("reset", () => {
-        const ops = APEX.getModule("apexops");
-        if (ops) ops.reset();
-      });
+// ------------------------------------------------------------
+// Helper: bind button by data-ui="key"
+// ------------------------------------------------------------
+function bind(key, fn) {
+    const btn = document.querySelector(`[data-ui="${key}"]`);
+    if (!btn) return;
+    btn.addEventListener("click", fn);
+}
 
-      this.bindButton("burst", () => {
-        const ops = APEX.getModule("apexops");
-        if (ops) ops.burst();
-      });
+// ------------------------------------------------------------
+// UI Initialization
+// ------------------------------------------------------------
+export function initUI() {
+    console.log("APEX UI — online (modern mode).");
 
-      this.bindButton("preset-calm", () => this.applyFieldPreset("Calm"));
-      this.bindButton("preset-drift", () => this.applyFieldPreset("Drift"));
-      this.bindButton("preset-swirl", () => this.applyFieldPreset("Swirl"));
-      this.bindButton("preset-storm", () => this.applyFieldPreset("Storm"));
-      this.bindButton("preset-collapse", () => this.applyFieldPreset("Collapse"));
-      this.bindButton("preset-pulse", () => this.applyFieldPreset("Pulse"));
+    // --- Simulation Controls ---
+    bind("reset", () => {
+        console.log("Resetting simulation...");
+        initSim();
+    });
 
-      this.bindButton("halo-binary", () => this.applyHaloPreset("BinaryPair"));
-      this.bindButton("halo-triple", () => this.applyHaloPreset("TripleOrbit"));
-      this.bindButton("halo-ring", () => this.applyHaloPreset("RingOfSix"));
-      this.bindButton("halo-net", () => this.applyHaloPreset("SwarmNet"));
-      this.bindButton("halo-collapse", () => this.applyHaloPreset("CollapseCore"));
-    },
+    bind("play", () => {
+        const replay = getReplayState();
+        replay.playing = true;
+    });
 
-    bindButton(key, fn) {
-      const btn = document.querySelector(`[data-ui="${key}"]`);
-      if (!btn) return;
-      btn.addEventListener("click", fn);
-    },
+    bind("pause", () => {
+        const replay = getReplayState();
+        replay.playing = false;
+    });
 
-    applyFieldPreset(name) {
-      const controller = APEX.getModule("field-controller");
-      if (controller) controller.applyPreset(name);
-    },
+    // --- Camera Controls ---
+    bind("cam-free", () => {
+        console.log("Free camera enabled.");
+        enableFreeCamera();
+    });
 
-    applyHaloPreset(name) {
-      const haloSystem = APEX.getModule("halo-system");
-      if (haloSystem) haloSystem.applyPreset(name);
-    },
-  };
+    bind("cam-follow", () => {
+        console.log("Follow camera enabled.");
+        disableFreeCamera();
+    });
 
-  APEX.register("apex-ui", UI);
-})();
+    bind("cam-chase", () => {
+        console.log("Cinematic chase camera.");
+        setCinematicChase();
+    });
+
+    bind("cam-low", () => {
+        console.log("Cinematic low-angle camera.");
+        setCinematicLowAngle();
+    });
+
+    bind("cam-shoulder", () => {
+        console.log("Cinematic shoulder camera.");
+        setCinematicShoulder();
+    });
+
+    // --- Recording Controls ---
+    bind("record-start", () => {
+        console.log("Recording started.");
+        startRecording();
+    });
+
+    bind("record-stop", () => {
+        console.log("Recording stopped.");
+        stopRecording();
+    });
+}
+
+// Auto-start UI when DOM is ready
+window.addEventListener("DOMContentLoaded", initUI);
